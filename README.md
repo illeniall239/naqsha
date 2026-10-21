@@ -56,18 +56,30 @@ To leave planning without approving, delete `.naqsha/`.
 Requires Claude Code and `node` on PATH.
 
 ```sh
-claude plugin marketplace add ~/Projects/naqsha
+claude plugin marketplace add illeniall239/naqsha
 claude plugin install naqsha@naqsha
 ```
 
-To try it without installing: `claude --plugin-dir ~/Projects/naqsha`.
+Inside Claude Code, the same thing is `/plugin marketplace add illeniall239/naqsha`, then
+`/plugin install naqsha@naqsha`. Start a new session to load it.
+
+To update:
+
+```sh
+claude plugin marketplace update naqsha
+claude plugin update naqsha@naqsha
+```
 
 ## Develop
 
 ```sh
 npm test                         # hook tests (node:test, no dependencies)
 claude plugin validate .
+claude --plugin-dir .            # try local changes without installing
 ```
+
+Installs stay on the `version` in `.claude-plugin/plugin.json`. Bump it with each release so
+`claude plugin update` picks the change up.
 
 Files: `skills/plan` (planning workflow, plus `references/` for the plan format,
 security method and estimating), `skills/build`, `skills/approve`, `scripts/hook.js`
