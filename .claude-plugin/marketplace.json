@@ -1,0 +1,14 @@
+{
+  "name": "naqsha",
+  "owner": {
+    "name": "illeniall239"
+  },
+  "description": "naqsha: plan before code, with a hard approval gate.",
+  "plugins": [
+    {
+      "name": "naqsha",
+      "source": "./",
+      "description": "Plan before code: researched, user-driven plans with a hard approval gate."
+    }
+  ]
+}
