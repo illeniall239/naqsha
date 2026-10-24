@@ -44,7 +44,9 @@ wins.
 ## In an existing product
 
 The product's design system, written down or not, is the starting point. The design's
-`meta.approach` says how far to move from it; without a design, the approach is extend.
+`meta.approach` says how far to move from it. Without a design, an existing product is
+extended; a new one gets the creative default, and Claude suggests `/naqsha:design` before
+its first UI step.
 
 - **Extend:** the existing tokens, components and patterns, exactly. A new color, font,
   radius or component style needs the user's say-so. Find the closest existing screen and
@@ -81,7 +83,7 @@ decision was made: rewrite the element, don't soften it.
   neutral gray with no tint.
 - Emoji or Unicode glyphs in place of an icon set. One icon library, one stroke weight.
 - Monospace as a costume for "technical"; it's for code, data and measurements.
-- The same entrance animation on every section; bounce or elastic easing.
+- The same entrance animation on every section.
 - A modal for a task that needs no interruption.
 - Placeholder content: lorem ipsum, "John Doe", round fake numbers. Use realistic content,
   including the long and awkward cases.
@@ -97,7 +99,7 @@ Before calling a screen done, look at it as a whole and remove one thing.
   targets at least 24 by 24 px (44 on mobile). Real elements first (`<button>`, `<a>`,
   `<label>`), ARIA only where no element fits. Headings in order, a skip link, every image
   and icon-only button named, status never by color alone. Text scales to 200% without
-  breaking. `prefers-reduced-motion` gets a reduced version. Login never relies on a
+  breaking. Reduced motion gets a calm version (see Motion). Login never relies on a
   memory or puzzle test without an alternative.
 - **States, on every screen that shows data:** loading (a skeleton that matches the final
   layout, or a spinner that waits about 200 ms before showing and stays at least 300 to
