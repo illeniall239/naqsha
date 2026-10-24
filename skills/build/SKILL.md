@@ -109,6 +109,8 @@ The build is long, and a full context makes every later step worse. So:
 ## Start
 
 - Run `T status`. Set `meta.status` to `building` with `T set-meta` if it is `approved`.
+- Refresh the page, so it matches this version of naqsha (the plan is untouched):
+  `cp "${CLAUDE_PLUGIN_ROOT}/assets/plan.html" <plan>/index.html`.
 - The next step is the first that isn't `done`. A step left `doing` was interrupted: check
   what exists before redoing it.
 - If `meta.buildReview` isn't set, ask the user with AskUserQuestion how they want to

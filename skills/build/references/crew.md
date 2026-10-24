@@ -83,6 +83,13 @@ quietly.
   "resume from the commits already on your branch".
 - **After a compaction or restart:** the hook hands you the step in progress. Run `C list`
   and `T ready` to see the whole crew again.
+- **After a restart or a plugin update, the earlier session's agents are gone,** and
+  SendMessage can't reach them, whatever the checkpoint says to send. Start fresh ones
+  under the same names. A worker resumes on the same worktree from the commits on its
+  branch, keeping any uncommitted changes there (`git -C <worktree> status`), with the
+  checkpoint's next action in its brief. A reviewer gets the same brief plus the findings
+  already raised and which of them were fixed, so it re-checks those instead of starting
+  over.
 - **A step goes wrong for good:** stop and bring it to the user. Discarding its branch is
   their decision.
 
