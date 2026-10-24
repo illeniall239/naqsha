@@ -57,6 +57,7 @@ function onCommand(ctx) {
   const name = String(ctx.input.command_name || '').replace(/^naqsha:/, '');
   const args = String(ctx.input.command_args || '').trim();
   if (name === 'plan') return startDrafting(ctx);
+  if (name === 'design') return startDrafting(ctx, 'design');
   if (name === 'approve') return approve(ctx, args);
   if (name === 'build') return startBuild(ctx, args);
   if (name === 'learn') return context('UserPromptExpansion', learnContext(ctx));
@@ -124,7 +125,9 @@ function learnContext(ctx) {
     `A plan's guide goes in ${plansDir}/<slug>/learn/; a guide with no plan goes in ${plansDir}/learn/.${map ? ` ${map}` : ''}`;
 }
 
-function startDrafting(ctx) {
+// A design is a plan of another kind: the same lock, approval and build,
+// with its own skill, page tabs and approval rules.
+function startDrafting(ctx, kind = 'plan') {
   const s = ctx.state;
   const where = choosePlansDir(ctx.root);
   const problem = checkPlansDir(ctx.root, where.dir);
@@ -146,7 +149,7 @@ function startDrafting(ctx) {
     baseline,
     blamed: {},
   });
-  let msg = `Naqsha: planning phase. Plans go in ${plansDir}/<slug>/${where.why ? ` (${where.why})` : ''}. ` +
+  let msg = `Naqsha: ${kind === 'design' ? 'design' : 'planning'} phase. ${kind === 'design' ? 'Designs' : 'Plans'} go in ${plansDir}/<slug>/${where.why ? ` (${where.why})` : ''}. ` +
     `Files outside ${plansDir}/ are locked until the user runs /naqsha:approve.`;
   if (paused) msg += ` ${resumeHint(paused)}`;
   const map = mapNote(ctx, plansDir);
@@ -263,6 +266,7 @@ function startBuild(ctx, slug) {
 // can check; judging the plan's quality is the user's job.
 function checkPlan(plan) {
   const problems = [];
+  if (plan.meta.kind === 'design') return checkDesignPlan(plan);
   if (!isNa(plan.priorArt) && !list(plan.priorArt).length) problems.push('no prior art (list what exists, or say what was searched as { "na": ... })');
   const unanswered = list(plan.questions).filter(q => q.status !== 'answered');
   if (unanswered.length) problems.push(`unanswered questions: ${unanswered.map(q => q.id).join(', ')}`);
@@ -299,6 +303,69 @@ function checkExisting(plan, steps) {
 
 function one(x) {
   return String(x ?? '').replace(/\s+/g, ' ').trim().slice(0, 80);
+}
+
+// A design is approved on what the user can see and the build can check: a
+// direction with the defaults it avoided, tokens, and every screen previewed
+// in every state it has, each built by a step.
+const MODES = ['operate', 'persuade', 'read', 'experience'];
+function checkDesignPlan(plan) {
+  const problems = [];
+  const steps = list(plan.steps);
+  const text = x => typeof x === 'string' && x.trim() !== '';
+  const open = [...list(plan.questions).filter(q => q.status !== 'answered').map(q => q.id), ...list(plan.decisions).filter(d => d.status !== 'decided').map(d => d.id)];
+  if (open.length) problems.push(`unanswered questions or open decisions: ${open.join(', ')}`);
+  // An existing product has a design system and users who know it: say how
+  // this design treats it, record it as the code has it, and map what changes.
+  if (!plan.context) {
+    problems.push('no context (what the product already has, or { "na": "new product" })');
+  } else if (!isNa(plan.context)) {
+    if (!['extend', 'refine', 'redesign'].includes(plan.meta.approach)) problems.push('no approach for the existing interface (meta.approach: extend, refine or redesign)');
+    const cur = plan.current || {};
+    if (!list(cur.components).length && !list(cur.tokens).length) {
+      problems.push('the current design system isn\'t recorded (current: its tokens and components as the code has them)');
+    }
+    problems.push(...checkExisting(plan, steps));
+  }
+  const dir = plan.direction || {};
+  if (!text(dir.brief) || !list(dir.principles).length) problems.push('no design direction (direction.brief: who uses it, where and for what; and its principles)');
+  if (!text(dir.motion) || Object.keys(plan.tokens && plan.tokens.motion || {}).length < 2) {
+    problems.push('no motion language (direction.motion: view transitions, how controls respond, how content enters, the signature moment; and tokens.motion with at least 2 named durations or easings)');
+  }
+  if (!isNa(dir.defaultsAvoided) && !list(dir.defaultsAvoided).length) {
+    problems.push('no defaults reviewed (direction.defaultsAvoided: each generic default you caught and what replaced it, or { "na": ... })');
+  }
+  const t = plan.tokens || {};
+  const colors = list(t.color).filter(c => text(c.name) && text(c.value) && text(c.role));
+  if (colors.length < 3 || !list(t.type && t.type.families).length || list(t.type && t.type.scale).length < 3) {
+    problems.push('no token system (tokens.color: at least 3 named colors with roles; tokens.type: families and a scale of at least 3 steps)');
+  }
+  const screens = list(plan.screens);
+  if (!screens.length) problems.push('no screens');
+  const built = new Set(steps.flatMap(s => list(s.screens)));
+  for (const sc of screens) {
+    const states = list(sc.states);
+    const missing = [];
+    if (!MODES.includes(sc.mode)) missing.push(`a mode (${MODES.join(', ')})`);
+    if (!states.includes('default')) missing.push('a default state');
+    if (text(sc.data) && !['empty', 'loading', 'error'].every(x => states.includes(x))) missing.push('empty, loading and error states for the data it shows');
+    const unpreviewed = states.filter(x => !text(sc.previews && sc.previews[x]));
+    if (unpreviewed.length) missing.push(`previews for ${unpreviewed.join(', ')}`);
+    if (!built.has(sc.id)) missing.push('a step that builds it');
+    if (missing.length) problems.push(`screen ${sc.id || '(no id)'} ${one(sc.name)} needs ${missing.join('; ')}`);
+  }
+  if (!steps.length) problems.push('no implementation steps');
+  const unchecked = steps.filter(s => !s.doneWhen);
+  if (unchecked.length) problems.push(`steps without a "done when" check: ${unchecked.map(s => s.id).join(', ')}`);
+  const untested = steps.filter(s => !isNa(s.tests) && !(Array.isArray(s.tests) && s.tests.length && s.tests.every(x => x && x.test)));
+  if (untested.length) problems.push(`steps without the failing tests they start from: ${untested.map(s => s.id).join(', ')}`);
+  const runIt = plan.testing && plan.testing.runIt;
+  if (!(runIt && text(runIt.start))) problems.push('no way to run the interface (testing.runIt.start), which the build needs to compare it with the previews');
+  const checks = plan.testing && plan.testing.uiChecks;
+  if (!isNa(checks) && !(Array.isArray(checks) && checks.length && checks.every(c => c && c.command))) {
+    problems.push('no interface checks for the build to run (testing.uiChecks, each with a command: accessibility, performance budgets), or { "na": ... }');
+  }
+  return problems;
 }
 
 // No assumed architecture: every quality scenario is measurable, sourced and
@@ -414,8 +481,9 @@ function onPreTool(ctx) {
   // checked exactly as /naqsha:build would be.
   if (tool === 'Skill' && ti.skill === 'naqsha:learn') return context('PreToolUse', learnContext(ctx));
   if (tool === 'Skill' && ti.skill === 'naqsha:review') return context('PreToolUse', reviewContext(ctx));
-  if (tool === 'Skill' && (ti.skill === 'naqsha:plan' || ti.skill === 'naqsha:build')) {
-    const out = ti.skill === 'naqsha:plan' ? startDrafting(ctx) : startBuild(ctx, String(ti.args || '').trim().split(/\s+/)[0] || '');
+  if (tool === 'Skill' && ['naqsha:plan', 'naqsha:design', 'naqsha:build'].includes(ti.skill)) {
+    const out = ti.skill === 'naqsha:build' ? startBuild(ctx, String(ti.args || '').trim().split(/\s+/)[0] || '')
+      : startDrafting(ctx, ti.skill === 'naqsha:design' ? 'design' : 'plan');
     if (out.decision === 'block') return deny(out.reason);
     return context('PreToolUse', out.hookSpecificOutput.additionalContext);
   }

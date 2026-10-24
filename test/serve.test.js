@@ -120,6 +120,8 @@ test('bad submissions are refused', async t => {
   assert.match(checkSubmission({ answers: [{ id: 'Q1', choice: 'A' }] }), /isn't text/);
   assert.match(checkSubmission({ answers: [{ id: 'Q1', note: 'x'.repeat(20001) }] }), /longer than/);
   assert.match(checkSubmission({ comments: [{ section: '../x', text: 'hi' }] }), /section/);
+  assert.match(checkSubmission({ comments: [{ section: '1screen', text: 'hi' }] }), /section/);
+  assert.equal(checkSubmission({ comments: [{ section: 'screenSC2', text: 'tighter list rows' }] }), null, 'a comment on one screen of a design');
   assert.match(checkSubmission({ comments: [{ section: 'risks', text: '  ' }] }), /some text/);
   assert.equal(checkSubmission({ answers: [{ id: 'D12', choice: ['A'] }] }), null);
   assert.deepEqual(fs.readdirSync(dir).filter(f => f === 'inbox'), [], 'nothing refused was stored');

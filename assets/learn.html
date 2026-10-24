@@ -109,13 +109,13 @@ const prose = s => String(s || '').split(/\n\s*\n/).map(b => b.trim()).filter(Bo
 }).join('');
 const safeUrl = u => /^https?:\/\//i.test(u || '') ? esc(u) : null;
 // Where a "why" comes from: an answer, a decision, research, or nothing recorded.
-const KINDS = { Q: 'your answer', D: 'decision', N: 'quality scenario', T: 'threat', S: 'step', A: 'acceptance criterion', F: 'requirement' };
+const KINDS = { SC: 'screen', Q: 'your answer', D: 'decision', N: 'quality scenario', T: 'threat', S: 'step', A: 'acceptance criterion', F: 'requirement' };
 function source(s) {
   const v = String(s || '').trim();
   if (!v || /^not recorded$/i.test(v)) return '<span class="src unknown" title="No reason was recorded for this">reason not recorded</span>';
   const link = safeUrl(v);
   if (link) return `<a class="src" href="${link}" target="_blank" rel="noopener noreferrer">source</a>`;
-  const id = /^([QDNTSAF])\d+$/.exec(v);
+  const id = /^(SC|[QDNTSAF])\d+$/.exec(v);
   return `<span class="src" title="${id ? esc(KINDS[id[1]]) : ''}">${esc(v)}</span>`;
 }
 

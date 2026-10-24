@@ -98,6 +98,17 @@ label.option { display: block; cursor: pointer; }
 .status { flex-basis: 100%; font-size: .85rem; color: var(--muted); }
 .status:empty { display: none; }
 .status.bad { color: var(--bad); }
+.frames-bar { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 8px 0; }
+.frames-bar button[aria-pressed=true] { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+.screen { border-top: 1px solid var(--line); padding-top: 14px; margin-top: 14px; scroll-margin-top: 12px; }
+.screen h3 { display: flex; flex-wrap: wrap; gap: 8px; align-items: baseline; }
+.frame { overflow: hidden; border: 1px solid var(--line); border-radius: 8px; background: #fff; margin: 8px auto 0; max-width: 100%; }
+.frame iframe { border: 0; display: block; transform-origin: 0 0; }
+.options.wide { grid-template-columns: 1fr; }
+.swatches { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
+.swatch .chip { height: 56px; border-radius: 6px; border: 1px solid var(--line); }
+.swatch small { display: block; color: var(--muted); }
+.swatch small.low { color: var(--bad); font-weight: 600; }
 @media (max-width: 560px) { .pc { grid-template-columns: 1fr; } }
 @media print {
   .tabs, .phases, .phase-nav, footer, .sendbar, button { display: none; }
@@ -139,7 +150,7 @@ const table = (rows, cols) => {
     rows.map(r => `<tr>${cols.map(c => `<td>${c[1](r)}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
 };
 // An empty dependency list is an answer ("none"); elsewhere empty means unwritten.
-const present = (p, id) => id === 'later' ? true : id === 'impact' ? isNa(p.context) || has(p.impact) || isNa(p.impact)
+const present = (p, id) => id === 'later' || id === 'current' ? true : id === 'impact' ? isNa(p.context) || has(p.impact) || isNa(p.impact)
   : ['dependencies', 'needsYou'].includes(id) ? Array.isArray(p[id]) || isNa(p[id]) : has(p[id]);
 // The failing tests a step starts from, in order.
 const stepTests = t => isNa(t) ? `<br><span class="muted">No test first: ${txt(t.na)}</span>`
@@ -217,13 +228,14 @@ function decision(d, ask, idPrefix = '') {
     const rec = o.name === d.recommendation;
     const inner = `<h4>${pick ? `<input type="radio" name="ans-${esc(d.id)}" data-id="${esc(d.id)}" data-f="choice" value="${esc(o.name)}"> ` : ''}${txt(o.name)}${
       o.name === d.choice ? ' ✓ chosen' : rec ? ' · recommended' : ''}</h4>
-      <div class="pc"><div><b>Pros</b>${list(o.pros)}</div><div><b>Cons</b>${list(o.cons)}</div></div>`;
+      <div class="pc"><div><b>Pros</b>${list(o.pros)}</div><div><b>Cons</b>${list(o.cons)}</div></div>
+      ${o.preview ? frame(frameDoc(null, o.preview, false), `${o.name}, preview`, 'desktop') : ''}`;
     const cls = `option${rec ? ' rec' : ''}${o.name === d.choice ? ' chosen' : ''}`;
     return pick ? `<label class="${cls}">${inner}</label>` : `<div class="${cls}">${inner}</div>`;
   };
   return `<div class="decision" id="${esc(idPrefix + d.id)}">
       <h3>${esc(d.id)} · ${txt(d.question)} ${badge(d.status)}</h3>
-      <div class="options">${(d.options || []).map(card).join('')}</div>
+      <div class="options${(d.options || []).some(o => o.preview) ? ' wide' : ''}">${(d.options || []).map(card).join('')}</div>
       ${d.why ? `<p><b>Why the recommendation:</b> ${txt(d.why)}</p>` : ''}
       ${(d.drivers || []).length ? `<p><b>Serves:</b> ${d.drivers.map(id => `<code>${esc(id)}</code>`).join(' ')}</p>` : ''}
       ${d.consequences ? `<p><b>Consequences:</b> ${txt(d.consequences)}</p>` : ''}
@@ -231,6 +243,79 @@ function decision(d, ask, idPrefix = '') {
       ${pick ? ownAnswer(d.id, 'Something else (instead of the options above)') + noteBox(d.id) + sentLine(d.id) : ''}
       ${d.status === 'decided' ? `<p><b>Decided:</b> ${txt(d.choice)} <span class="muted">(${esc(d.decidedBy)})</span>${d.note ? ` · ${txt(d.note)}` : ''}</p>` : ''}
     </div>`;
+}
+
+// ---- design previews --------------------------------------------------------
+
+// A design's screens render in sandboxed frames with no scripts, styled only by
+// its tokens, so the user sees the real look before any code exists.
+const WIDTHS = { phone: [390, 780], tablet: [820, 1000], desktop: [1440, 900] };
+let frameWidth = 'desktop';
+let frameDark = false;
+const frameState = {};
+const slugOf = s => String(s ?? '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+const cssValue = v => String(v ?? '').replace(/[<>{};"]/g, '');
+const arr = x => (Array.isArray(x) ? x : []);
+function tokenCss(p, dark) {
+  const t = p.tokens || {};
+  const colors = new Map(arr(t.color).map(c => [slugOf(c.name), c.value]));
+  if (dark) for (const c of arr(t.dark)) colors.set(slugOf(c.name), c.value);
+  const type = t.type || {};
+  const vars = [
+    ...[...colors].map(([n, v]) => `--color-${n}: ${cssValue(v)};`),
+    ...arr(type.families).map(f => `--font-${slugOf(String(f.role || '').split(/\s+/)[0])}: "${cssValue(f.name)}", system-ui, sans-serif;`),
+    ...arr(type.scale).flatMap(x => [`--size-${slugOf(x.name)}: ${cssValue(x.size)};`, `--leading-${slugOf(x.name)}: ${cssValue(x.lineHeight)};`, `--weight-${slugOf(x.name)}: ${cssValue(x.weight)};`]),
+    ...arr(t.space).map((v, i) => `--space-${i + 1}: ${cssValue(v)};`),
+    ...arr(t.radius).map(r => `--radius-${slugOf(r.name)}: ${cssValue(r.value)};`),
+    ...arr(t.shadow).map(r => `--shadow-${slugOf(r.name)}: ${cssValue(r.value)};`),
+    ...Object.entries(t.motion || {}).map(([k, v]) => `--motion-${slugOf(k)}: ${cssValue(v)};`),
+  ];
+  return `:root{${vars.join('')}color-scheme:${dark ? 'dark' : 'light'}}` +
+    'body{margin:0;background:var(--color-bg,Canvas);color:var(--color-text,CanvasText);font-family:var(--font-body,system-ui)}';
+}
+const fontLinks = p => arr(((p.tokens || {}).type || {}).families).filter(f => f.source === 'google' && f.name)
+  .map(f => `<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=${encodeURIComponent(f.name).replace(/%20/g, '+')}${
+    arr(f.weights).length ? ':wght@' + arr(f.weights).map(Number).filter(Boolean).sort((a, b) => a - b).join(';') : ''}&display=swap">`).join('');
+const frameDoc = (p, html, tokens = true) => '<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">' +
+  (tokens ? `${fontLinks(p)}<style>${tokenCss(p, frameDark)}</style>` : '') + `</head><body>${html || ''}</body></html>`;
+const frame = (doc, label, size = frameWidth) => `<div class="frame" data-size="${size}"><iframe sandbox title="${esc(label)}" srcdoc="${esc(doc)}"></iframe></div>`;
+// Frames render at the real device width, scaled down to fit the column.
+function fitFrames() {
+  for (const box of app.querySelectorAll('.frame')) {
+    const [w, h] = WIDTHS[box.dataset.size] || WIDTHS.desktop;
+    const avail = box.parentElement.clientWidth;
+    if (!avail) continue;
+    const scale = Math.min(1, avail / w);
+    Object.assign(box.firstElementChild.style, { width: `${w}px`, height: `${h}px`, transform: `scale(${scale})` });
+    Object.assign(box.style, { width: `${Math.floor(w * scale)}px`, height: `${Math.round(h * scale)}px` });
+  }
+}
+addEventListener('resize', fitFrames);
+function luminance(hex) {
+  const m = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(String(hex || '').trim());
+  if (!m) return null;
+  const h = m[1].length === 3 ? [...m[1]].map(c => c + c).join('') : m[1];
+  const [r, g, b] = [0, 2, 4].map(i => parseInt(h.slice(i, i + 2), 16) / 255).map(c => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4));
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+}
+const contrast = (a, b) => {
+  const x = luminance(a), y = luminance(b);
+  return x === null || y === null ? null : (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05);
+};
+// An existing screen also shows how it looks now, as the first button.
+function screenHtml(p, sc, ask) {
+  const states = [...(sc.current ? ['now'] : []), ...(arr(sc.states).length ? sc.states : ['default'])];
+  const cur = states.includes(frameState[sc.id]) ? frameState[sc.id] : states[sc.current ? 1 : 0] || states[0];
+  const cid = 'screen' + String(sc.id || '').replace(/[^A-Za-z0-9]/g, '');
+  const html = cur === 'now' ? sc.current : sc.previews && sc.previews[cur];
+  return `<div class="screen" id="${esc(sc.id)}">
+    <h3>${esc(sc.id)} · ${txt(sc.name)} ${sc.mode ? `<span class="badge">${esc(sc.mode)}</span>` : ''} ${commentButton(cid, ask)}</h3>
+    ${commentBox(cid, ask)}
+    <p>${txt(sc.purpose)}${sc.data ? `<br><span class="muted">Data: ${txt(sc.data)}</span>` : ''}${sc.notes ? `<br><span class="muted">${txt(sc.notes)}</span>` : ''}</p>
+    <div class="frames-bar" role="group" aria-label="${esc(sc.name)}: state">${states.map(st => `<button type="button" data-screen="${esc(sc.id)}" data-state="${esc(st)}" aria-pressed="${st === cur}">${
+      st === 'now' ? 'Now' : esc(st)}${st === 'now' || (sc.previews && sc.previews[st]) ? '' : ' (no preview)'}</button>`).join('')}</div>
+    ${html ? frame(frameDoc(p, html, cur !== 'now'), `${sc.name}, ${cur === 'now' ? 'as it is now' : cur}`) : '<p class="empty">No preview for this state yet.</p>'}
+  </div>`;
 }
 
 // ---- sections ------------------------------------------------------------
@@ -328,15 +413,61 @@ const SECTIONS = [
       <h3>Running it like a user</h3>${isNa(t.runIt) ? na(t.runIt) : t.runIt ? table([t.runIt].flatMap(r =>
         [['Test data', r.data], ['Start', r.start], ['Ready when', r.ready], ['Driven by', r.drive], ['Stop', r.stop], ['Notes', r.notes]]
           .filter(([, v]) => v).map(([k, v]) => ({ k, v }))), [['', x => esc(x.k)], ['', x => /^(Driven by|Notes)$/.test(x.k) ? txt(x.v) : `<code>${esc(x.v)}</code>`]]) : empty}
-      <h3>Security checks the build runs</h3>${table(t.securityChecks, [['Check', x => txt(x.check)], ['Command', x => `<code>${esc(x.command)}</code>`], ['When', x => txt(x.when)]])}
+      ${p.meta && p.meta.kind === 'design' ? `<h3>Interface checks the build runs</h3>${table(t.uiChecks, [['Check', x => txt(x.check)], ['Command', x => `<code>${esc(x.command)}</code>`]])}`
+        : `<h3>Security checks the build runs</h3>${table(t.securityChecks, [['Check', x => txt(x.check)], ['Command', x => `<code>${esc(x.command)}</code>`], ['When', x => txt(x.when)]])}`}
       ${p.baseline ? `<h3>Before the build <span class="muted">· ${esc(String(p.baseline.at || '').slice(0, 10))}${p.baseline.commit ? ` at ${esc(p.baseline.commit)}` : ''}</span></h3>
         <p class="muted">What already failed before any step ran. Steps are held to adding nothing to it.</p>
         ${table(p.baseline.checks, [['Check', x => txt(x.check) + (x.command ? `<br><code>${esc(x.command)}</code>` : '')], ['Result', x => txt(x.result)],
           ['Already failing', x => Array.isArray(x.known) && x.known.length ? list(x.known) : '<span class="muted">nothing</span>']])}` : ''}`;
   }],
+  ['direction', 'Direction', p => {
+    const d = p.direction || {};
+    return `${d.brief ? `<p>${txt(d.brief)}</p>` : ''}${d.scene ? `<p><b>Where it's used:</b> ${txt(d.scene)}</p>` : ''}
+      <h3>Principles</h3>${list(d.principles)}
+      ${d.signature ? `<h3>Signature</h3><p>${txt(d.signature)}</p>` : ''}
+      <h3>References</h3>${table(d.references, [['Product', x => url(x.url) ? `<a href="${url(x.url)}" target="_blank" rel="noopener noreferrer">${txt(x.name)}</a>` : txt(x.name)], ['What we take from it', x => txt(x.take)]])}
+      <h3>Defaults caught and replaced</h3>${table(d.defaultsAvoided, [['The default', x => txt(x.default)], ['Instead', x => txt(x.instead)]])}`;
+  }],
+  ['current', 'The system as it is', p => {
+    if (!p.context || isNa(p.context)) return '<p class="na">A new product: no existing interface to keep.</p>';
+    const c = p.current || {};
+    const names = { extend: 'Extend: new screens inside the existing system, matching it exactly', refine: 'Refine: the same identity, visibly better', redesign: 'Redesign: a new direction, shipped in pieces' };
+    return `<p><b>Approach:</b> ${p.meta && names[p.meta.approach] ? esc(names[p.meta.approach]) : '<span class="empty">not chosen</span>'}</p>
+      ${c.system ? `<p><b>Where it lives:</b> ${txt(c.system)}</p>` : ''}
+      <h3>Tokens in use</h3>${table(c.tokens, [['Name', x => `<code>${esc(x.name)}</code>`], ['Value', x => esc(x.value)], ['Where', x => `<code>${esc(x.where)}</code>`]])}
+      <h3>Components</h3>${table(c.components, [['Component', x => txt(x.name)], ['Where', x => `<code>${esc(x.where)}</code>`], ['States', x => txt(x.states)]])}
+      ${c.fonts || c.icons || c.motion ? `<p>${[c.fonts && `<b>Fonts:</b> ${txt(c.fonts)}`, c.icons && `<b>Icons:</b> ${txt(c.icons)}`, c.motion && `<b>Motion:</b> ${txt(c.motion)}`].filter(Boolean).join(' · ')}</p>` : ''}
+      <h3>Design debt</h3>${list(c.debt)}`;
+  }],
+  ['tokens', 'Tokens', p => {
+    const t = p.tokens || {};
+    const colors = arr(t.color);
+    const bg = (colors.find(c => slugOf(c.name) === 'bg') || colors.find(c => /background/i.test(c.role)) || {}).value;
+    const type = t.type || {};
+    const specimen = arr(type.families).map(f => `<p style="font-family:var(--font-${slugOf(String(f.role || '').split(/\s+/)[0])});font-size:22px;margin:0 0 4px">${esc(f.name)} · ${esc(f.role)}</p>`).join('') +
+      arr(type.scale).map(x => `<p style="margin:12px 0 0;font:var(--weight-${slugOf(x.name)}) var(--size-${slugOf(x.name)})/var(--leading-${slugOf(x.name)}) var(--font-body,system-ui)">${esc(x.name)} · ${esc(x.size)}/${esc(x.lineHeight)} · Every screen in every state, before any code.</p>`).join('');
+    return `<h3>Color</h3><div class="swatches">${colors.map(c => {
+        const ratio = bg && c.value !== bg ? contrast(c.value, bg) : null;
+        return `<div class="swatch"><div class="chip" style="background:${esc(cssValue(c.value))}"></div><b>${esc(c.name)}</b> <code>${esc(c.value)}</code><small>${txt(c.role)}</small>${
+          ratio ? `<small class="${ratio < 4.5 && /text/i.test(c.role) ? 'low' : ''}">${ratio.toFixed(2)}:1 on bg${ratio < 4.5 && /text/i.test(c.role) ? ': too low for text (4.5:1)' : ''}</small>` : ''}</div>`;
+      }).join('') || empty}</div>
+      ${arr(t.dark).length ? `<h3>Dark theme overrides</h3>${list(t.dark, c => `<code>${esc(c.name)}</code> ${esc(c.value)}`)}` : ''}
+      <h3>Type</h3>${specimen ? frame(frameDoc(p, `<div style="padding:24px">${specimen}</div>`), 'Type specimen', 'tablet') : empty}
+      <h3>Space, radius, shadow, motion</h3>
+      <p>${arr(t.space).map(v => `<code>${esc(v)}</code>`).join(' ') || '<span class="muted">No spacing scale.</span>'}</p>
+      ${list([...arr(t.radius).map(r => `radius ${r.name}: ${r.value}`), ...arr(t.shadow).map(r => `shadow ${r.name}: ${r.value}`), ...Object.entries(t.motion || {}).map(([k, v]) => `motion ${k}: ${v}`)])}`;
+  }],
+  ['screens', 'Screens', (p, ask) => {
+    const screens = arr(p.screens);
+    if (!screens.length) return empty;
+    const dark = arr((p.tokens || {}).dark).length;
+    return `<div class="frames-bar" role="group" aria-label="Preview size">${Object.keys(WIDTHS).map(w => `<button type="button" data-width="${w}" aria-pressed="${w === frameWidth}">${
+      w[0].toUpperCase() + w.slice(1)} · ${WIDTHS[w][0]}px</button>`).join('')}${dark ? `<button type="button" data-dark="1" aria-pressed="${frameDark}">Dark</button>` : ''}</div>
+      ${screens.map(sc => screenHtml(p, sc, ask)).join('')}`;
+  }],
   ['steps', 'Implementation steps', p => !has(p.steps) || isNa(p.steps) ? empty : table(p.steps, [
     ['ID', x => esc(x.id)],
-    ['Step', x => `<b>${txt(x.title)}</b>${x.detail ? `<br>${txt(x.detail)}` : ''}${(x.files || []).length ? `<br>${x.files.map(f => `<code>${esc(f)}</code>`).join(' ')}` : ''}${stepTests(x.tests)}${x.notes ? `<br><span class="muted">${txt(x.notes)}</span>` : ''}`],
+    ['Step', x => `<b>${txt(x.title)}</b>${x.detail ? `<br>${txt(x.detail)}` : ''}${(x.files || []).length ? `<br>${x.files.map(f => `<code>${esc(f)}</code>`).join(' ')}` : ''}${(x.screens || []).length ? `<br><span class="muted">Screens: ${x.screens.map(id => `<a href="#${esc(id)}">${esc(id)}</a>`).join(', ')}</span>` : ''}${stepTests(x.tests)}${x.notes ? `<br><span class="muted">${txt(x.notes)}</span>` : ''}`],
     ['Done when', x => txt(x.doneWhen) || '<span class="empty">missing</span>'],
     ['Status', x => badge(x.status) + ((x.dependsOn || []).length ? `<br><span class="muted">after ${esc(x.dependsOn.join(', '))}</span>` : '')],
   ])],
@@ -361,6 +492,16 @@ const TABS = [
   ['research', 'Research', ['context', 'priorArt', 'research']],
   ['design', 'Design', ['decisions', 'architecture', 'impact', 'quality', 'dependencies', 'rejected']],
   ['security', 'Security', ['security']],
+  ['build', 'Build', ['testing', 'steps']],
+  ['log', 'Change log', ['changelog']],
+];
+// A design (meta.kind "design", from /naqsha:design) reads in its own tabs.
+const DESIGN_TABS = [
+  ['overview', 'Overview', ['summary', 'later', 'needsYou', 'risks']],
+  ['questions', 'Questions', []],
+  ['direction', 'Direction', ['current', 'direction', 'decisions', 'impact']],
+  ['tokens', 'Tokens', ['tokens']],
+  ['screens', 'Screens', ['screens']],
   ['build', 'Build', ['testing', 'steps']],
   ['log', 'Change log', ['changelog']],
 ];
@@ -479,8 +620,8 @@ function overviewTop(p, ask) {
 function render(p) {
   const m = p.meta || {};
   const ask = asking(p);
-  document.title = (m.title || 'Plan') + ' · plan';
-  const tabs = TABS.filter(([id]) => id !== 'questions' || phasesOf(p).length);
+  document.title = (m.title || 'Plan') + (m.kind === 'design' ? ' · design' : ' · plan');
+  const tabs = (m.kind === 'design' ? DESIGN_TABS : TABS).filter(([id]) => id !== 'questions' || phasesOf(p).length);
   if (!tabs.some(([id]) => id === activeTab)) {
     activeTab = openItems(p).length && tabs.some(([id]) => id === 'questions') ? 'questions' : 'overview';
   }
@@ -497,7 +638,7 @@ function render(p) {
       <h1>${txt(m.title || 'Untitled plan')}</h1>
       <div class="meta">
         ${badge(m.status)}
-        <span>${m.kind === 'new-app' ? 'New app' : 'Feature'}</span>
+        <span>${m.kind === 'new-app' ? 'New app' : m.kind === 'design' ? `Design${m.approach ? ` · ${esc(m.approach)}` : ''}` : 'Feature'}</span>
         ${m.updated ? `<span>Updated ${esc(m.updated)}</span>` : ''}
         ${m.approvedAt ? `<span>Approved ${esc(m.approvedAt.slice(0, 10))}</span>` : ''}
         ${m.research && m.research !== 'full' ? `<span class="s-blocked">Research ${txt(m.research)}</span>` : ''}
@@ -514,6 +655,7 @@ function render(p) {
     <footer>Rendered from plan.js · refreshes when the file changes</footer>`;
   restore();
   drawDiagrams();
+  fitFrames();
 }
 
 // Switching tabs and phases only flips visibility, so nothing typed is lost.
@@ -530,6 +672,7 @@ function setTab(id, focus = false) {
   for (const panel of app.querySelectorAll('[role=tabpanel]')) panel.hidden = panel.id !== `panel-${id}`;
   if (focus) tab.focus();
   drawDiagrams();
+  fitFrames();
 }
 
 function setPhase(i) {
@@ -681,6 +824,14 @@ app.addEventListener('click', e => {
   const t = e.target.closest('button');
   if (!t) return;
   if (t.dataset.tab) setTab(t.dataset.tab);
+  else if (t.dataset.width || t.dataset.dark || t.dataset.state) {
+    if (t.dataset.width) frameWidth = t.dataset.width;
+    else if (t.dataset.dark) frameDark = !frameDark;
+    else frameState[t.dataset.screen] = t.dataset.state;
+    const y = scrollY;
+    render(plan);
+    scrollTo(0, y);
+  }
   else if (t.dataset.phase !== undefined) setPhase(Number(t.dataset.phase));
   else if (t.dataset.action === 'send') send();
   else if (t.dataset.action === 'recommend') useRecommendations();

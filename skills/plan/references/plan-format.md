@@ -237,7 +237,7 @@ instead of content. A section left empty without `na` shows as unfinished.
     ],                              // kind: acceptance | security | regression | characterization | unit | integration | property | contract
                                     // or { "na": "<why no test can come first>" }, with doneWhen naming the replacement check
     "standards": ["data-and-apis"],  // build references this step needs beyond the always-loaded ones:
-                                    // performance | data-and-apis | reliability | operability | docs-and-setup | run-like-a-user
+                                    // performance | data-and-apis | reliability | operability | docs-and-setup | run-like-a-user | interface
     "doneWhen": "Migration applies and rolls back cleanly on a copy of prod schema; schema test passes",
     "dependsOn": [],
     "status": "todo",               // todo | doing | done | blocked

@@ -38,6 +38,7 @@ const BY_FILES = {
   reliability: /outbox|saga|consumer|producer|publisher|subscriber|redis|kafka|rabbit|sqs|pubsub|nats|celery|sidekiq|bullmq|(^|\/)(events?|messaging|queues?|jobs?|workers?|cron|schedul\w*|caches?|locks?)\//i,
   'docs-and-setup': /readme|(^|\/)docs\/|\.md$|package\.json$|makefile$|justfile$|\.env\.example$|compose\.ya?ml$/i,
   'run-like-a-user': /(^|\/)(pages?|app|views?|components?|templates?|routes?|api|cli|cmd|bin)\//i,
+  interface: /\.(tsx|jsx|vue|svelte|astro|css|scss|sass|less|html)$|(^|\/)(components?|pages?|views?|screens?|ui|styles?|layouts?|theme)\//i,
 };
 const KNOWN = new Set([...ALWAYS, 'performance', ...Object.keys(BY_FILES)]);
 const STEP_STATUS = new Set(['todo', 'doing', 'done', 'blocked']);
@@ -58,6 +59,7 @@ const minute = iso => one(iso).slice(0, 16).replace('T', ' ');
 function referencesFor(plan, step) {
   const why = new Map(ALWAYS.map(r => [r, 'always']));
   const add = (r, reason) => { if (!why.has(r)) why.set(r, reason); };
+  if (plan.meta && plan.meta.kind === 'design') add('interface', 'a design build');
   for (const r of list(step.standards)) if (KNOWN.has(r)) add(r, 'the plan says so');
   const arch = plan.architecture && !isNa(plan.architecture) ? plan.architecture : {};
   if (list(arch.hotPaths).some(h => h.provedBy === step.id)) add('performance', 'this step proves a hot path');
@@ -136,6 +138,22 @@ function stepView(plan, id, planFile) {
   section('Hot paths this step proves', list(arch.hotPaths).filter(h => h.provedBy === step.id)
     .map(h => `- ${one(h.flow)}: size ${one(h.size)}, budget ${one(h.budget)}; approach: ${one(h.approach)}`));
 
+  if (m.kind === 'design') {
+    section('Screens this step builds (match the approved preview in each state)', list(plan.screens).filter(sc => list(step.screens).includes(sc.id))
+      .map(sc => `- ${sc.id} ${one(sc.name)} [${one(sc.mode)}]: ${one(sc.purpose)}; states: ${list(sc.states).join(', ')}; preview: plan.js screens[id=${sc.id}].previews`));
+    const t = plan.tokens || {};
+    section('Design tokens (use these, never raw values)', [
+      ...(m.approach ? [`Approach: ${m.approach}${m.approach === 'extend' ? ': match the existing system exactly' : m.approach === 'refine' ? ': keep the identity, raise the quality' : ': the new direction, shipped in pieces'}`] : []),
+      ...(list(t.color).length ? [`Color: ${list(t.color).map(c => `${one(c.name)} ${one(c.value)} (${one(c.role)})`).join('; ')}`] : []),
+      ...(list(t.type && t.type.families).length ? [`Type: ${t.type.families.map(f => `${one(f.name)} for ${one(f.role)}`).join('; ')}; scale ${list(t.type.scale).map(x => `${one(x.name)} ${one(x.size)}`).join(', ')}`] : []),
+      ...(list(t.space).length ? [`Space: ${t.space.join(', ')}`] : []),
+      ...(list(t.radius).length ? [`Radius: ${t.radius.map(r => typeof r === 'object' ? `${one(r.name)} ${one(r.value)}` : r).join(', ')}`] : []),
+      ...(Object.keys(t.motion || {}).length ? [`Motion tokens: ${Object.entries(t.motion).map(([k, v]) => `${k} ${one(v)}`).join(', ')}`] : []),
+      ...(plan.direction && plan.direction.motion ? [`Motion language: ${one(plan.direction.motion)}`] : []),
+      ...(plan.direction && plan.direction.signature ? [`Signature: ${one(plan.direction.signature)}`] : []),
+    ]);
+  }
+
   section('Existing code that relies on what this step changes (update each)', list(plan.impact).flatMap(i =>
     list(i.users).filter(u => u.step === step.id).map(u => `- ${one(u.where)}: ${one(i.change)}${u.what ? ` (${one(u.what)})` : ''}`)));
 
@@ -158,6 +176,7 @@ function stepView(plan, id, planFile) {
   const refs = referencesFor(plan, step);
   section('Checks', [
     ...list(t.securityChecks).map(c => `- ${one(c.check)}: \`${one(c.command)}\`${c.when ? ` (${one(c.when)})` : ''}`),
+    ...(isNa(t.uiChecks) ? [] : list(t.uiChecks)).map(c => `- ${one(c.check)}: \`${one(c.command)}\``),
     ...(refs.has('run-like-a-user') && t.runIt && !isNa(t.runIt)
       ? [`- Run it: data \`${one(t.runIt.data)}\`; start \`${one(t.runIt.start)}\`; ready \`${one(t.runIt.ready)}\`; drive by ${one(t.runIt.drive)}; stop \`${one(t.runIt.stop)}\``] : []),
   ]);
@@ -255,6 +274,16 @@ function digestView(plan, planFile) {
   ]);
   section('What relied on the changed code', isNa(plan.impact) ? [] : list(plan.impact).map(i =>
     `- ${one(i.change)}: ${list(i.users).map(u => one(u.where)).join(', ') || 'no users found'}${i.outside ? `; outside the repo: ${one(i.outside)}` : ''}`));
+  if (m.kind === 'design') {
+    const d = obj(plan.direction);
+    section('Design direction', [
+      ...(d.brief ? [`Brief: ${one(d.brief)}`] : []), ...(d.scene ? [`Scene: ${one(d.scene)}`] : []),
+      ...list(d.principles).map(x => `Principle: ${one(x)}`), ...(d.signature ? [`Signature: ${one(d.signature)}`] : []),
+      ...list(d.references).map(r => `Reference: ${one(r.name)}${r.url ? ` [${one(r.url)}]` : ''}: ${one(r.take)}`),
+      ...list(d.defaultsAvoided).map(x => `Avoided: ${one(x.default)} → ${one(x.instead)}`),
+    ]);
+    section('Screens (cite as SC#)', list(plan.screens).map(sc => `- ${sc.id} ${one(sc.name)} [${one(sc.mode)}]: ${one(sc.purpose)}; states: ${list(sc.states).join(', ')}`));
+  }
   section('Steps (what was built, in order)', list(plan.steps).map(st => `- ${st.id} [${one(st.status) || 'todo'}] ${one(st.title)}${list(st.files).length ? ` — ${st.files.join(', ')}` : ''}`));
   section('Deliberately not done', list(plan.rejected).map(r => `- ${one(r.option)}: ${one(r.why)}`));
   section('Later milestones (planned separately)', list(plan.later).map(l => `- ${one(l.title)}: ${one(l.adds)} (later because ${one(l.why)})`));

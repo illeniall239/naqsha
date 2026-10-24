@@ -232,6 +232,28 @@ test('every agent has a name: fixed per step, distinct side by side, and the sam
   }
 });
 
+test("a design step's view carries its screens and tokens, and UI work loads the interface rules", () => {
+  const file = planFile({
+    meta: { title: 'Admin design', slug: 'x', kind: 'design', status: 'approved' },
+    direction: { signature: 'a green rail', motion: 'rows expand in place' },
+    tokens: { motion: { fast: '120ms' }, color: [{ name: 'bg', value: '#f7f6f2', role: 'background' }], type: { families: [{ name: 'IBM Plex Sans', role: 'body' }], scale: [{ name: 'body', size: '15px' }] }, space: ['4px', '8px'] },
+    screens: [{ id: 'SC1', name: 'Orders', mode: 'operate', purpose: 'Act on orders', states: ['default', 'empty'] }, { id: 'SC2', name: 'Settings', mode: 'operate', purpose: 'x', states: ['default'] }],
+    testing: { uiChecks: [{ check: 'Accessibility', command: 'npx playwright test a11y' }] },
+    steps: [{ id: 'S1', title: 'Orders', screens: ['SC1'], files: ['src/ui/Orders.tsx'], tests: [{ test: 't' }], doneWhen: 'd' }],
+  });
+  const v = tool(['step', file, 'S1']).stdout;
+  assert.match(v, /## Screens this step builds \(match the approved preview in each state\)\n- SC1 Orders \[operate\]: Act on orders; states: default, empty/);
+  assert.doesNotMatch(v, /SC2/, "another step's screen");
+  assert.match(v, /## Design tokens \(use these, never raw values\)\nColor: bg #f7f6f2 \(background\)\nType: IBM Plex Sans for body; scale body 15px\nSpace: 4px, 8px\nMotion tokens: fast 120ms\nMotion language: rows expand in place\nSignature: a green rail/);
+  assert.match(v, /interface\.md: a design build/);
+  assert.match(v, /- Accessibility: `npx playwright test a11y`/);
+  assert.match(tool(['digest', file]).stdout, /## Screens \(cite as SC#\)\n- SC1 Orders \[operate\]/);
+
+  const ui = tool(['step', planFile({ steps: [{ id: 'S1', files: ['src/components/Button.tsx'] }] }), 'S1']).stdout;
+  assert.match(ui, /interface\.md: touches src\/components\/Button\.tsx/, 'a plan step that touches UI code gets the interface rules too');
+  assert.doesNotMatch(tool(['step', planFile(), 'S1']).stdout, /interface\.md/, 'backend steps do not');
+});
+
 test('status shows progress and the next step', () => {
   const file = planFile();
   tool(['update-step', file, 'S1'], '{"status":"done"}');

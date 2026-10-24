@@ -323,6 +323,7 @@ calendar time goes.
 | Command | Who | What |
 |---------|-----|------|
 | `/naqsha:plan <request>` | you | Start or resume a plan. Locks project files. |
+| `/naqsha:design <what to design>` | you | Design the interface: direction, tokens, and live previews of every screen in every state, on its own page. Locks project files, like planning. |
 | `/naqsha:approve [folder]` | you only | Checks the plan is complete (prior art recorded; no open decisions; every step has its failing tests and a done-when check), marks it approved, and unlocks the project. |
 | `/naqsha:build [folder]` | you | Build, or resume building, the plan approved last. Name a folder to resume an earlier approved plan, such as one paused when you started a new plan. |
 | `/naqsha:learn [folder or topic]` | you | Learn what was built and why: a guide on its own page, then taught in chat. Changes no code. |
@@ -366,6 +367,117 @@ It reads the plan through `plan-tool.js digest` (about a third the size of the p
 changes no project code. Without a naqsha plan it still works, from the code, its history
 and its docs. Run it again after the code changes to bring the guide up to date.
 
+## Designing the interface
+
+`/naqsha:design` is the frontend's own command, separate from `/naqsha:plan`, with its own
+page. It works with or without a backend plan, for web and native apps. Interfaces are where
+AI slop shows first: the same card kit, Inter for everything, a gradient hero, only the happy
+path, nothing that works from the keyboard.
+
+**As creative as possible is the default.** The bar is the level of an Awwwards Site of the
+Day: a distinct, unexpected look on every screen, motion that feels designed, and still
+clean, precise and fast. A typical, interchangeable interface counts as a failure even when
+it works; plain is something you ask for, never the fallback. The design gets there the way
+the plan avoids assumed architecture:
+
+- **From your users and their scene,** not the category: who uses it, on what device, in
+  what light and what hurry; your brand; products you like and dislike, and why.
+- **Screens with modes,** which decide how the creativity serves, never whether there is
+  any: *persuade* and *experience* (landing pages, showcases) go all the way; *operate*
+  (apps, dashboards, settings) is just as designed, in its composition, type, color and
+  motion, while the task stays obvious and the controls recognizable; *read* sets type for
+  the pleasure of reading. Every screen that shows data has its empty, loading and error
+  states.
+- **Inspiration from the best of the best:** Claude studies recent Awwwards winners (Sites
+  of the Day, Month and Year, by category and by the animation, transitions and
+  microinteractions tags) that fit the product's mood, plus the best products in its
+  category, and takes ideas, never copies.
+- **Two or three ambitious directions,** each with its composition, type, palette, motion
+  language and signature moment, and a rendered preview of the key screen, animations
+  running. You pick.
+- **A motion language,** required for approval: view transitions that carry your place,
+  controls that respond to every press, choreographed entrances, one signature moment,
+  timed by motion tokens, with a calm reduced-motion version.
+- **Tokens:** named colors with roles (contrast checked against the background on the
+  page), type families and a scale, spacing, radii, shadows, motion, and a dark theme when
+  the scene needs one.
+- **Live previews of every screen in every state,** in the real fonts and colors, at phone,
+  tablet and desktop width, in dark mode too, rendered in sandboxed frames from the design
+  file. Comment on any screen and send it to Claude, like plan sections.
+- **Defaults named and replaced.** Claude reviews its own previews against the list of AI
+  defaults (identical cards, one radius and one shadow everywhere, gradient text, tracked
+  uppercase eyebrows, emoji icons, the big-number hero, the same entrance on every section)
+  and records each one it caught and what replaced it. The brief wins: if you ask for one of
+  those looks, you get it.
+
+**In an existing product,** creative doesn't mean ignoring the design system its users
+know. Claude first records the system as the code has it: where the tokens or theme live
+and the values used, the components with their paths and states, the fonts, icons and
+motion, a screenshot of each screen the design touches, and the design debt (colors and
+sizes outside the tokens, duplicate components, missing states). Then you choose the
+approach:
+
+- **Extend:** new screens inside the existing system, matching it exactly; the creativity
+  goes into composition and motion, never new colors or fonts unless you ask.
+- **Refine:** the same identity, visibly better: the debt fixed, the missing states and a
+  motion language added, type and spacing tightened.
+- **Redesign:** a new direction with the creative default in full, shipped in pieces: new
+  tokens mapped from the old, components switched one at a time, screens behind a flag or
+  theme switch so users never see half of each, and the old styles removed at the end.
+
+Existing components are reused before new ones are designed, and every changed shared
+component or token gets an impact map of the screens that use it. Each existing screen
+shows **Now** beside its proposed states on the page. The build takes a visual baseline of
+the screens the design touches and the ones it must not, so every difference after a step
+is either intended or a regression.
+
+`/naqsha:approve` refuses a design until it has a direction with its principles, its motion
+language and the defaults it avoided, a token system with motion tokens, in an existing product the approach,
+the current system and the impact map, every screen previewed in every state and built by a
+step, a way to run the interface, and interface checks (accessibility, performance budgets).
+`/naqsha:build` then builds it with the same gate, crew mode and checkpoints as a plan:
+tokens into the project's styling system first, then components with all their states,
+then a walking skeleton, then a screen at a time.
+
+Every UI step, from a design or a plan, is held to `interface.md`, which builds on
+Anthropic's frontend-design skill, Vercel's Web Interface Guidelines, Paul Bakaus's
+Impeccable and Taste Skill:
+
+- **Motion, clean and optimized:** view transitions (the View Transitions API on the web,
+  shared elements on native), a response on every control, choreographed entrances
+  instead of the same fade-up everywhere, one signature moment; durations and easings
+  from tokens, springs or ease-out, interruptible, no layout shift; only compositor-friendly
+  properties at 60 fps on a mid-range phone; WebGL only with a reason and a fallback.
+- **The motion tools, chosen per stack:** CSS, `@starting-style` and the View Transitions
+  API first (scroll-driven CSS only as an enhancement, since browser support is uneven);
+  **Motion** (formerly Framer Motion, `motion/react`) for component animation in React and
+  Vue; **GSAP** (free with every plugin) with ScrollTrigger, SplitText and Flip for
+  timelines and scroll storytelling, cleaned up with `useGSAP`; Svelte, Angular and Vue's
+  own transitions before a library; Lenis-style smooth scrolling only on persuade pages,
+  off with reduced motion; Rive or Lottie for moving illustration; SwiftUI, Compose and
+  Reanimated on native.
+- **3D with Three.js where it applies:** proposed whenever 3D shows what a flat image can't
+  (a product to turn or configure, a space, data with depth, an interactive story, a
+  shader-driven signature), and skipped where it would slow a task. React Three Fiber and
+  drei in React; `WebGPURenderer` with its WebGL 2 fallback and TSL shaders, both backends
+  tested; glTF with Draco or meshopt and KTX2 textures inside a per-scene budget; 60 fps on
+  a mid-range phone (capped pixel ratio, instancing, render on demand, paused off screen,
+  everything disposed); a still poster or 2D version without WebGL, on weak devices and
+  with reduced motion, with the same content as text and keyboard alternatives for every
+  interaction; and a spike early in the build that proves the budget with the real
+  assets. One
+  tool per job, and every animation cleaned up when its view goes.
+- **The floor:** WCAG 2.2 AA (contrast, keyboard, focus that's never covered, 24 px targets,
+  text at 200%, reduced motion); every state; forms that keep input and focus the first
+  error; navigation as links and state in the URL; tokens only, never raw values; copy in
+  the product's words; locale formats and right-to-left layouts; Core Web Vitals budgets
+  (LCP 2.5 s, INP 200 ms, CLS 0.1).
+- **Verified by looking:** behavior and accessibility test-first, then screenshots at three
+  widths and in dark mode for each state, compared with the approved previews. Claude fixes
+  the three biggest problems and looks again, up to three rounds, then stress-tests (long
+  names, emoji, right-to-left, 1,000 items, offline, a forced error, ten fast clicks,
+  keyboard only).
+
 ## Reviewing an existing codebase
 
 `/naqsha:review` is for code you already have. It works like a senior engineer's first week
@@ -382,7 +494,8 @@ on the team, and changes no project code.
   security checks, plus a dependency audit and a secret scan where the tools exist.
   Installing a missing tool needs your yes.
 - **Findings against the same standards builds are held to:** security, tests,
-  dependencies, correctness, modularity, data and APIs, operability, performance, docs. You
+  dependencies, correctness, reliability, modularity, data and APIs, operability, performance, docs,
+  interface. You
   choose the depth (quick, standard, thorough) and what it's for, which sets the ranking.
   Security is reviewed at every depth. Subagents on Sonnet look, one per area; Claude reads
   the code behind every critical and high finding itself before it's reported.

@@ -36,6 +36,11 @@ what that means.
 - `docs-and-setup.md`: it changes setup or docs, and at the finish.
 - `run-like-a-user.md`: it changes anything a user, client or operator sees, the first step's
   baseline, and the finish.
+- `interface.md`: it touches UI code, and every step of a design (`meta.kind: "design"`,
+  from `/naqsha:design`). A design's approved tokens and screen previews are the spec: each
+  step's working set lists its screens and the tokens, and the step is done when the
+  running interface matches its previews in every state, verified as `interface.md`
+  describes.
 
 Read each reference once per conversation; don't re-read it for every step. If the context
 was compacted, read the always-loaded ones again before going on. When unsure whether a

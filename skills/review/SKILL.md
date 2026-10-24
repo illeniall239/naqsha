@@ -49,7 +49,7 @@ current. If it's missing, ask the user to send `/naqsha:review` as a message of 
 
     | | quick | standard (default) | thorough |
     |---|---|---|---|
-    | Areas | security, tests, dependencies | those, plus correctness, reliability, modularity, data and APIs, operability | every area |
+    | Areas | security, tests, dependencies | those, plus correctness, reliability, modularity, data and APIs, operability, and interface where there's a UI | every area |
     | Subagents | 1 to 2 | up to 4 | up to 6 |
     | Running the app | no | no | start it and walk one main flow |
 
@@ -117,6 +117,7 @@ history with git log -L or git blame.
 | operability | `operability.md` |
 | performance | `performance.md`: only on paths that are hot or loop over large data |
 | docs and setup | `docs-and-setup.md`: does a fresh clone get running from the README |
+| interface | `interface.md`: the accessibility floor, missing states, the defaults it lists, values outside the tokens; with the app running, screenshots at three widths |
 
 ## 5. Verify and rank
 

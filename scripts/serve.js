@@ -31,7 +31,8 @@ const MAX_ITEMS = 200;
 const IDLE_MS = 60 * 60 * 1000;
 const WAIT_MINUTES = 110;
 const CSP = "default-src 'none'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; " +
-  "style-src 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; base-uri 'none'; form-action 'none'";
+  "style-src 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data:; " +
+  "connect-src 'self'; base-uri 'none'; form-action 'none'";
 
 // ---- the server ----------------------------------------------------------
 
@@ -117,7 +118,7 @@ function checkSubmission(b) {
     }
   }
   for (const c of comments) {
-    if (!c || typeof c !== 'object' || !/^[A-Za-z]{1,40}$/.test(c.section) || !isText(c.text) || !c.text.trim()) {
+    if (!c || typeof c !== 'object' || !/^[A-Za-z][A-Za-z0-9]{0,39}$/.test(c.section) || !isText(c.text) || !c.text.trim()) {
       return 'Every comment needs a section and some text';
     }
   }

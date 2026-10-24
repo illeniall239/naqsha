@@ -593,6 +593,65 @@ test('in an existing codebase, approval needs who relies on what changes', () =>
   assert.equal(p.cmd('approve', 'newapp').decision, undefined, 'a new app has nothing to break');
 });
 
+test('a design is gated like a plan, and approved on what the user can see', () => {
+  const p = project();
+  let out = p.cmd('design', 'admin screens');
+  assert.match(out.hookSpecificOutput.additionalContext, /^Naqsha: design phase\. Designs go in docs\/plans\/<slug>\//);
+  assert.ok(denied(p.write('src/app.js')), 'project files are locked while designing');
+  const viaMention = p.run({ hook_event_name: 'PreToolUse', tool_name: 'Skill', tool_input: { skill: 'naqsha:design' } });
+  assert.match(viaMention.hookSpecificOutput.additionalContext, /^Naqsha: design phase/);
+
+  const screen = extra => ({ id: 'SC1', name: 'Orders', mode: 'operate', purpose: 'Act on orders', data: 'orders',
+    states: ['default', 'empty', 'loading', 'error'], previews: { default: '<main>x</main>', empty: 'e', loading: 'l', error: 'r' }, ...extra });
+  const design = extra => ({
+    meta: { title: 'Admin design', slug: 'x', kind: 'design', status: 'draft' },
+    context: { na: 'new product' },
+    direction: { brief: 'Staff process orders fast', principles: ['Keyboard first'], defaultsAvoided: [{ default: 'stat cards', instead: 'a worklist' }],
+      motion: 'Rows expand in place; views slide with navigation' },
+    tokens: { motion: { fast: '120ms', easing: 'ease-out' }, color: [{ name: 'bg', value: '#fff', role: 'background' }, { name: 'text', value: '#111', role: 'text' }, { name: 'accent', value: '#1f5f4a', role: 'actions' }],
+      type: { families: [{ name: 'IBM Plex Sans', role: 'body' }], scale: [{ name: 'a', size: '32px' }, { name: 'b', size: '16px' }, { name: 'c', size: '13px' }] } },
+    screens: [screen()],
+    testing: { runIt: { start: 'npm run dev' }, uiChecks: [{ check: 'axe', command: 'npx playwright test a11y' }] },
+    steps: [{ id: 'S1', title: 'Orders', screens: ['SC1'], tests: [{ test: 'empty state offers a manual order' }], doneWhen: 'matches previews' }],
+    ...extra,
+  });
+  const refused = (overrides, why) => {
+    writePlan(p.root, 'x', design(overrides));
+    out = p.cmd('approve', 'x');
+    assert.equal(out.decision, 'block', String(why));
+    assert.match(out.reason, why);
+  };
+  refused({ direction: { brief: 'x' } }, /no design direction/);
+  refused({ direction: { brief: 'x', principles: ['y'], motion: 'm' } }, /no defaults reviewed/);
+  refused({ direction: { brief: 'x', principles: ['y'], defaultsAvoided: { na: 'n' } } }, /no motion language/);
+  refused({ tokens: { color: [{ name: 'bg', value: '#fff', role: 'background' }] } }, /no token system/);
+  refused({ screens: [] }, /no screens/);
+  refused({ screens: [screen({ states: ['default'] })] }, /screen SC1 Orders needs empty, loading and error states/);
+  refused({ screens: [screen({ previews: { default: 'x', empty: 'e', loading: 'l' } })] }, /needs previews for error/);
+  refused({ screens: [screen({ mode: 'pretty' })] }, /needs a mode/);
+  refused({ steps: [{ id: 'S1', tests: [{ test: 't' }], doneWhen: 'd', screens: [] }] }, /needs a step that builds it/);
+  refused({ testing: { uiChecks: { na: 'none' } } }, /no way to run the interface/);
+  refused({ testing: { runIt: { start: 'npm run dev' } } }, /no interface checks/);
+  refused({ decisions: [{ id: 'D1', status: 'open' }] }, /open decisions: D1/);
+  refused({ context: undefined }, /no context/);
+
+  // An existing product: the approach, the system as it is, and what a change touches.
+  const existing = { context: { stack: ['Next.js'] }, meta: { title: 'Admin', slug: 'x', kind: 'design', status: 'draft', approach: 'refine' },
+    current: { components: [{ name: 'Button', where: 'src/ui/button.tsx' }] },
+    impact: [{ change: 'Button gains a loading state', searched: 'grep -rn "<Button"', outside: 'none', users: [{ where: 'src/app/orders/page.tsx:40', step: 'S1' }] }] };
+  refused({ ...existing, meta: { ...existing.meta, approach: undefined } }, /no approach for the existing interface/);
+  refused({ ...existing, current: {} }, /current design system isn't recorded/);
+  refused({ ...existing, impact: undefined }, /no impact map/);
+  writePlan(p.root, 'x', design(existing));
+  assert.equal(p.cmd('approve', 'x').decision, undefined, 'a complete refine of an existing product is approved');
+  p.cmd('design');
+
+  writePlan(p.root, 'x', design({ priorArt: [] }));
+  out = p.cmd('approve', 'x');
+  assert.equal(out.decision, undefined, 'a design is not held to the backend plan\'s sections');
+  assert.equal(p.write('src/app.js'), null, 'approved: unlocked for building');
+});
+
 test('approval unlocks the project and marks the plan', () => {
   const p = project();
   p.cmd('plan');

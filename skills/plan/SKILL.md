@@ -389,7 +389,7 @@ number without a source. Then fill the remaining sections of `plan.js`:
     state first (CI config, generated code), with a `doneWhen` naming the check that
     replaces them; a `doneWhen` you can actually run; and `standards`, the build
     references it needs beyond the always-loaded ones (`performance`, `data-and-apis`,
-    `reliability`, `operability`, `docs-and-setup`, `run-like-a-user`), so the build loads
+    `reliability`, `operability`, `docs-and-setup`, `run-like-a-user`, `interface`), so the build loads
     only those. When unsure, include it.
   - No time estimates: the page computes the build's size from the plan.
 - **needsYou**: what only the user can do, which is where calendar time actually goes when
@@ -401,6 +401,12 @@ number without a source. Then fill the remaining sections of `plan.js`:
 
 Match the plan's depth to the work. A focused feature has a short plan with every section
 answered. A new system has a long one. Neither has filler.
+
+How the interface looks is not this plan's job. Plan what the product does, its data and
+its API; the screens' look, tokens and states are designed with `/naqsha:design`, which the
+user runs separately, before or after. A plan step that builds UI without an approved
+design still follows `interface.md`. Tell the user in one line that `/naqsha:design` exists
+when the plan has a user interface.
 
 ## 8. Let the user decide
 
