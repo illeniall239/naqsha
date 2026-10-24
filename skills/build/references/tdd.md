@@ -47,8 +47,13 @@ after, whatever the order looks like.
   tests call what callers call.
 - **Real collaborators where you can.** Choose by what the dependency is:
   - Pure code in the same process: use it directly.
-  - Infrastructure with a local stand-in (SQLite or PGlite, an in-memory filesystem, a
-    test container): use the stand-in.
+  - Infrastructure: the same engine and major version as production, run locally (a
+    test container, or a local instance). Not a different engine standing in for it:
+    SQLite passes tests that Postgres fails, because types, constraints, locking, JSON
+    and SQL dialect differ. An in-process build of the same engine (PGlite for Postgres)
+    or an in-memory filesystem is fine where it behaves the same for what's tested. Keep
+    tests fast by reusing one container per run and isolating each test in a transaction
+    or its own schema.
   - Your own service across the network: a fake behind the module's port. Its behavior is
     pinned by contract tests against the real one.
   - A third party you don't control (payments, email, LLM APIs): a fake at the one module

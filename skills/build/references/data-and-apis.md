@@ -65,6 +65,9 @@ with no limit.
 - **Operations clients retry** (a payment, an order, an email) take an idempotency key: the
   server stores the key with the result and returns the same result on a retry. This is
   the Stripe pattern; the IETF `Idempotency-Key` header is still a draft as of October 2026.
+- **Long-running operations** (an export, a report, a video) don't hold the request open:
+  return `202 Accepted` with a `Location` for a status resource that reports progress and,
+  when done, the result or the error. The client polls it or gets a webhook.
 - **Lost updates:** an update that can collide uses optimistic concurrency (`ETag` with
   `If-Match`, or a version column).
 - **Compatibility.** Within a version, changes are additive only: new optional fields and
@@ -82,3 +85,5 @@ with no limit.
 - Is every number of money, every instant and every exposed id typed as above?
 - Does every endpoint follow the contract, the error shape and the pagination rule?
 - What happens when a client retries this request?
+- Does anything here write to two systems, run concurrently or cache? Then `reliability.md`
+  applies.

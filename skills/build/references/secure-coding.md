@@ -72,6 +72,13 @@ Each rule names the weakness it prevents. Apply every one the code touches.
 - Authorization lives in one module that every entry point uses, not re-implemented per
   handler. See `modularity.md`.
 - Every protected route gets a test that another user's object is refused.
+- **Tenant isolation** in a multi-tenant system is enforced in one place every query goes
+  through, not remembered query by query: row-level security in the database, or a
+  repository that takes the tenant from the authenticated context and adds it to every
+  query. Raw queries that bypass it are a red flag. Each data access path gets a test that
+  one tenant can't read, change or list another's data, including through search, exports,
+  caches, background jobs and file storage. Per-tenant limits keep one tenant from
+  starving the rest.
 
 ### Authentication and sessions (CWE-352; A07; ASVS V6, V7, V9, V10)
 - Use the framework's or provider's authentication. Don't write your own.
@@ -119,6 +126,13 @@ Each rule names the weakness it prevents. Apply every one the code touches.
 - Users get a generic error; details go to the log. No stack traces in responses.
 - Log security events (login, failed authorization, permission changes) with who and
   when, never with secrets, tokens or personal data that isn't needed.
+- **Audit trail** for actions someone may later need to prove or investigate: sign-ins,
+  changes to roles and permissions, data exports, deletions, money movements, admin
+  actions, and changes to settings that affect security. Each record says who (user and,
+  for admins acting as someone, both), what, on which object, when (UTC), from where, and
+  the outcome. It's append-only (the application can't update or delete it), kept apart
+  from debug logs, has its own retention period from the plan, and is written in the same
+  transaction as the action, so an action never happens unrecorded.
 - Fail closed: an exception in an auth, validation or payment path denies. No catch-all
   that continues.
 - Check-then-act on shared state is one atomic operation: a transaction, a unique
@@ -162,7 +176,8 @@ interpolation · string-built SQL (`+`, f-strings, template literals near `SELEC
 `mark_safe` · `Math.random()` near tokens or ids · `md5`/`sha1` near passwords or
 signatures · `verify=False` · `rejectUnauthorized: false` · `InsecureSkipVerify` ·
 `NODE_TLS_REJECT_UNAUTHORIZED` · `Access-Control-Allow-Origin: *` · `chmod 777` ·
-`strcpy`/`sprintf`/`gets` · suppression comments (`nosec`, `nosemgrep`,
+`strcpy`/`sprintf`/`gets` · a raw query that bypasses the tenant-scoped repository · a
+cache key without the user or tenant in it · suppression comments (`nosec`, `nosemgrep`,
 `eslint-disable` on a security rule, `# type: ignore` on validation code).
 
 ## Checks every step runs

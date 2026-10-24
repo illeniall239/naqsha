@@ -98,7 +98,11 @@ lines, each tied to a driver, in the `quality` section.
   the user sees, how it's handled (timeout, retry with backoff and jitter only for
   idempotent operations, idempotency keys, a fallback, degraded mode). Backups, and a
   restore that's been tested, against the recovery point and time the user gave. Service
-  level objectives (SRE): indicators users notice, targets from the user, never 100%.
+  level objectives (SRE): indicators users notice, targets from the user, never 100%, and
+  the error budget each one allows. Where a change writes to two systems, runs
+  concurrently, schedules jobs or caches, plan for `reliability.md` (outbox, idempotent
+  consumers, sagas, locks, circuit breakers, bulkheads, load shedding) and name it in
+  those steps' `standards`.
 - **Performance efficiency.** A latency budget for each key flow, checked against the
   estimates. List the hot paths in `architecture.hotPaths`: the flows whose input size or
   frequency makes cost matter, each with its size, its budget, the approach (queries,
@@ -145,7 +149,7 @@ driver that needs it, and put that driver in the decision.
 |--------|-------|
 | A second deployable or service | Independent scaling or deployment, separate team ownership, isolation or compliance, or a different runtime. Not "cleaner code": modules give you that. |
 | A message queue or event bus | Work that outlives the request, spikes the estimates say the system must absorb, or consumers that must not block the producer. |
-| A cache | A latency or load target the estimates show the store can't meet, plus a plan for invalidation and staleness. |
+| A cache | A latency or load target the estimates show the store can't meet, plus a plan for invalidation and staleness, keys scoped to the user or tenant, and how it behaves when the cache is down. |
 | A second data store | An access pattern the first one can't serve within a scenario's measure. |
 | Kubernetes or another orchestrator | Several services, scaling needs the platform's simpler options can't meet, and people to operate it. |
 | Event sourcing or CQRS | An audit or temporal-query requirement, or read and write loads the estimates show diverging sharply. |

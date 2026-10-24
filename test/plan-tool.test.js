@@ -66,7 +66,11 @@ test('references follow the plan, then file patterns, then the step\'s place', (
   const s3 = tool(['step', file, 'S3']).stdout;
   assert.match(s3, /docs-and-setup\.md: touches README\.md/);
   assert.match(s3, /Acceptance criteria \(finish\)\n- A1: Manager downloads a month/);
-  const named = tool(['step', planFile({ steps: [{ id: 'S1', files: ['x.ts'], standards: ['operability', 'not-a-reference'] }] }), 'S1']).stdout;
+  const jobs = tool(['step', planFile({ steps: [{ id: 'S1', files: ['src/jobs/nightly-export.ts', 'src/cache/reports.ts'] }] }), 'S1']).stdout;
+  assert.match(jobs, /reliability\.md: touches src\/jobs\/nightly-export\.ts/);
+  assert.match(jobs, /## Independent review\nRequired: it writes to several systems, runs concurrently or caches\./, 'races and caches get a second pair of eyes at standard');
+  const named = tool(['step', planFile({ steps: [{ id: 'S1', files: ['x.ts'], standards: ['operability', 'reliability', 'not-a-reference'] }] }), 'S1']).stdout;
+  assert.match(named, /reliability\.md: the plan says so/);
   assert.match(named, /operability\.md: the plan says so/);
   assert.doesNotMatch(named, /not-a-reference/);
 });
@@ -140,7 +144,7 @@ test('the independent review goes where the risk is, scaled by effort', () => {
 
   assert.match(review('S1'), /^Required: it changes data or an API\.$/, 'standard is the default');
   assert.match(review('S2'), /^Required: it builds a threat mitigation; it proves a hot path\.$/);
-  assert.match(review('S3'), /^Not needed for this step \(effort standard: no threat mitigation, data or API change, or hot path\)\. .*finish review covers it/);
+  assert.match(review('S3'), /^Not needed for this step \(effort standard: no threat mitigation, data or API change, concurrency or caching, or hot path\)\. .*finish review covers it/);
 
   tool(['set-meta', file], '{"effort":"light"}');
   assert.match(review('S1'), /^Not needed .*effort light: no threat mitigation\)/, 'light reviews only security work');

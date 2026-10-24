@@ -154,7 +154,7 @@ function buildSize(p) {
   const hot = p.architecture && Array.isArray(p.architecture.hotPaths) ? p.architecture.hotPaths : [];
   const std = (s, r) => Array.isArray(s.standards) && s.standards.includes(r);
   const reviewed = steps.filter(s => effort === 'thorough' || threats.some(t => t.step === s.id) ||
-    (effort === 'standard' && (std(s, 'data-and-apis') || hot.some(h => h.provedBy === s.id)))).length;
+    (effort === 'standard' && (std(s, 'data-and-apis') || std(s, 'reliability') || hot.some(h => h.provedBy === s.id)))).length;
   const runs = 2 + (effort === 'light' ? 0 : steps.filter(s => std(s, 'run-like-a-user')).length);
   return { steps: steps.length, reviewed, runs, effort };
 }

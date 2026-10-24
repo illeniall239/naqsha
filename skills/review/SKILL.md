@@ -49,7 +49,7 @@ current. If it's missing, ask the user to send `/naqsha:review` as a message of 
 
     | | quick | standard (default) | thorough |
     |---|---|---|---|
-    | Areas | security, tests, dependencies | those, plus correctness, modularity, data and APIs, operability | every area |
+    | Areas | security, tests, dependencies | those, plus correctness, reliability, modularity, data and APIs, operability | every area |
     | Subagents | 1 to 2 | up to 4 | up to 6 |
     | Running the app | no | no | start it and walk one main flow |
 
@@ -110,7 +110,8 @@ history with git log -L or git blame.
 | security | `secure-coding.md`, and `${CLAUDE_PLUGIN_ROOT}/skills/plan/references/security.md` |
 | tests | `tdd.md`: untested critical paths, tests that can't fail, skipped tests, tests that hit the real network |
 | dependencies | the audit results; `secure-coding.md` on supply chain; unmaintained, abandoned, or a second library for a job one already does |
-| correctness | `code-quality.md`: error handling, edge cases, races, resource leaks |
+| correctness | `code-quality.md`: error handling, edge cases, resource leaks |
+| reliability | `reliability.md`: writes to two systems, check-then-act and other races, jobs that run twice, retries and timeouts, caches that leak or go stale |
 | modularity | `modularity.md` |
 | data and APIs | `data-and-apis.md` |
 | operability | `operability.md` |

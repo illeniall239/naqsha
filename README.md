@@ -48,9 +48,10 @@ The code Claude writes is held to three standards, in this order:
 
 - **Security, with no leeway.** `skills/build/references/secure-coding.md` sets the rules for
   every line, following OWASP ASVS 5.0, the OWASP Top 10:2025 and the 2025 CWE Top 25:
-  validation at every boundary, no injection sinks, object-level access checks, secrets
-  out of code, standard crypto, safe files and outbound requests, resource limits, and a
-  vetted supply chain. Claude never weakens a control on its own. Only you can accept a
+  validation at every boundary, no injection sinks, object-level access checks, tenant
+  isolation enforced in one place with cross-tenant tests, an append-only audit trail for
+  actions someone may need to prove, secrets out of code, standard crypto, safe files and
+  outbound requests, resource limits, and a vetted supply chain. Claude never weakens a control on its own. Only you can accept a
   risk, and the plan page shows every accepted risk at the top before you approve. A short
   hard floor (secrets in code, disabled TLS verification, string-built SQL or shell
   commands, weak password storage, unsafe deserialization, unauthenticated data access)
@@ -62,8 +63,9 @@ The code Claude writes is held to three standards, in this order:
   test first, then red, least code to green, refactor on green. Every red run is pasted
   in the step's notes, and code written before its test is deleted and rewritten. Bug
   fixes start with a regression test, refactors of untested code with characterization
-  tests, and invariants get property tests. Tests are deterministic and hermetic, mocks
-  only stand in for systems you don't own, and a test is never loosened or skipped to get
+  tests, and invariants get property tests. Tests are deterministic and hermetic, run
+  against the same database engine as production (never SQLite standing in for Postgres),
+  mocks only stand in for systems you don't own, and a test is never loosened or skipped to get
   to green. The plan names the seams tests go through and the failing tests each step
   starts from, so you approve them before any code is written.
 - **Modular by default.** `skills/build/references/modularity.md`: every piece of code goes
@@ -107,19 +109,32 @@ reading the code, its conventions and how it runs, naqsha does four more things:
 
 ## Contracts, operations and docs
 
-Three shorter references cover what a strong team expects beyond the code itself:
+Four shorter references cover what a strong team expects beyond the code itself:
 
 - **Data and APIs** (`data-and-apis.md`): integrity enforced by database constraints; money
   as integers or decimals, instants in UTC, unguessable exposed ids; migrations done as
   expand and contract so they never break the running version; the API contract in the
   repo (OpenAPI 3.2, protobuf, GraphQL schema) and tested; RFC 9457 errors; every list
   paginated; idempotency keys for retried operations; additive-only changes within a
-  version; signed, deduplicated webhooks.
+  version; signed, deduplicated webhooks; `202 Accepted` with a status resource for long
+  operations.
+- **Reliability** (`reliability.md`): correct when things fail, race and pile up. Writes to
+  two systems go through a transactional outbox, consumers are idempotent because delivery
+  is at least once, and workflows across services are sagas with compensations. No
+  check-then-act: conditional updates, unique constraints or row locks, and a parallel test
+  for each invariant. Locks have leases and fencing tokens; scheduled jobs run once, not
+  once per server. Deadlines travel downstream; retries happen at one layer, only for safe
+  operations, within a budget; circuit breakers, bulkheads and load shedding keep one slow
+  dependency from taking everything down. Cache keys include the user or tenant, every
+  entry expires, stampedes are coalesced, and the service still works with the cache down.
+  Steps that touch queues, jobs, caches, locks or events load it, and at standard effort
+  they get an independent review.
 - **Operability** (`operability.md`): config validated at startup so a bad setting fails at
   boot; structured logs with a request id on every line, errors logged once; W3C trace
   context; metrics behind the plan's objectives; liveness and readiness checks; graceful
-  shutdown; idempotent jobs with dead-lettering; feature flags with a removal step; alerts
-  on symptoms with a runbook entry each.
+  shutdown; idempotent jobs with dead-lettering; jobs in users' local time that survive
+  daylight saving; feature flags with a removal step; alerts on how fast the error budget
+  burns, with a runbook entry each.
 - **Docs and setup, verified** (`docs-and-setup.md`): a few commands from clean checkout to
   running app, a README with only what won't rot, docs changed in the same step as the
   behavior, and at the finish Claude clones the repo fresh and follows the README literally,
@@ -253,7 +268,7 @@ them. To keep a build inside a usage window, you choose an **effort** at plan st
 | | light | standard (default) | thorough |
 |---|---|---|---|
 | Research | only what the repo and you can't answer | each significant choice | wide |
-| Independent review | steps that build a threat mitigation | those, plus data or API changes and hot paths | every step |
+| Independent review | steps that build a threat mitigation | those, plus data or API changes, concurrency or caching, and hot paths | every step |
 | Running the app | baseline and finish | after each user-facing step | after each user-facing step |
 | Crew mode | not offered | offered | offered |
 

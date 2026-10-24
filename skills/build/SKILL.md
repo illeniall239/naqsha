@@ -30,6 +30,9 @@ what that means.
 - `performance.md`: the step proves a hot path, or loops over data the estimates call large.
 - `data-and-apis.md`: it changes a schema, a migration, an API or a webhook.
 - `operability.md`: it touches config, logging, metrics, health checks, jobs or shutdown.
+- `reliability.md`: it writes to more than one system (a database and a queue, an email,
+  another service), runs concurrent writes, schedules jobs, calls a dependency on a hot
+  path, or adds a cache.
 - `docs-and-setup.md`: it changes setup or docs, and at the finish.
 - `run-like-a-user.md`: it changes anything a user, client or operator sees, the first step's
   baseline, and the finish.

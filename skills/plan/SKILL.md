@@ -1,6 +1,6 @@
 ---
 name: plan
-description: Plan software before writing any code. Produces a researched plan, steered by the user and rendered as a local webpage, covering requirements, system design, decisions, security, testing and ordered steps with estimates in human developer hours. Works for a new app or a feature in an existing codebase. Project files stay locked until the user runs /naqsha:approve.
+description: Plan software before writing any code. Produces a researched plan, steered by the user and rendered as a local webpage, covering requirements, system design, decisions, security, testing and ordered steps, each with the failing tests it starts from. Works for a new app or a feature in an existing codebase. Project files stay locked until the user runs /naqsha:approve.
 argument-hint: "<what to build>"
 disable-model-invocation: true
 ---
@@ -83,7 +83,7 @@ as layered: no pass-throughs, and no seams with only one side.
   | Research | only what the repo and user can't answer; at most 2 subagents | each significant choice; at most 3 subagents | wide, every choice; at most 5 subagents |
   | Prior art | 2 or 3 implementations | 3 to 5 | as many as hold up |
   | Question rounds | one, where possible | as many as needed | as many as needed |
-  | Independent review | steps that build a threat mitigation | those, plus data or API changes and hot paths | every step |
+  | Independent review | steps that build a threat mitigation | those, plus data or API changes, concurrency or caching, and hot paths | every step |
   | Running the app | baseline and finish | after each user-facing step | after each user-facing step |
   | Crew mode | not offered | offered | offered |
 
@@ -369,34 +369,29 @@ number without a source. Then fill the remaining sections of `plan.js`:
   analysis with security rules, a dependency audit, a secret scan). Use what the project
   already has; where it has none, choosing the tools is a decision for the user, and
   setting them up is a step.
-- **steps**: in build order. For a new app, the first steps set up what the stack's
-  professional standard expects before any feature: formatter, linter, type checking,
-  test runner, the security checks, CI and secrets handling. Each step leaves the project building with its tests passing, so the build can stop
-  after any step. Keep refactoring and behavior changes in separate steps. Each step is
-  sized to review: one behavior or one area, a diff a person can read in one sitting. A
-  step that needs "and" to describe, or spans several modules' worth of new behavior, is
-  two steps. After setup, the first feature step is a walking skeleton: the thinnest path
-  from one end to the other (the screen, the logic, the storage) for the main flow, working
-  and tested, even if it does almost nothing. Each later step adds one behavior through
-  every layer it needs (a vertical slice), never one whole layer at a time (all the
-  tables, then all the APIs, then all the screens), so every step can be run and checked
-  as a user would, and a wrong assumption shows up in step 3, not step 15. Setting up
-  tools is several steps too: the build and its tests, then linting
-  and the security checks, then CI, each with its own `doneWhen`, so a toolchain problem in
-  one doesn't drag the others into a long session. Each step has the files it touches, its `tests` (the failing tests it
-  starts from, in order: acceptance or attack tests first, then the behaviors; a bug fix
-  starts with its regression test, a refactor of untested code with characterization
-  tests), and a `doneWhen` check you can actually run. A step's `files`
-  include the docs it changes (`docs-and-setup.md`); a new app's first steps include the
-  one-command setup and a README that a fresh clone can follow. Each step's `standards`
-  names the build references it needs beyond the always-loaded ones (`performance`,
-  `data-and-apis`, `operability`, `docs-and-setup`, `run-like-a-user`), so the build loads
-  only what the step calls for. When unsure, include it. A step with no
-  behavior a test can state first (CI config, generated code, a visual change) has
-  `tests: { "na": "<why>" }` and a `doneWhen` that names the check replacing them.
-  There are no time estimates: Claude builds the code, so hours for a human developer
-  would be invented precision. The page shows the build's size instead (steps, reviews,
-  app runs), computed from the plan.
+- **steps**, in build order:
+  - **Order.** For a new app, setup comes first, as several steps, each with its own
+    `doneWhen` so a toolchain problem in one doesn't drag the rest into a long session: the
+    build and its tests; linting, type checking and the security checks; CI and secrets
+    handling; a one-command setup and a README a fresh clone can follow. Then a walking
+    skeleton: the thinnest path from one end to the other (screen, logic, storage) for the
+    main flow, working and tested. Then vertical slices: each step adds one behavior
+    through every layer it needs, never one whole layer at a time, so every step can be
+    run like a user would and a wrong assumption shows up early.
+  - **Size.** One behavior or one area, a diff a person can read in one sitting. A step
+    that needs "and" to describe, or spans several modules' worth of new behavior, is two
+    steps. Refactoring and behavior changes are separate steps. Each leaves the project
+    building with its tests passing, so the build can stop after any step.
+  - **Contents.** The `files` it touches, including the docs it changes; its `tests`, the
+    failing tests it starts from in order (acceptance or attack tests first, then the
+    behaviors; a bug fix starts with its regression test, a refactor of untested code with
+    characterization tests), or `{ "na": "<why>" }` for a step with no behavior a test can
+    state first (CI config, generated code), with a `doneWhen` naming the check that
+    replaces them; a `doneWhen` you can actually run; and `standards`, the build
+    references it needs beyond the always-loaded ones (`performance`, `data-and-apis`,
+    `reliability`, `operability`, `docs-and-setup`, `run-like-a-user`), so the build loads
+    only those. When unsure, include it.
+  - No time estimates: the page computes the build's size from the plan.
 - **needsYou**: what only the user can do, which is where calendar time actually goes when
   an AI writes the code. Accounts and approvals (app stores, payment providers, API keys),
   testing on real devices or with real users, legal or clinical review, content only they

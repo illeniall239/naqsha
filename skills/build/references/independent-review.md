@@ -11,8 +11,8 @@ A review costs a fresh agent, so it goes where a second pair of eyes matters mos
 step's working set (`plan-tool.js step`) says whether this step needs one, and why:
 
 - **light** effort: steps that build a threat mitigation.
-- **standard** (the default): those, plus steps that change data or an API and steps that
-  prove a hot path.
+- **standard** (the default): those, plus steps that change data or an API, steps that write
+  to several systems, run concurrently or cache, and steps that prove a hot path.
 - **thorough**: every step.
 
 When it's required, run it after your own review (`code-quality.md`) and before you set
@@ -79,10 +79,11 @@ Check, in this order:
    two key tests and confirm they fail, then restore it exactly.
 5. Modular: answer the review questions in modularity.md for each module touched.
 6. Performance: hot paths meet performance.md; no traps that grow quietly.
-7. Contracts and operations: the review questions in data-and-apis.md, operability.md and
-   docs-and-setup.md, for whatever the diff touches (a migration that breaks the running
-   version, an endpoint off the contract, a setting not checked at startup, docs left
-   behind).
+7. Contracts, reliability and operations: the review questions in data-and-apis.md,
+   reliability.md, operability.md and docs-and-setup.md, for whatever the diff touches (a
+   migration that breaks the running version, an endpoint off the contract, a write to two
+   systems with nothing tying them together, check-then-act, a cache key missing the user,
+   a setting not checked at startup, docs left behind).
 8. Evidence: rerun the step's doneWhen checks and security checks. Does every pass
    claimed in the notes reproduce? Where the working set has a baseline, compare by name:
    anything failing now that isn't in it is this step's. Was the app walked as run-like-a-user.md requires?

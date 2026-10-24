@@ -54,6 +54,9 @@ discovered the first time a user hits that path.
 
 ## Background work
 
+- Jobs scheduled in users' local time ("9:00 every day") are stored as the local time
+  and the zone name, and computed with a time-zone library, so daylight saving changes
+  neither skip nor double them. Jobs that run once and on one server: `reliability.md`.
 - Jobs are idempotent, so a retry after a crash is safe. Retries use backoff and have a
   maximum; poison messages go to a dead-letter queue. Queue depth and the age of the oldest
   message are metrics.
@@ -64,8 +67,11 @@ discovered the first time a user hits that path.
   and there's a kill switch. Each flag has an owner and a later step that removes it.
 - Code rolls back without data loss, because migrations are expand-and-contract
   (`data-and-apis.md`).
-- Alerts fire on symptoms users feel (the objectives), not on every metric. Each alert has
-  a runbook entry (`docs-and-setup.md`).
+- Alerts fire on symptoms users feel (the objectives), not on every metric, and on how
+  fast the error budget burns (the failures each objective allows in its window): page on
+  a fast burn, ticket on a slow one. Each alert has a runbook entry (`docs-and-setup.md`).
+- A spent error budget is a signal to the user: slow down risky releases and spend the
+  time on reliability. Say so when you report a step that would ship while it's spent.
 
 ## Review
 

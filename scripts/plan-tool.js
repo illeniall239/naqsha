@@ -35,6 +35,7 @@ const ALWAYS = ['secure-coding', 'tdd', 'modularity', 'code-quality', 'independe
 const BY_FILES = {
   'data-and-apis': /migrat|schema|\.sql$|openapi|swagger|\.proto$|\.graphql$|(^|\/)(api|routes?|controllers?|handlers?)\//i,
   operability: /config|\.env|docker|compose|health|worker|jobs?\/|queue|logger|telemetry|otel/i,
+  reliability: /outbox|saga|consumer|producer|publisher|subscriber|redis|kafka|rabbit|sqs|pubsub|nats|celery|sidekiq|bullmq|(^|\/)(events?|messaging|queues?|jobs?|workers?|cron|schedul\w*|caches?|locks?)\//i,
   'docs-and-setup': /readme|(^|\/)docs\/|\.md$|package\.json$|makefile$|justfile$|\.env\.example$|compose\.ya?ml$/i,
   'run-like-a-user': /(^|\/)(pages?|app|views?|components?|templates?|routes?|api|cli|cmd|bin)\//i,
 };
@@ -87,6 +88,7 @@ function reviewFor(plan, step, refs) {
   if (list(sec.threats).some(t => t.step === step.id)) why.push('it builds a threat mitigation');
   if (effort === 'standard') {
     if (refs.has('data-and-apis')) why.push('it changes data or an API');
+    if (refs.has('reliability')) why.push('it writes to several systems, runs concurrently or caches');
     const arch = plan.architecture && !isNa(plan.architecture) ? plan.architecture : {};
     if (list(arch.hotPaths).some(h => h.provedBy === step.id)) why.push('it proves a hot path');
   }
@@ -175,7 +177,7 @@ function stepView(plan, id, planFile) {
   const names = namesFor(steps.indexOf(step));
   section('Independent review', [review.why.length
     ? `Required: ${review.why.join('; ')}.`
-    : `Not needed for this step (effort ${review.effort}: no threat mitigation${review.effort === 'standard' ? ', data or API change, or hot path' : ''}). Your own review applies; the finish review covers it.`]);
+    : `Not needed for this step (effort ${review.effort}: no threat mitigation${review.effort === 'standard' ? ', data or API change, concurrency or caching, or hot path' : ''}). Your own review applies; the finish review covers it.`]);
   // Only a crew build has a worker to name; every build has reviewers.
   const crew = m.buildMode === 'crew';
   const first = crew ? names.worker : names.reviewer;

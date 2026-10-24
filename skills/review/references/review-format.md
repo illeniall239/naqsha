@@ -37,7 +37,7 @@ window.NAQSHA_REVIEW = {
   "findings": [{
     "id": "F1",
     "title": "Any signed-in user can read any order",
-    "area": "security",                // security | tests | dependencies | correctness | modularity | data | operability | performance | docs
+    "area": "security",                // security | tests | dependencies | correctness | reliability | modularity | data | operability | performance | docs
     "severity": "critical",            // critical | high | medium | low
     "severityWhy": "Order ids are sequential, so every customer's address is one request away",
     "confidence": "confirmed",         // confirmed (reproduced) | likely (traced in the code, not run)
