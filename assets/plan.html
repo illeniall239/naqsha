@@ -7,15 +7,16 @@
 <style>
 :root {
   --bg: #fbfbfa; --panel: #ffffff; --text: #1d1d1b; --muted: #6b6b66; --line: #e4e3df;
-  --accent: #2f5bd3; --warn-bg: #fff6e0; --warn: #8a5a00; --ok: #1f7a46; --bad: #b42318; --code: #f2f1ee;
+  --accent: #2f5bd3; --on-accent: #ffffff; --warn-bg: #fff6e0; --warn: #8a5a00; --ok: #1f7a46; --bad: #b42318; --code: #f2f1ee;
 }
 @media (prefers-color-scheme: dark) {
   :root {
     --bg: #161615; --panel: #1f1f1d; --text: #ecebe7; --muted: #a3a29c; --line: #34332f;
-    --accent: #8aa8ff; --warn-bg: #3a2d10; --warn: #f2c46b; --ok: #6fcf97; --bad: #ff8a80; --code: #2a2a27;
+    --accent: #8aa8ff; --on-accent: #10204d; --warn-bg: #3a2d10; --warn: #f2c46b; --ok: #6fcf97; --bad: #ff8a80; --code: #2a2a27;
   }
 }
 * { box-sizing: border-box; }
+[hidden] { display: none !important; }
 body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.55 system-ui, -apple-system, "Segoe UI", sans-serif; }
 main { max-width: 980px; margin: 0 auto; padding: 24px 16px 80px; }
 header h1 { font-size: 1.7rem; margin: 0 0 6px; line-height: 1.25; }
@@ -24,7 +25,7 @@ nav { margin: 18px 0 8px; display: flex; flex-wrap: wrap; gap: 6px; }
 nav a { font-size: .85rem; padding: 3px 9px; border: 1px solid var(--line); border-radius: 999px; color: var(--text); text-decoration: none; background: var(--panel); }
 nav a.todo { border-style: dashed; color: var(--muted); }
 section { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 16px 18px; margin: 14px 0; scroll-margin-top: 12px; }
-section > h2 { font-size: 1.15rem; margin: 0 0 10px; }
+section > h2 { font-size: 1.15rem; margin: 0 0 10px; display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
 h3 { font-size: .95rem; margin: 14px 0 6px; }
 h3:first-child { margin-top: 0; }
 a { color: var(--accent); }
@@ -61,9 +62,31 @@ th { color: var(--muted); font-weight: 600; font-size: .8rem; text-transform: up
 .bar { height: 6px; background: var(--line); border-radius: 3px; overflow: hidden; margin-top: 6px; }
 .bar i { display: block; height: 100%; background: var(--ok); }
 .diagram { overflow-x: auto; }
+ol.tests { margin: 2px 0; padding-left: 20px; font-size: .88rem; }
 footer { color: var(--muted); font-size: .8rem; margin-top: 24px; }
+button { font: inherit; font-size: .9rem; padding: 6px 12px; border-radius: 6px; border: 1px solid var(--line); background: var(--panel); color: var(--text); cursor: pointer; }
+button.primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); font-weight: 600; }
+button:disabled { opacity: .5; cursor: default; }
+button.link { border: 0; background: none; color: var(--accent); padding: 0 2px; font-size: .85rem; font-weight: 400; }
+input[type=text], textarea { display: block; width: 100%; font: inherit; font-size: .92rem; color: var(--text); background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; margin-top: 6px; }
+textarea { resize: vertical; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.q { border-top: 1px solid var(--line); padding-top: 12px; margin-top: 12px; }
+.q:first-of-type { border-top: 0; margin-top: 0; padding-top: 0; }
+.choices { display: grid; gap: 6px; margin: 8px 0 0; }
+.choice { display: flex; gap: 8px; align-items: baseline; border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; cursor: pointer; }
+.choice.rec { border-color: var(--accent); }
+label.option { display: block; cursor: pointer; }
+.choice:has(input:checked), label.option:has(input:checked) { border-color: var(--ok); box-shadow: 0 0 0 1px var(--ok); }
+.sent { color: var(--ok); font-size: .85rem; }
+.sendbar { position: sticky; bottom: 8px; z-index: 1; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; background: var(--panel); border: 1px solid var(--accent); border-radius: 10px; padding: 10px 12px; margin-top: 14px; box-shadow: 0 4px 18px rgba(0, 0, 0, .15); }
+.sendbar input { flex: 1 1 220px; margin: 0; }
+.sendbar .count { font-size: .9rem; }
+.status { flex-basis: 100%; font-size: .85rem; color: var(--muted); }
+.status:empty { display: none; }
+.status.bad { color: var(--bad); }
 @media (max-width: 560px) { .pc { grid-template-columns: 1fr; } }
-@media print { nav, footer { display: none; } section { break-inside: avoid; } }
+@media print { nav, footer, .sendbar, button { display: none; } section { break-inside: avoid; } }
 </style>
 </head>
 <body>
@@ -72,6 +95,14 @@ footer { color: var(--muted); font-size: .8rem; margin-top: 24px; }
 'use strict';
 const app = document.getElementById('app');
 let last = '';
+let plan = null;
+let pending = null;
+
+// Served by scripts/serve.js, the page can send answers and comments to
+// Claude. Opened as a file it is read-only.
+const KEY = new URLSearchParams(location.search).get('key');
+const LIVE = /^https?:$/.test(location.protocol) && !!KEY;
+const asking = p => LIVE && (p.meta || {}).status === 'draft';
 
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 // Plain text with `code` spans and line breaks; everything else stays escaped.
@@ -92,10 +123,91 @@ const table = (rows, cols) => {
 };
 // An empty dependency list is an answer ("none"); elsewhere empty means unwritten.
 const present = (p, id) => id === 'dependencies' ? Array.isArray(p[id]) || isNa(p[id]) : has(p[id]);
+// The failing tests a step starts from, in order.
+const stepTests = t => isNa(t) ? `<br><span class="muted">No test first: ${txt(t.na)}</span>`
+  : Array.isArray(t) && t.length ? `<br><b>Tests first</b><ol class="tests">${t.map(x => `<li>${txt(x.test)}${x.kind ? ` <span class="muted">· ${esc(x.kind)}</span>` : ''}</li>`).join('')}</ol>`
+  : '<br><span class="empty">No tests listed</span>';
 const pert = e => (e.low + 4 * e.likely + e.high) / 6;
 const hours = h => h >= 10 ? Math.round(h) + ' h' : (Math.round(h * 10) / 10) + ' h';
 
+// ---- what the user is writing --------------------------------------------
+
+// Kept in this browser until sent, so a reload or a plan.js refresh never
+// loses it. `sent` remembers what went out, to show it and not send it twice.
+let draft = { answers: {}, comments: {}, message: '', sent: {} };
+let status = { text: '', bad: false };
+const opened = new Set();
+const storeKey = () => 'naqsha:' + ((plan && plan.meta && plan.meta.slug) || location.pathname);
+function loadDraft() {
+  try {
+    const d = JSON.parse(localStorage.getItem(storeKey()) || 'null');
+    if (d) draft = { answers: d.answers || {}, comments: d.comments || {}, message: d.message || '', sent: d.sent || {} };
+  } catch { /* storage blocked: the draft lives in memory only */ }
+}
+function saveDraft() {
+  try { localStorage.setItem(storeKey(), JSON.stringify(draft)); } catch { /* same */ }
+}
+
+const openItems = p => [
+  ...(Array.isArray(p.questions) ? p.questions.filter(q => q.status !== 'answered') : []),
+  ...(Array.isArray(p.decisions) ? p.decisions.filter(d => d.status !== 'decided') : []),
+];
+const answered = a => !!a && (a.choice.length > 0 || a.text.trim() !== '');
+const unsent = (id, a) => answered(a) && draft.sent[id] !== JSON.stringify(a);
+const answerText = a => !a ? '' : typeof a === 'string' ? a
+  : [(a.choice || []).join(', '), a.text, a.note && `(${a.note})`].filter(Boolean).join(' · ');
+
+const choice = (id, value, multiple, rec) => `<label class="choice${rec ? ' rec' : ''}">
+    <input type="${multiple ? 'checkbox' : 'radio'}" name="ans-${esc(id)}" data-id="${esc(id)}" data-f="choice" value="${esc(value)}">
+    <span>${txt(value)}${rec ? ' <span class="badge s-building">recommended</span>' : ''}</span></label>`;
+const ownAnswer = (id, label) => `<input type="text" data-id="${esc(id)}" data-f="text" placeholder="${label}" aria-label="${esc(id)}: ${label}">`;
+const noteBox = id => `<textarea data-id="${esc(id)}" data-f="note" rows="2" placeholder="Notes for Claude (optional)" aria-label="${esc(id)}: notes"></textarea>`;
+const sentLine = id => draft.sent[id] ? `<p class="sent" data-sent="${esc(id)}"></p>` : '';
+
+function question(q, ask) {
+  const opts = Array.isArray(q.options) ? q.options : [];
+  let body = '';
+  if (q.status === 'answered') {
+    body = `<p><b>Answer:</b> ${txt(answerText(q.answer))}</p>`;
+  } else if (ask && opts.length) {
+    body = `<div class="choices">${opts.map(o => choice(q.id, o, q.multiple, o === q.recommendation)).join('')}</div>
+      ${ownAnswer(q.id, 'Something else')}${noteBox(q.id)}${sentLine(q.id)}`;
+  } else if (ask) {
+    body = `<textarea data-id="${esc(q.id)}" data-f="text" rows="3" placeholder="Your answer" aria-label="${esc(q.id)}: your answer"></textarea>${sentLine(q.id)}`;
+  } else if (opts.length) {
+    body = list(opts, o => txt(o) + (o === q.recommendation ? ' <span class="muted">(recommended)</span>' : ''));
+  }
+  return `<div class="q" id="${esc(q.id)}">
+      <h3>${esc(q.id)} · ${txt(q.question)} ${badge(q.status || 'open')}</h3>
+      ${q.why ? `<p class="muted">${txt(q.why)}</p>` : ''}${body}</div>`;
+}
+
+function decision(d, ask) {
+  const pick = ask && d.status !== 'decided';
+  const card = o => {
+    const rec = o.name === d.recommendation;
+    const inner = `<h4>${pick ? `<input type="radio" name="ans-${esc(d.id)}" data-id="${esc(d.id)}" data-f="choice" value="${esc(o.name)}"> ` : ''}${txt(o.name)}${
+      o.name === d.choice ? ' ✓ chosen' : rec ? ' · recommended' : ''}</h4>
+      <div class="pc"><div><b>Pros</b>${list(o.pros)}</div><div><b>Cons</b>${list(o.cons)}</div></div>`;
+    const cls = `option${rec ? ' rec' : ''}${o.name === d.choice ? ' chosen' : ''}`;
+    return pick ? `<label class="${cls}">${inner}</label>` : `<div class="${cls}">${inner}</div>`;
+  };
+  return `<div class="decision" id="${esc(d.id)}">
+      <h3>${esc(d.id)} · ${txt(d.question)} ${badge(d.status)}</h3>
+      <div class="options">${(d.options || []).map(card).join('')}</div>
+      ${d.why ? `<p><b>Why the recommendation:</b> ${txt(d.why)}</p>` : ''}
+      ${(d.drivers || []).length ? `<p><b>Serves:</b> ${d.drivers.map(id => `<code>${esc(id)}</code>`).join(' ')}</p>` : ''}
+      ${d.consequences ? `<p><b>Consequences:</b> ${txt(d.consequences)}</p>` : ''}
+      ${d.confirmation ? `<p><b>How we'll know it was right:</b> ${txt(d.confirmation)}</p>` : ''}
+      ${pick ? ownAnswer(d.id, 'Something else (instead of the options above)') + noteBox(d.id) + sentLine(d.id) : ''}
+      ${d.status === 'decided' ? `<p><b>Decided:</b> ${txt(d.choice)} <span class="muted">(${esc(d.decidedBy)})</span>${d.note ? ` · ${txt(d.note)}` : ''}</p>` : ''}
+    </div>`;
+}
+
+// ---- sections ------------------------------------------------------------
+
 const SECTIONS = [
+  ['questions', 'Questions for you', (p, ask) => p.questions.map(q => question(q, ask)).join('')],
   ['summary', 'Summary', p => {
     const s = p.summary;
     if (isNa(s)) return na(s);
@@ -107,7 +219,13 @@ const SECTIONS = [
     const r = p.requirements;
     if (isNa(r)) return na(r);
     return `<h3>Functional</h3>${table(r.functional, [['ID', x => esc(x.id)], ['Requirement', x => txt(x.text)], ['Source', x => esc(x.source)]])}
-      <h3>Non-functional</h3>${table(r.nonFunctional, [['ID', x => esc(x.id)], ['Requirement', x => txt(x.text)], ['Target', x => txt(x.target)]])}
+      <h3>Quality scenarios</h3>${table(r.nonFunctional, [
+        ['ID', x => esc(x.id)],
+        ['Scenario', x => txt(x.text) + (x.characteristic ? `<br><span class="muted">${esc(x.characteristic)}</span>` : '')],
+        ['Measure', x => txt(x.measure || x.target)],
+        ['Priority', x => esc(x.priority)],
+        ['Source', x => x.source ? esc(x.source) : '<span class="empty">none</span>'],
+        ['Checked by', x => esc((x.verifiedBy || []).join(', ')) || '<span class="empty">nothing</span>']])}
       <h3>Constraints</h3>${list(r.constraints)}`;
   }],
   ['context', 'Existing codebase', p => {
@@ -116,6 +234,7 @@ const SECTIONS = [
     return `<h3>Stack</h3>${list(c.stack)}
       <h3>Conventions to follow</h3>${list(c.conventions, x => txt(x.text) + ref(x.ref))}
       <h3>Reused, not rebuilt</h3>${list(c.reuse, x => txt(x.what) + ref(x.ref))}
+      <h3>Architecture as it is</h3>${list(c.architecture, x => txt(x.text) + ref(x.ref))}
       <h3>Files this touches</h3>${table(c.touches, [['Path', x => `<code>${esc(x.path)}</code>`], ['Why', x => txt(x.why)]])}`;
   }],
   ['priorArt', 'Prior art', p => isNa(p.priorArt) ? na(p.priorArt) : !has(p.priorArt) ? empty : p.priorArt.map(a => `
@@ -128,23 +247,23 @@ const SECTIONS = [
   ['research', 'Research', p => isNa(p.research) ? na(p.research) : !has(p.research) ? empty : p.research.map(r => `
       <h3>${txt(r.topic)}</h3><p>${txt(r.finding)}</p>
       ${list(r.sources, s => (url(s.url) ? `<a href="${url(s.url)}" target="_blank" rel="noopener noreferrer">${txt(s.title || s.url)}</a>` : txt(s.title)) + (s.accessed ? ` <span class="muted">(${esc(s.accessed)})</span>` : ''))}`).join('')],
-  ['decisions', 'Decisions', p => isNa(p.decisions) ? na(p.decisions) : !has(p.decisions) ? empty : p.decisions.map(d => `
-      <div class="decision" id="${esc(d.id)}">
-        <h3>${esc(d.id)} · ${txt(d.question)} ${badge(d.status)}</h3>
-        <div class="options">${(d.options || []).map(o => `
-          <div class="option${o.name === d.recommendation ? ' rec' : ''}${o.name === d.choice ? ' chosen' : ''}">
-            <h4>${txt(o.name)}${o.name === d.choice ? ' ✓ chosen' : o.name === d.recommendation ? ' · recommended' : ''}</h4>
-            <div class="pc"><div><b>Pros</b>${list(o.pros)}</div><div><b>Cons</b>${list(o.cons)}</div></div>
-          </div>`).join('')}</div>
-        ${d.why ? `<p><b>Why the recommendation:</b> ${txt(d.why)}</p>` : ''}
-        ${d.status === 'decided' ? `<p><b>Decided:</b> ${txt(d.choice)} <span class="muted">(${esc(d.decidedBy)})</span>${d.note ? ` · ${txt(d.note)}` : ''}</p>` : ''}
-      </div>`).join('')],
+  ['decisions', 'Decisions', (p, ask) => isNa(p.decisions) ? na(p.decisions) : !has(p.decisions) ? empty : p.decisions.map(d => decision(d, ask)).join('')],
   ['architecture', 'Architecture', p => {
     const a = p.architecture;
     if (isNa(a)) return na(a);
     return `${a.overview ? `<p>${txt(a.overview)}</p>` : empty}
+      ${a.style ? `<p><b>Style:</b> ${a.style.existing ? `${txt(a.style.existing)} <span class="muted">(already there)</span>` : `decided in <a href="#${esc(a.style.decision)}">${esc(a.style.decision)}</a>`}</p>` : ''}
+      ${has(a.estimates) ? `<h3>Estimates</h3>${table(a.estimates, [['What', x => txt(x.what)], ['Value', x => txt(x.value)], ['Arithmetic', x => txt(x.math)]])}` : ''}
+      ${has(a.hotPaths) ? `<h3>Hot paths</h3>${table(a.hotPaths, [['Flow', x => txt(x.flow)], ['Size', x => txt(x.size)], ['Budget', x => txt(x.budget)], ['Approach', x => txt(x.approach)], ['Proved by', x => esc(x.provedBy)]])}` : ''}
+      ${(Array.isArray(a.diagrams) ? a.diagrams : []).map(g => `<h3>${txt(g.title || g.view)}${g.view ? ` <span class="muted">· ${esc(g.view)} view</span>` : ''}</h3>
+        <div class="diagram" data-mermaid="${esc(g.mermaid)}"><pre>${esc(g.mermaid)}</pre></div>`).join('')}
       ${a.diagram ? `<div class="diagram" data-mermaid="${esc(a.diagram)}"><pre>${esc(a.diagram)}</pre></div>` : ''}
-      <h3>Components</h3>${table(a.components, [['Component', x => txt(x.name) + (x.new ? ' <span class="badge s-doing">new</span>' : '')], ['Responsibility', x => txt(x.responsibility)]])}
+      <h3>Modules</h3>${table(a.components, [
+        ['Module', x => txt(x.name) + (x.new ? ' <span class="badge s-doing">new</span>' : '') + (x.location ? `<br><code>${esc(x.location)}</code>` : '')],
+        ['Responsibility', x => txt(x.responsibility)],
+        ['Interface', x => txt(x.interface)],
+        ['Hides', x => txt(x.hides)],
+        ['Uses', x => esc((x.uses || []).join(', '))]])}
       <h3>Data model</h3>${table(a.dataModel, [['Entity', x => `<code>${esc(x.entity)}</code>`], ['Fields', x => txt(x.fields)], ['Notes', x => txt(x.notes)]])}
       <h3>Interfaces</h3>${table(a.interfaces, [['Name', x => `<code>${esc(x.name)}</code>`], ['Contract', x => txt(x.contract)], ['Notes', x => txt(x.notes)]])}`;
   }],
@@ -152,24 +271,33 @@ const SECTIONS = [
     const s = p.security;
     if (isNa(s)) return na(s);
     return `<h3>What we protect</h3>${list(s.assets)}<h3>Trust boundaries</h3>${list(s.boundaries)}
-      <h3>Threats and mitigations</h3>${table(s.threats, [['ID', x => esc(x.id)], ['Threat', x => txt(x.threat) + `<br><span class="muted">${esc(x.category)}</span>`], ['Mitigation', x => txt(x.mitigation) + (x.ref ? `<br><span class="muted">${txt(x.ref)}</span>` : '')], ['Step', x => esc(x.step)]])}`;
+      <h3>Threats and mitigations</h3>${table(s.threats, [['ID', x => esc(x.id)], ['Threat', x => txt(x.threat) + `<br><span class="muted">${esc(x.category)}</span>`], ['Mitigation', x => txt(x.mitigation) + (x.ref ? `<br><span class="muted">${txt(x.ref)}</span>` : '')], ['Built in', x => x.acceptedBy === 'user'
+        ? `<span class="badge s-blocked">risk accepted by you</span><br>${txt(x.acceptedReason)}` : esc(x.step)]])}`;
   }],
   ['quality', 'Reliability and quality', p => {
     const q = p.quality;
     if (isNa(q)) return na(q);
-    const names = { errors: 'Error handling', observability: 'Observability', performance: 'Performance', accessibility: 'Accessibility', migration: 'Data migration and rollback' };
-    return Object.entries(names).map(([k, n]) => `<h3>${n}</h3>${list(q[k])}`).join('');
+    const names = { errors: 'Error handling', observability: 'Observability', performance: 'Performance', operations: 'Deploy and operations', cost: 'Cost', accessibility: 'Accessibility', migration: 'Data migration and rollback' };
+    return `<h3>Failure modes</h3>${table(q.failureModes, [['Dependency', x => txt(x.dependency)], ['Failure', x => txt(x.failure)], ['What users see', x => txt(x.effect)], ['Handling', x => txt(x.handling)]])}
+      <h3>Service level objectives</h3>${table(q.slos, [['Indicator', x => txt(x.sli)], ['Target', x => txt(x.target)], ['From', x => esc(x.from)]])}
+      ${Object.entries(names).map(([k, n]) => `<h3>${n}</h3>${list(q[k])}`).join('')}`;
   }],
   ['dependencies', 'New dependencies', p => isNa(p.dependencies) ? na(p.dependencies) : Array.isArray(p.dependencies) && !p.dependencies.length ? '<p class="na">None. Everything uses what the project already has.</p>' :
     table(p.dependencies, [['Package', x => `<code>${esc(x.name)}@${esc(x.version)}</code>`], ['Why', x => txt(x.why) + (x.insteadOf ? `<br><span class="muted">instead of ${txt(x.insteadOf)}</span>` : '')], ['License', x => esc(x.license)], ['Health', x => txt(x.health)]])],
   ['testing', 'Testing', p => {
     const t = p.testing;
     if (isNa(t)) return na(t);
-    return `<h3>Strategy</h3>${list(t.strategy)}<h3>Acceptance criteria</h3>${table(t.acceptance, [['ID', x => esc(x.id)], ['Criterion', x => txt(x.text)]])}`;
+    return `<h3>Strategy</h3>${list(t.strategy)}
+      <h3>Where tests go</h3>${table(t.seams, [['Seam', x => txt(x.seam)], ['Catches', x => txt(x.catches)], ['Misses', x => txt(x.misses)]])}
+      <h3>Acceptance criteria</h3>${table(t.acceptance, [['ID', x => esc(x.id)], ['Criterion', x => txt(x.text)]])}
+      <h3>Running it like a user</h3>${isNa(t.runIt) ? na(t.runIt) : t.runIt ? table([t.runIt].flatMap(r =>
+        [['Test data', r.data], ['Start', r.start], ['Ready when', r.ready], ['Driven by', r.drive], ['Stop', r.stop], ['Notes', r.notes]]
+          .filter(([, v]) => v).map(([k, v]) => ({ k, v }))), [['', x => esc(x.k)], ['', x => /^(Driven by|Notes)$/.test(x.k) ? txt(x.v) : `<code>${esc(x.v)}</code>`]]) : empty}
+      <h3>Security checks the build runs</h3>${table(t.securityChecks, [['Check', x => txt(x.check)], ['Command', x => `<code>${esc(x.command)}</code>`], ['When', x => txt(x.when)]])}`;
   }],
   ['steps', 'Implementation steps', p => !has(p.steps) || isNa(p.steps) ? empty : table(p.steps, [
     ['ID', x => esc(x.id)],
-    ['Step', x => `<b>${txt(x.title)}</b>${x.detail ? `<br>${txt(x.detail)}` : ''}${(x.files || []).length ? `<br>${x.files.map(f => `<code>${esc(f)}</code>`).join(' ')}` : ''}${x.notes ? `<br><span class="muted">${txt(x.notes)}</span>` : ''}`],
+    ['Step', x => `<b>${txt(x.title)}</b>${x.detail ? `<br>${txt(x.detail)}` : ''}${(x.files || []).length ? `<br>${x.files.map(f => `<code>${esc(f)}</code>`).join(' ')}` : ''}${stepTests(x.tests)}${x.notes ? `<br><span class="muted">${txt(x.notes)}</span>` : ''}`],
     ['Done when', x => txt(x.doneWhen) || '<span class="empty">missing</span>'],
     ['Hours', x => x.estimate ? `${esc(x.estimate.low)}–${esc(x.estimate.high)}<br><span class="muted">likely ${esc(x.estimate.likely)}</span>` : '<span class="empty">missing</span>'],
     ['Status', x => badge(x.status) + ((x.dependsOn || []).length ? `<br><span class="muted">after ${esc(x.dependsOn.join(', '))}</span>` : '')],
@@ -181,12 +309,21 @@ const SECTIONS = [
 
 function render(p) {
   const m = p.meta || {};
+  const ask = asking(p);
   document.title = (m.title || 'Plan') + ' · plan';
-  const open = Array.isArray(p.decisions) ? p.decisions.filter(d => d.status !== 'decided') : [];
+  const open = openItems(p);
+  // Claude writes plan.js, so a risk marked as accepted is shown to the user
+  // up front, to confirm it really was their call.
+  const accepted = p.security && !isNa(p.security) && Array.isArray(p.security.threats)
+    ? p.security.threats.filter(t => t.acceptedBy === 'user') : [];
+  const sections = SECTIONS.filter(([id]) => id !== 'questions' || has(p.questions));
   const steps = Array.isArray(p.steps) ? p.steps : [];
   const est = steps.filter(s => s.estimate && [s.estimate.low, s.estimate.likely, s.estimate.high].every(n => typeof n === 'number'));
   const sum = k => est.reduce((t, s) => t + s.estimate[k], 0);
   const done = steps.filter(s => s.status === 'done').length;
+  const comment = id => ask ? `<button type="button" class="link" data-toggle="${id}">Comment</button>` : '';
+  const commentBox = id => ask ? `<textarea data-comment="${id}" rows="3" placeholder="Your comment on this section" aria-label="Comment on this section"${
+    opened.has(id) || (draft.comments[id] || '').trim() ? '' : ' hidden'}></textarea>` : '';
 
   app.innerHTML = `
     <header>
@@ -199,8 +336,16 @@ function render(p) {
         ${m.research && m.research !== 'full' ? `<span class="s-blocked">Research ${txt(m.research)}</span>` : ''}
       </div>
     </header>
-    ${open.length ? `<section class="waiting"><h2>Waiting on you</h2><p>These decisions need your answer before the plan can be approved:</p>
-      ${list(open, d => `<a href="#${esc(d.id)}">${esc(d.id)}</a> · ${txt(d.question)}`)}</section>` : ''}
+    ${open.length ? `<section class="waiting"><h2>Waiting on you</h2>
+      <p>${ask ? 'Answer these below, then press <b>Send to Claude</b>. Notes are optional. You can also answer in the terminal.'
+        : m.status === 'draft' ? 'Answer these in the terminal, or ask Claude for the live page link to answer here.' : 'These are still open:'}</p>
+      ${list(open, d => `<a href="#${esc(d.id)}">${esc(d.id)}</a> · ${txt(d.question)}`)}
+      ${ask && open.some(d => d.recommendation) ? '<button type="button" data-action="recommend">Use the recommendation wherever I haven’t answered</button>' : ''}</section>`
+    : ask ? `<section><h2>Ready for your review</h2><p>Read the plan. To change anything, comment on a section and send it to Claude.
+      When you're happy, type <code>/naqsha:approve</code> in Claude Code. Approval is only that command.</p></section>` : ''}
+    ${accepted.length && m.status === 'draft' ? `<section class="waiting"><h2>Risks marked as accepted by you</h2>
+      <p>These threats will not be mitigated. Approving the plan accepts them. If one wasn't your decision, say so before you approve.</p>
+      ${list(accepted, t => `<a href="#security">${esc(t.id)}</a> · ${txt(t.threat)}<br><span class="muted">Your reason: ${txt(t.acceptedReason)}</span>`)}</section>` : ''}
     <section>
       <h2>Estimate</h2>
       <div class="stats">
@@ -210,10 +355,143 @@ function render(p) {
       </div>
       <p class="muted">Human developer hours: ${txt(m.developer || 'developer profile not set')}. Expected = (low + 4 × likely + high) / 6 per step.</p>
     </section>
-    <nav>${SECTIONS.map(([id, title]) => `<a href="#${id}"${present(p, id) ? '' : ' class="todo"'}>${title}</a>`).join('')}</nav>
-    ${SECTIONS.map(([id, title, f]) => `<section id="${id}"><h2>${title}</h2>${present(p, id) ? f(p) : empty}</section>`).join('')}
+    <nav>${sections.map(([id, title]) => `<a href="#${id}"${present(p, id) ? '' : ' class="todo"'}>${title}</a>`).join('')}</nav>
+    ${sections.map(([id, title, f]) => `<section id="${id}"><h2><span>${title}</span>${comment(id)}</h2>${commentBox(id)}${present(p, id) ? f(p, ask) : empty}</section>`).join('')}
+    ${ask ? `<div class="sendbar" role="region" aria-label="Send to Claude">
+      <span class="count" id="count"></span>
+      <input type="text" id="message" placeholder="Message to Claude (optional)" aria-label="Message to Claude">
+      <button type="button" class="primary" data-action="send">Send to Claude</button>
+      <span class="status${status.bad ? ' bad' : ''}" id="status" role="status">${esc(status.text)}</span>
+    </div>` : ''}
     <footer>Rendered from plan.js · refreshes when the file changes</footer>`;
+  restore();
   drawDiagrams();
+}
+
+// Puts the draft back into the freshly rendered inputs.
+function restore() {
+  for (const el of app.querySelectorAll('[data-id]')) {
+    const a = draft.answers[el.dataset.id];
+    if (el.dataset.f === 'choice') el.checked = !!a && a.choice.includes(el.value);
+    else el.value = (a && a[el.dataset.f]) || '';
+  }
+  for (const el of app.querySelectorAll('[data-comment]')) el.value = draft.comments[el.dataset.comment] || '';
+  for (const el of app.querySelectorAll('[data-sent]')) {
+    let a = null;
+    try { a = JSON.parse(draft.sent[el.dataset.sent]); } catch { /* nothing sent */ }
+    el.textContent = a ? `Sent: ${answerText(a)}. Waiting for Claude to record it.` : '';
+  }
+  const msg = document.getElementById('message');
+  if (msg) msg.value = draft.message;
+  updateBar();
+}
+
+function updateBar() {
+  const count = document.getElementById('count');
+  if (!count || !plan) return;
+  const open = openItems(plan);
+  const done = open.filter(d => answered(draft.answers[d.id])).length;
+  const comments = Object.values(draft.comments).filter(t => t.trim()).length;
+  count.textContent = [open.length ? `${done} of ${open.length} answered` : '', comments ? `${comments} comment${comments > 1 ? 's' : ''}` : '']
+    .filter(Boolean).join(' · ') || 'Nothing to send yet';
+  app.querySelector('[data-action="send"]').disabled = toSend().nothing;
+}
+
+function toSend() {
+  const ids = new Set(openItems(plan).map(d => d.id));
+  const answers = Object.entries(draft.answers).filter(([id, a]) => ids.has(id) && unsent(id, a)).map(([id, a]) => ({ id, ...a }));
+  const comments = Object.entries(draft.comments).filter(([, t]) => t.trim()).map(([section, text]) => ({ section, text }));
+  const message = draft.message.trim();
+  return { answers, comments, message, nothing: !answers.length && !comments.length && !message };
+}
+
+function setStatus(text, bad = false) {
+  status = { text, bad };
+  const el = document.getElementById('status');
+  if (el) { el.textContent = text; el.className = 'status' + (bad ? ' bad' : ''); }
+}
+
+async function send() {
+  const out = toSend();
+  if (out.nothing) return;
+  setStatus('Sending…');
+  try {
+    const r = await fetch('submit?key=' + encodeURIComponent(KEY), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ answers: out.answers, comments: out.comments, message: out.message }),
+    });
+    if (!r.ok) throw new Error(await r.text());
+  } catch (e) {
+    setStatus(`Not sent: ${e.message === 'Failed to fetch' || e.name === 'TypeError' ? 'the page server isn’t running' : e.message}. ` +
+      'Everything you wrote is kept here. Ask Claude to restart the page, then send again.', true);
+    return;
+  }
+  for (const a of out.answers) draft.sent[a.id] = JSON.stringify({ choice: a.choice, text: a.text, note: a.note });
+  draft.comments = {};
+  draft.message = '';
+  opened.clear();
+  saveDraft();
+  setStatus(`Sent at ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}. Claude is updating the plan; this page follows along.`);
+  render(plan);
+}
+
+function useRecommendations() {
+  for (const d of openItems(plan)) {
+    if (d.recommendation && !answered(draft.answers[d.id])) {
+      draft.answers[d.id] = { choice: [d.recommendation], text: '', note: (draft.answers[d.id] || {}).note || '' };
+    }
+  }
+  saveDraft();
+  restore();
+}
+
+function onInput(e) {
+  const el = e.target;
+  if (el.dataset.comment) {
+    draft.comments[el.dataset.comment] = el.value;
+  } else if (el.dataset.id) {
+    const a = draft.answers[el.dataset.id] || (draft.answers[el.dataset.id] = { choice: [], text: '', note: '' });
+    if (el.dataset.f === 'choice') a.choice = [...app.querySelectorAll(`input[name="${CSS.escape(el.name)}"]:checked`)].map(i => i.value);
+    else a[el.dataset.f] = el.value;
+  } else if (el.id === 'message') {
+    draft.message = el.value;
+  } else return;
+  saveDraft();
+  updateBar();
+}
+
+app.addEventListener('input', onInput);
+app.addEventListener('change', onInput);
+app.addEventListener('click', e => {
+  const t = e.target.closest('button');
+  if (!t) return;
+  if (t.dataset.action === 'send') send();
+  else if (t.dataset.action === 'recommend') useRecommendations();
+  else if (t.dataset.toggle) {
+    const box = app.querySelector(`[data-comment="${CSS.escape(t.dataset.toggle)}"]`);
+    box.hidden = !box.hidden;
+    if (box.hidden) opened.delete(t.dataset.toggle); else { opened.add(t.dataset.toggle); box.focus(); }
+  }
+});
+// Never re-render under someone typing; catch up when they leave the field.
+app.addEventListener('focusout', () => setTimeout(() => { if (pending) show(pending); }, 0));
+
+function show(p) {
+  const a = document.activeElement;
+  if (a && app.contains(a) && (a.tagName === 'TEXTAREA' || (a.tagName === 'INPUT' && a.type === 'text'))) { pending = p; return; }
+  pending = null;
+  const first = !plan;
+  plan = p;
+  if (first) loadDraft();
+  // Forget drafts for questions Claude has recorded.
+  const ids = new Set(openItems(p).map(d => d.id));
+  for (const id of Object.keys(draft.answers)) if (!ids.has(id)) delete draft.answers[id];
+  for (const id of Object.keys(draft.sent)) if (!ids.has(id)) delete draft.sent[id];
+  saveDraft();
+  const y = scrollY;
+  render(p);
+  scrollTo(0, y);
 }
 
 let mermaid = null;
@@ -231,18 +509,22 @@ async function drawDiagrams() {
 }
 
 // file:// pages can't fetch(), but they can load a script, so poll by reloading plan.js.
+let reachable = true;
 function load() {
   const s = document.createElement('script');
-  s.src = 'plan.js?t=' + Date.now();
-  s.onload = s.onerror = () => {
+  s.src = 'plan.js?t=' + Date.now() + (KEY ? '&key=' + encodeURIComponent(KEY) : '');
+  s.onload = s.onerror = e => {
     s.remove();
+    if (LIVE && (e.type === 'error') === reachable) {
+      reachable = e.type !== 'error';
+      if (!reachable) setStatus('Can’t reach the page server. Keep writing; it’s saved here. Ask Claude to restart the page before you send.', true);
+      else if (status.bad) setStatus('');
+    }
     const p = window.NAQSHA;
     const now = p ? JSON.stringify(p) : '';
     if (now && now !== last) {
       last = now;
-      const y = scrollY;
-      render(p);
-      scrollTo(0, y);
+      show(p);
     }
   };
   document.head.appendChild(s);

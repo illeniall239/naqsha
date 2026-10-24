@@ -17,8 +17,19 @@ if a line would be equally true of any project, cut it.
    Tampering, Repudiation, Information disclosure, Denial of service, Elevation of privilege.
    Keep the ones that apply to this flow.
 5. **Mitigations**: concrete and checkable ("reset tokens are 32 random bytes, stored
-   SHA-256 hashed, single use, expire in 30 min"), linked to a step `S#`. Test the important
-   ones in `testing.acceptance`.
+   SHA-256 hashed, single use, expire in 30 min"), linked to the step `S#` that builds it.
+   Every mitigation gets a test that fails without it, in that step; the important ones
+   also go in `testing.acceptance`. Approval is refused while any threat lacks a
+   mitigation and an existing step.
+6. **Accepted risks**: a threat is left unmitigated only when the user accepts it,
+   explicitly, after you explained it. Record `acceptedBy: "user"` and their reason in
+   `acceptedReason`. Never record it on their behalf, and never for anything on the hard
+   floor in `${CLAUDE_PLUGIN_ROOT}/skills/build/references/secure-coding.md`.
+
+The threat model covers this design's flows. The code-level rules every line must follow
+(injection, access checks, secrets, crypto, files, limits and the rest) live in
+`secure-coding.md`, and the build enforces them whether or not a threat names them. Plan
+steps so those rules can be met: a validation module, one authorization module, and so on.
 
 Mitigation choices are research, held to the same standard as the rest of the plan:
 cite the OWASP cheat sheet, ASVS requirement, RFC or vendor security doc you followed.
