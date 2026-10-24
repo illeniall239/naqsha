@@ -120,6 +120,27 @@ review it. So every build step is proven two more ways:
   whatever is still disputed after three rounds comes to you. A separate fresh reviewer
   checks the whole change at the finish.
 
+## Crew mode
+
+At build start you choose how steps get built:
+
+- **Solo:** Claude builds every step in the session.
+- **Crew, one step at a time:** each step is built by a fresh worker agent in its own git
+  worktree, and the session coordinates: it reviews, lands and talks to you. Its context
+  stays small however long the plan is.
+- **Crew in parallel:** up to four steps at once, when they share no files and the tests
+  share no database or ports.
+
+The discipline comes from [firstmate](https://github.com/kunchenguid/firstmate). Only the
+coordinator talks to you and only it writes `plan.js`. Workers commit to their own branch
+as they go, so their commits are their checkpoints. Each step lands only after the
+independent review passes and the suite, security checks and a run of the app pass on the
+build branch. Unlanded work is never thrown away without your word.
+`scripts/crew.js` does the git mechanics: worktrees beside the repository, merge commits
+onto a build branch (never `main`), conflicts aborted cleanly with instructions, and
+`drop` refusing unlanded commits without `--force`. `plan-tool.js ready` picks the steps
+that can start, keeping steps that share a file apart.
+
 ## Keeping the context lean
 
 A long build degrades as its context fills, so naqsha spends context where it pays:
@@ -140,8 +161,19 @@ A long build degrades as its context fills, so naqsha spends context where it pa
   hold excerpts, not logs.
 - **Research in subagents.** Planning sends web research, prior art and large-codebase
   exploration to subagents that return condensed findings with sources.
-- **After a compaction**, the hook tells Claude exactly what to re-read and how to find its
-  place.
+- **No turn ends blind.** While a step is in progress, a Stop hook blocks a turn that did
+  work from ending without a fresh checkpoint. It blocks once and lets a turn with no work
+  (a question mid-build) end freely.
+- **Checkpoints across compactions and sessions.** Inside a step, Claude writes a checkpoint
+  at natural points (after each red and green, before long commands, before review, when
+  waiting for you): what it did, which test is red, the next action, files in progress,
+  open questions. After a compaction, resume or clear, the hook hands the step in progress
+  back with its checkpoint, so work picks up where it stopped instead of starting over.
+- **Project learnings.** `<plans>/LEARNINGS.md` is committed memory: verified facts the
+  project taught that the code doesn't show (a test that needs a setting, a library that
+  behaves unlike its docs), each with its evidence and date. It's read before planning and
+  building, added to the moment a fact is verified, and pruned at the finish. Unlike Claude
+  Code's own memory, it travels with the repository to your team and future plans.
 
 ## Answering on the page
 
@@ -258,7 +290,7 @@ Installs stay on the `version` in `.claude-plugin/plugin.json`. Bump it with eac
 
 Files: `skills/plan` (planning workflow, plus `references/` for the plan format,
 security method and estimating), `skills/build`, `skills/approve`, `scripts/hook.js`
-(the lock), `scripts/plan-tool.js` (one step's working set and safe plan updates), `scripts/serve.js` (the page server), `assets/plan.html` (the page; it
+(the lock), `scripts/plan-tool.js` (one step's working set and safe plan updates), `scripts/crew.js` (crew mode's worktrees and landing), `scripts/serve.js` (the page server), `assets/plan.html` (the page; it
 renders `plan.js`, reloads it every 3 s, and sends answers and comments when served).
 
 ## Credits

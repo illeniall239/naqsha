@@ -7,12 +7,18 @@
 //   plan-tool.js update-step <plan.js> <S#> < patch.json
 //       { "status": "done", "notesAppend": "..." }  (status: todo | doing | done | blocked)
 //   plan-tool.js set-meta <plan.js> < patch.json
-//       { "status": "building" | "done", "buildReview": "pause" | "run" }
+//       { "status": "building" | "done", "buildReview": "pause" | "run",
+//         "buildMode": "solo" | "crew", "crewParallel": 1-4 }
+//   plan-tool.js ready <plan.js>          crew mode: steps that can start now, and which can run together
+//   plan-tool.js checkpoint <plan.js> <S#> < checkpoint.json
+//       { "did": "...", "next": "...", "red": "...", "files": [...], "open": [...] }
+//       where you are inside a step, so a compaction or a new session picks up
+//       there. Cleared when the step is set done.
 'use strict';
 
 const fs = require('fs');
 const path = require('path');
-const { readPlan, writePlan } = require('./hook.js');
+const { readPlan, writePlan } = require('./plan-file.js');
 
 // Loaded for every step: security first, test-first, modular, the review
 // checklist, and the brief for the independent reviewer.
@@ -27,10 +33,12 @@ const BY_FILES = {
 };
 const KNOWN = new Set([...ALWAYS, 'performance', ...Object.keys(BY_FILES)]);
 const STEP_STATUS = new Set(['todo', 'doing', 'done', 'blocked']);
+const LEARNINGS = 'LEARNINGS.md';
 
 const list = x => (Array.isArray(x) ? x : []);
 const isNa = x => !!x && typeof x === 'object' && !Array.isArray(x) && typeof x.na === 'string';
 const one = x => String(x ?? '').replace(/\s+/g, ' ').trim();
+const minute = iso => one(iso).slice(0, 16).replace('T', ' ');
 
 function referencesFor(plan, step) {
   const why = new Map(ALWAYS.map(r => [r, 'always']));
@@ -55,7 +63,7 @@ function referencesFor(plan, step) {
 }
 
 // The step and only what it touches, as compact text.
-function stepView(plan, id) {
+function stepView(plan, id, planFile) {
   const steps = list(plan.steps);
   const step = steps.find(s => s.id === id);
   if (!step) throw new Error(`no step ${id}; steps are ${steps.map(s => s.id).join(', ') || 'none'}`);
@@ -65,6 +73,16 @@ function stepView(plan, id) {
   const done = steps.filter(s => s.status === 'done').length;
 
   out.push(`# ${one(m.title)} · ${step.id} of ${steps.length} (${done} done) · plan ${one(m.status)} · review: ${one(m.buildReview) || 'not set'}`, '');
+  const c = step.checkpoint;
+  if (c) {
+    section(`Where you left off (${minute(c.at)}); check the files before trusting this`, [
+      ...(c.did ? [`Did: ${one(c.did)}`] : []),
+      ...(c.red ? [`Red: ${one(c.red)}`] : []),
+      ...(c.next ? [`Next: ${one(c.next)}`] : []),
+      ...(list(c.files).length ? [`Files in progress: ${c.files.join(', ')}`] : []),
+      ...list(c.open).map(q => `Open: ${one(q)}`),
+    ]);
+  }
   section(`Step ${step.id}: ${one(step.title)} [${one(step.status) || 'todo'}]`, [
     ...(step.detail ? [one(step.detail)] : []),
     ...(list(step.files).length ? [`Files: ${step.files.join(', ')}`] : []),
@@ -114,6 +132,10 @@ function stepView(plan, id) {
   }
   section('References to read for this step (skip any already read in this context)',
     [...refs].map(([r, reason]) => `- ${r}.md: ${reason}`));
+  const learnings = planFile && path.join(path.dirname(path.dirname(planFile)), LEARNINGS);
+  if (learnings && fs.existsSync(learnings)) {
+    section('Project learnings', [`- ${learnings}: read once per conversation; add what this step teaches`]);
+  }
   return out.join('\n');
 }
 
@@ -123,8 +145,39 @@ function statusView(plan) {
   const next = steps.find(s => s.status !== 'done');
   return [
     `# ${one(m.title)} · plan ${one(m.status)} · ${steps.filter(s => s.status === 'done').length}/${steps.length} steps done`,
-    ...steps.map(s => `- ${s.id} [${one(s.status) || 'todo'}] ${one(s.title)}`),
+    ...steps.map(s => `- ${s.id} [${one(s.status) || 'todo'}] ${one(s.title)}${s.checkpoint ? ` (checkpoint ${minute(s.checkpoint.at)}: next ${one(s.checkpoint.next)})` : ''}`),
     next ? `Next: ${next.id}` : 'All steps done.',
+  ].join('\n');
+}
+
+// Steps whose dependencies are done, batched so that steps running at the
+// same time never touch the same file (a conflict a merge can't settle well).
+function readyView(plan) {
+  const steps = list(plan.steps);
+  const done = new Set(steps.filter(s => s.status === 'done').map(s => s.id));
+  const doing = steps.filter(s => s.status === 'doing');
+  const ready = steps.filter(s => (s.status || 'todo') === 'todo' && list(s.dependsOn).every(d => done.has(d)));
+  const limit = Number(plan.meta.crewParallel) || 1;
+  const busy = new Set(doing.flatMap(s => list(s.files)));
+  const batch = [];
+  const wait = [];
+  for (const s of ready) {
+    const shared = list(s.files).filter(f => busy.has(f));
+    if (batch.length + doing.length < limit && !shared.length) {
+      batch.push(s);
+      list(s.files).forEach(f => busy.add(f));
+    } else {
+      wait.push(`${s.id}${shared.length ? ` (shares ${shared.join(', ')})` : ' (parallel limit)'}`);
+    }
+  }
+  const blocked = steps.filter(s => (s.status || 'todo') === 'todo' && !ready.includes(s))
+    .map(s => `${s.id} (after ${list(s.dependsOn).filter(d => !done.has(d)).join(', ')})`);
+  return [
+    `# Crew: ${doing.length} in progress${doing.length ? ` (${doing.map(s => s.id).join(', ')})` : ''}, parallel limit ${limit}`,
+    `Start now: ${batch.map(s => s.id).join(', ') || 'nothing'}`,
+    ...(wait.length ? [`Ready but waiting: ${wait.join(', ')}`] : []),
+    ...(blocked.length ? [`Not ready: ${blocked.join(', ')}`] : []),
+    ...(!batch.length && !doing.length && !ready.length && !blocked.length ? ['All steps done.'] : []),
   ].join('\n');
 }
 
@@ -138,14 +191,31 @@ function updateStep(plan, id, patch) {
     step.status = patch.status;
   }
   if (typeof patch.notes === 'string') step.notes = patch.notes;
+  if (step.status === 'done') delete step.checkpoint;
   if (typeof patch.notesAppend === 'string' && patch.notesAppend.trim()) {
     step.notes = step.notes ? `${step.notes}\n${patch.notesAppend.trim()}` : patch.notesAppend.trim();
   }
 }
 
+// The latest checkpoint only: where you are now, not a history.
+function checkpoint(plan, id, patch) {
+  const step = list(plan.steps).find(s => s.id === id);
+  if (!step) throw new Error(`no step ${id}`);
+  if (step.status === 'done') throw new Error(`${id} is done; checkpoints are for the step in progress`);
+  const allowed = new Set(['did', 'next', 'red', 'files', 'open']);
+  for (const k of Object.keys(patch)) if (!allowed.has(k)) throw new Error(`a checkpoint has did, next, red, files and open, not "${k}"`);
+  if (!String(patch.next || '').trim()) throw new Error('a checkpoint needs "next": what you will do when you pick this up');
+  const text = v => typeof v === 'string' && v.length <= 2000;
+  if (![patch.did ?? '', patch.next, patch.red ?? ''].every(text)) throw new Error('did, next and red are short text');
+  for (const k of ['files', 'open']) {
+    if (patch[k] !== undefined && !(Array.isArray(patch[k]) && patch[k].length <= 50 && patch[k].every(text))) throw new Error(`${k} is a short list of text`);
+  }
+  step.checkpoint = { at: new Date().toISOString(), ...patch };
+}
+
 // Approval belongs to the user's /naqsha:approve; this never sets it.
 function setMeta(plan, patch) {
-  const rules = { status: ['building', 'done'], buildReview: ['pause', 'run'] };
+  const rules = { status: ['building', 'done'], buildReview: ['pause', 'run'], buildMode: ['solo', 'crew'], crewParallel: [1, 2, 3, 4] };
   for (const [k, v] of Object.entries(patch)) {
     if (!rules[k]) throw new Error(`can't set meta.${k} here`);
     if (!rules[k].includes(v)) throw new Error(`meta.${k} must be one of ${rules[k].join(', ')}`);
@@ -169,14 +239,16 @@ function readPatch() {
 
 function main(argv) {
   const [cmd, file, id] = argv;
-  if (!file || !['step', 'status', 'update-step', 'set-meta'].includes(cmd)) {
-    throw new Error('usage: plan-tool.js step|status|update-step|set-meta <plan.js> [S#]');
+  if (!file || !['step', 'status', 'ready', 'update-step', 'set-meta', 'checkpoint'].includes(cmd)) {
+    throw new Error('usage: plan-tool.js step|status|ready|update-step|set-meta|checkpoint <plan.js> [S#]');
   }
   const planFile = path.resolve(file);
   const plan = readPlan(planFile);
-  if (cmd === 'step') return console.log(stepView(plan, id));
+  if (cmd === 'step') return console.log(stepView(plan, id, planFile));
   if (cmd === 'status') return console.log(statusView(plan));
+  if (cmd === 'ready') return console.log(readyView(plan));
   if (cmd === 'update-step') updateStep(plan, id, readPatch());
+  else if (cmd === 'checkpoint') checkpoint(plan, id, readPatch());
   else setMeta(plan, readPatch());
   plan.meta.updated = new Date().toISOString().slice(0, 10);
   writePlan(planFile, plan);

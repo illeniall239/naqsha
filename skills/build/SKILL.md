@@ -23,6 +23,7 @@ what that means.
 - `code-quality.md`: the rest of what separates a strong engineer's code from slop, and the
   review you run on every step.
 - `independent-review.md`: the fresh reviewer that checks every step before it's done.
+- `crew.md`, only in crew mode: coordinating worker agents instead of building yourself.
 
 **When a step needs them** (the step's working set lists which, and why):
 
@@ -51,6 +52,26 @@ each step; it grows large. Use the plan tool (`T` below is
 - `T update-step <plan>/plan.js S3` with JSON on stdin, such as
   `{"status": "done", "notesAppend": "..."}`: status and notes without touching the rest.
 - `T set-meta <plan>/plan.js` with `{"status": "building"}` or `{"buildReview": "pause"}`.
+- `T checkpoint <plan>/plan.js S3` with JSON on stdin: `{"did": "...", "red": "...",
+  "next": "...", "files": [...], "open": [...]}`. Where you are inside the step.
+
+## Memory across compactions and sessions
+
+The context can be compacted, or the session can end, in the middle of a step. Two things
+carry the work across:
+
+- **Checkpoints.** Write one whenever losing the context would cost you your place: after
+  each red and each green in the test-first loop, before starting the app or a long command,
+  before handing the step to the reviewer, and when you stop to wait for the user. Say what
+  you just did, which test is red, the next concrete action, the files in progress, and any
+  open question. It's cleared when the step is set done. After a compaction or a resume,
+  the hook hands the step in progress back to you, checkpoint included: check the files it
+  names (the code is the truth), then carry on from `next`.
+- **Project learnings.** `<plans>/LEARNINGS.md` holds what this project taught that the code
+  doesn't show. Read it before the first step. Add a fact the moment you've verified it,
+  as `${CLAUDE_PLUGIN_ROOT}/skills/plan/references/learnings.md` describes: a test that
+  needs a setting, a library that behaves differently from its docs, a setup step nobody
+  wrote down.
 
 Open the full plan only for what the working set doesn't carry (say, the full text of a
 decision), and read just that part. Read
@@ -83,6 +104,18 @@ The build is long, and a full context makes every later step worse. So:
   - **Pause after each step (Recommended):** you show the step's summary and diff stat,
     and wait for their go-ahead.
   - **Run through:** keep going, and stop only for deviations or failures.
+- If `meta.buildMode` isn't set, ask how the steps should be built, and record it with
+  `T set-meta`:
+  - **Solo:** you build every step in this session. Fine for a short plan.
+  - **Crew, one step at a time:** a fresh worker agent builds each step in its own git
+    worktree; you coordinate, review and land. Your context stays small however long the
+    plan is. Steps land as merge commits on a build branch. Recommended for longer plans.
+  - **Crew in parallel:** the same, with up to `crewParallel` (2 to 4) steps at once when
+    they share no files. Only when the tests share no database, ports or files; it costs
+    more tokens at the same time.
+  In crew mode, read `${CLAUDE_SKILL_DIR}/references/crew.md` and follow its loop instead
+  of "Each step" below; workers follow "Each step" themselves.
+- Read `<plans>/LEARNINGS.md` if it exists.
 - If this is the first step, take the baseline in `run-like-a-user.md`: start the app as
   `testing.runIt` says and walk one existing flow, before changing anything. Report anything
   already broken as inherited.
@@ -182,6 +215,8 @@ When every step is done:
   describes, and fix whatever doesn't work.
 - Get the finish review in `independent-review.md`: a new reviewer, over the whole change,
   against the whole plan. Fix what blocks, as for a step.
+- Prune `<plans>/LEARNINGS.md`: correct or delete what no longer holds, and move anything
+  that belongs in the README or a config comment there.
 - Record the results in the last step's notes. Set `meta.status` to `done` with
   `T set-meta`, and add a changelog entry.
 

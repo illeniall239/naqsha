@@ -478,8 +478,68 @@ test('after a compaction, Claude is told what to reload', () => {
   p.cmd('approve');
   const building = p.run({ hook_event_name: 'SessionStart', source: 'compact' }).hookSpecificOutput.additionalContext;
   assert.match(building, /skills\/build\/SKILL\.md and its always-loaded references/);
-  assert.match(building, /plan-tool\.js status docs\/plans\/login\/plan\.js/);
   assert.ok(!building.includes('${'), 'paths are real, not unexpanded variables');
+  assert.doesNotMatch(building, /step in progress/, 'no step started yet');
+
+  // Mid-step, the step and its checkpoint come back without being asked for.
+  const file = path.join(p.root, 'docs', 'plans', 'login', 'plan.js');
+  const tool = (args, input) => execFileSync('node', [path.join(__dirname, '..', 'scripts', 'plan-tool.js'), ...args, file], { input, encoding: 'utf8' });
+  tool(['set-meta'], '{"status":"building"}');
+  execFileSync('node', [path.join(__dirname, '..', 'scripts', 'plan-tool.js'), 'update-step', file, 'S1'], { input: '{"status":"doing"}' });
+  execFileSync('node', [path.join(__dirname, '..', 'scripts', 'plan-tool.js'), 'checkpoint', file, 'S1'],
+    { input: JSON.stringify({ did: 'red test for unknown email', red: 'unknown email gets 202', next: 'make requestReset return 202' }) });
+  for (const source of ['compact', 'resume', 'clear']) {
+    const back = p.run({ hook_event_name: 'SessionStart', source }).hookSpecificOutput.additionalContext;
+    assert.match(back, /The step in progress:[\s\S]*Step S1: Do it \[doing\]/, source);
+    assert.match(back, /Where you left off[\s\S]*Red: unknown email gets 202[\s\S]*Next: make requestReset return 202/, source);
+  }
+  assert.doesNotMatch(p.run({ hook_event_name: 'SessionStart', source: 'startup' }).hookSpecificOutput.additionalContext, /step in progress/,
+    'a fresh session starts with /naqsha:build, which reads it then');
+
+  assert.doesNotMatch(p.run({ hook_event_name: 'SessionStart', source: 'compact' }).hookSpecificOutput.additionalContext, /crew mode/);
+  tool(['set-meta'], '{"buildMode":"crew"}');
+  const crew = p.run({ hook_event_name: 'SessionStart', source: 'compact' }).hookSpecificOutput.additionalContext;
+  assert.match(crew, /crew mode: you coordinate workers \(\/\S+\/skills\/build\/references\/crew\.md\)/);
+  assert.match(crew, /crew\.js list docs\/plans\/login\/plan\.js/);
+});
+
+test('no turn that worked on a step ends without a checkpoint', () => {
+  const p = project();
+  const stop = (extra = {}) => p.run({ hook_event_name: 'Stop', ...extra });
+  p.cmd('plan');
+  p.prompt();
+  p.bash('ls');
+  assert.equal(stop(), null, 'not while planning');
+
+  writePlan(p.root, 'login');
+  p.cmd('approve');
+  const file = path.join(p.root, 'docs', 'plans', 'login', 'plan.js');
+  const tool = (args, input) => execFileSync('node', [path.join(__dirname, '..', 'scripts', 'plan-tool.js'), args[0], file, ...args.slice(1)], { input, encoding: 'utf8' });
+  tool(['set-meta'], '{"status":"building"}');
+
+  p.prompt();
+  p.bash('npm test');
+  assert.equal(stop(), null, 'no step in progress');
+
+  tool(['update-step', 'S1'], '{"status":"doing"}');
+  p.prompt();
+  assert.equal(stop(), null, 'a turn that did no work, such as a question, may end');
+  p.bash('npm test');
+  const out = stop();
+  assert.equal(out.decision, 'block');
+  assert.match(out.reason, /S1 is in progress, and this turn did work without leaving a checkpoint/);
+  assert.match(out.reason, /plan-tool\.js checkpoint docs\/plans\/login\/plan\.js S1/);
+  assert.equal(stop({ stop_hook_active: true }), null, 'never blocks twice in a row');
+
+  tool(['checkpoint', 'S1'], '{"did":"red test","next":"make it pass"}');
+  assert.equal(stop(), null, 'a checkpoint from this turn lets it end');
+
+  p.prompt();
+  p.run({ hook_event_name: 'PreToolUse', tool_name: 'Edit', tool_input: { file_path: path.join(p.root, 'src', 'app.js') } });
+  assert.equal(stop().decision, 'block', "last turn's checkpoint isn't enough for this one");
+
+  tool(['update-step', 'S1'], '{"status":"done"}');
+  assert.equal(stop(), null, 'the step is done');
 });
 
 test('session start reminds Claude of the phase', () => {

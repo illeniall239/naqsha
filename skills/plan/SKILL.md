@@ -115,6 +115,10 @@ recommendation first and marked "(Recommended)", the trade-off in each option's 
 
 ## 2. Learn the ground before asking anything
 
+Start with `<plans>/LEARNINGS.md` if it exists: what earlier plans and builds learned the
+hard way about this project (`${CLAUDE_SKILL_DIR}/references/learnings.md`). Add to it when
+planning teaches you something verified that the code doesn't show.
+
 Existing codebase: read the README and CLAUDE.md, the package manifests and lockfiles, the
 directory layout, the code paths the feature touches, how the closest existing feature was
 built, the test setup, CI, and lint config. Record conventions and reusable pieces with

@@ -42,7 +42,8 @@ independent. Never skip it silently.
 You are reviewing one step of an approved plan. You review; you don't build. Don't edit
 any file. You may read anything and run read-only commands, tests and checks.
 
-Plan: [plan folder]/plan.js. Step: [S#]. Read the whole plan first: the step's text, its
+Plan: [plan folder]/plan.js. Step: [S#]. Project learnings, if any: [plans folder]/LEARNINGS.md.
+Read the whole plan first: the step's text, its
 tests, its doneWhen, the decisions, the architecture, the threats it owns, and the hot
 paths it touches.
 Change under review: [git diff command for the step's range].

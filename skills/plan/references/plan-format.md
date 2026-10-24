@@ -28,7 +28,9 @@ instead of content. A section left empty without `na` shows as unfinished.
     "approvedAt": null,             // set by the hook
     "developer": "1 developer, comfortable with TypeScript and Postgres, new to email delivery",
     "research": "full",             // "full" | "limited: <why, e.g. no web access>"
-    "buildReview": null              // "pause" (after each step) | "run"; asked at build start
+    "buildReview": null,             // "pause" (after each step) | "run"; asked at build start
+    "buildMode": null,               // "solo" | "crew"; asked at build start
+    "crewParallel": null             // crew mode: 1 to 4 steps at once
   },
 
   "questions": [{                    // what only the user can tell you; answered on the page or in chat
@@ -217,7 +219,9 @@ instead of content. A section left empty without `na` shows as unfinished.
     "estimate": { "low": 1, "likely": 2, "high": 4 },    // human developer hours, required
     "dependsOn": [],
     "status": "todo",               // todo | doing | done | blocked
-    "notes": ""                     // build evidence: commands run, results, commit
+    "notes": "",                    // build evidence: commands run, result lines, commit
+    "checkpoint": null              // set by plan-tool.js checkpoint while the step is in progress:
+                                    // { "at", "did", "red", "next", "files", "open" }; cleared when done
   }],
 
   "risks": [{ "risk": "...", "likelihood": "medium", "impact": "high", "mitigation": "..." }],

@@ -11,6 +11,7 @@ const os = require('os');
 const path = require('path');
 const crypto = require('crypto');
 const { execFileSync } = require('child_process');
+const { readPlan, tryReadPlan, writePlan } = require('./plan-file.js');
 
 const DEFAULT_PLANS_DIR = path.join('docs', 'plans');
 const CONFIG_FILE = path.join('.claude', 'naqsha.json');
@@ -40,6 +41,7 @@ function main(input) {
     case 'PreToolUse': return onPreTool(ctx);
     case 'PostToolUse': return onPostTool(ctx);
     case 'SessionStart': return onSessionStart(ctx);
+    case 'Stop': return onStop(ctx);
   }
 }
 
@@ -294,6 +296,11 @@ function onPrompt(ctx) {
     clearPreSnapshots(ctx);
     writeState(ctx, { ...ctx.state, baseline: snapshot(ctx.root, ctx.plansDir), blamed: {} });
   }
+  // While building, note when the turn began, so the Stop hook can tell
+  // whether this turn left a checkpoint.
+  if (ctx.state && ctx.state.phase === 'approved') {
+    writeState(ctx, { ...ctx.state, turnStartedAt: new Date().toISOString() });
+  }
 }
 
 // ---- Claude's tool calls -------------------------------------------------
@@ -308,6 +315,11 @@ function onPreTool(ctx) {
   }
   if (tool === 'Skill' && ti.skill === 'naqsha:approve') {
     return deny('Only the user can approve a plan, by typing /naqsha:approve.');
+  }
+  // While building, note the first piece of work in each turn (one write a turn).
+  if (ctx.state && ctx.state.phase === 'approved' && (tool === 'Bash' || FILE_TOOLS.has(tool)) &&
+      !(ctx.state.workedAt >= ctx.state.turnStartedAt)) {
+    writeState(ctx, { ...ctx.state, workedAt: new Date().toISOString() });
   }
   // Remember the project as it is right before the command, so afterwards
   // only what changed while it ran is put down to it.
@@ -440,11 +452,42 @@ function onSessionStart(ctx) {
     if (plan && plan.meta.status === 'done') return;
     let msg = `Naqsha: the approved plan ${s.plan} is being built. The user resumes it with /naqsha:build.`;
     if (compacted) {
-      msg += ` The context was just compacted: before going on, re-read ${root}/skills/build/SKILL.md and its always-loaded references, ` +
-        `then get the current step with: node ${root}/scripts/plan-tool.js status ${s.plan}/plan.js, and plan-tool.js step for that step.`;
+      msg += ` The context was just compacted: before going on, re-read ${root}/skills/build/SKILL.md and its always-loaded references.`;
+    }
+    // Losing the context mid-step is where work goes wrong, so hand back the
+    // step in progress, checkpoint included, instead of asking for it.
+    const current = plan && ['compact', 'resume', 'clear'].includes(ctx.input.source)
+      ? (plan.steps || []).find(st => st.status === 'doing') : null;
+    if (current) {
+      const { stepView } = require('./plan-tool.js');
+      msg += `\n\nThe step in progress:\n\n${stepView(plan, current.id, path.join(ctx.root, s.plan, 'plan.js'))}`;
+    }
+    if (plan && plan.meta.buildMode === 'crew' && ['compact', 'resume', 'clear'].includes(ctx.input.source)) {
+      msg += `\n\nThis build runs in crew mode: you coordinate workers (${root}/skills/build/references/crew.md). ` +
+        `See every worker's worktree with: node ${root}/scripts/crew.js list ${s.plan}/plan.js, and what can start with plan-tool.js ready.`;
     }
     return context('SessionStart', msg);
   }
+}
+
+// No turn ends blind: a turn that worked on a step and ends without a fresh
+// checkpoint leaves nothing to resume from if the context goes. Blocks once;
+// stop_hook_active means Claude is already answering this, so let it stop.
+function onStop(ctx) {
+  const s = ctx.state;
+  if (!s || s.phase !== 'approved' || ctx.input.stop_hook_active) return;
+  if (!s.turnStartedAt || !(s.workedAt >= s.turnStartedAt)) return;
+  const plan = tryReadPlan(path.join(ctx.root, s.plan, 'plan.js'));
+  if (!plan || plan.meta.status !== 'building') return;
+  const step = (plan.steps || []).find(st => st.status === 'doing');
+  if (!step) return;
+  const at = step.checkpoint ? Date.parse(step.checkpoint.at) : NaN;
+  if (at >= Date.parse(s.turnStartedAt)) return;
+  const tool = path.join(path.resolve(__dirname, '..'), 'scripts', 'plan-tool.js');
+  return block(`Naqsha: ${step.id} is in progress, and this turn did work without leaving a checkpoint. ` +
+    'If the context is compacted or the session ends now, nothing says where you are. Write one before you stop: ' +
+    `echo '{"did": "...", "red": "...", "next": "...", "open": ["..."]}' | node ${tool} checkpoint ${s.plan}/plan.js ${step.id} ` +
+    '(put a question you are waiting on in "open"), then end the turn.');
 }
 
 // ---- snapshots -----------------------------------------------------------
@@ -544,26 +587,6 @@ function changedPaths(before, after) {
 }
 
 // ---- plan file -----------------------------------------------------------
-
-// plan.js is `window.NAQSHA = <JSON>;` so the page can load it from file://
-// and this script can parse it without executing it.
-const PLAN_RE = /^\s*window\.NAQSHA\s*=\s*([\s\S]*?)\s*;?\s*$/;
-
-function readPlan(file) {
-  const m = PLAN_RE.exec(fs.readFileSync(file, 'utf8'));
-  if (!m) throw new Error('expected `window.NAQSHA = {...};`');
-  const plan = JSON.parse(m[1]);
-  if (!plan || typeof plan.meta !== 'object') throw new Error('missing "meta"');
-  return plan;
-}
-
-function tryReadPlan(file) {
-  try { return readPlan(file); } catch { return null; }
-}
-
-function writePlan(file, plan) {
-  fs.writeFileSync(file, `window.NAQSHA = ${JSON.stringify(plan, null, 2)};\n`);
-}
 
 // The named plan, or else the most recently changed one, with a status in
 // `statuses`. A named plan that can't be parsed is returned so the caller

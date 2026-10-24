@@ -101,6 +101,38 @@ test('steps are updated in place, and approval can never be set', () => {
   assert.match(tool(['set-meta', draft], '{"status":"building"}').stderr, /only an approved plan/);
 });
 
+test('a checkpoint keeps your place inside a step until it is done', () => {
+  const file = planFile();
+  fs.writeFileSync(path.join(path.dirname(path.dirname(file)), 'LEARNINGS.md'), '# Learnings\n');
+  tool(['update-step', file, 'S2'], '{"status":"doing"}');
+  let r = tool(['checkpoint', file, 'S2'], JSON.stringify({ did: 'wrote the attack test', red: 'store B reads store A export', next: 'scope the query by store', files: ['src/export/stream.ts'], open: ['Should admins see all stores?'] }));
+  assert.equal(r.status, 0, r.stderr);
+  assert.match(r.stdout, /S2 \[doing\] .*\(checkpoint .*: next scope the query by store\)/);
+
+  const v = tool(['step', file, 'S2']).stdout;
+  assert.match(v, /## Where you left off \(\d{4}-\d{2}-\d{2} \d{2}:\d{2}\); check the files before trusting this/);
+  assert.match(v, /Did: wrote the attack test\nRed: store B reads store A export\nNext: scope the query by store\nFiles in progress: src\/export\/stream\.ts\nOpen: Should admins see all stores\?/);
+  assert.match(v, /## Project learnings\n- \S+LEARNINGS\.md: read once/);
+
+  // A newer checkpoint replaces the old one; done clears it.
+  tool(['checkpoint', file, 'S2'], '{"next":"run the suite"}');
+  assert.doesNotMatch(tool(['step', file, 'S2']).stdout, /attack test/);
+  tool(['update-step', file, 'S2'], '{"status":"done"}');
+  assert.equal(readPlan(file).steps[1].checkpoint, undefined);
+  assert.doesNotMatch(tool(['step', file, 'S2']).stdout, /Where you left off/);
+
+  for (const [id, input, why] of [
+    ['S2', '{"next":"x"}', /S2 is done/],
+    ['S3', '{"did":"x"}', /needs "next"/],
+    ['S3', '{"next":"x","mood":"good"}', /not "mood"/],
+    ['S3', '{"next":"x","files":"a.ts"}', /files is a short list/],
+  ]) {
+    r = tool(['checkpoint', file, id], input);
+    assert.equal(r.status, 1, input);
+    assert.match(r.stderr, why);
+  }
+});
+
 test('status shows progress and the next step', () => {
   const file = planFile();
   tool(['update-step', file, 'S1'], '{"status":"done"}');
