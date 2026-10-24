@@ -26,7 +26,7 @@ instead of content. A section left empty without `na` shows as unfinished.
     "status": "draft",              // draft -> approved (set by the hook only) -> building -> done
     "created": "2026-10-21", "updated": "2026-10-21",
     "approvedAt": null,             // set by the hook
-    "developer": "1 developer, comfortable with TypeScript and Postgres, new to email delivery",
+    "developer": "1 developer, comfortable with TypeScript and Postgres, new to email delivery",  // who builds and maintains it
     "research": "full",             // "full" | "limited: <why, e.g. no web access>"
     "buildReview": null,             // "pause" (after each step) | "run"; asked at build start
     "effort": "standard",            // "light" | "standard" | "thorough"; asked at plan start; scales research,
@@ -218,12 +218,17 @@ instead of content. A section left empty without `na` shows as unfinished.
     "standards": ["data-and-apis"],  // build references this step needs beyond the always-loaded ones:
                                     // performance | data-and-apis | operability | docs-and-setup | run-like-a-user
     "doneWhen": "Migration applies and rolls back cleanly on a copy of prod schema; schema test passes",
-    "estimate": { "low": 1, "likely": 2, "high": 4 },    // human developer hours, required
     "dependsOn": [],
     "status": "todo",               // todo | doing | done | blocked
     "notes": "",                    // build evidence: commands run, result lines, commit
     "checkpoint": null              // set by plan-tool.js checkpoint while the step is in progress:
                                     // { "at", "did", "red", "next", "files", "open" }; cleared when done
+  }],
+
+  "needsYou": [{                   // what only the user can do; [] when nothing
+    "what": "Create a Postmark account and verify the sending domain",
+    "when": "before S4",            // a step id, "before the build", or "before release"
+    "why": "The mailer can't be tested end to end without a verified domain"
   }],
 
   "risks": [{ "risk": "...", "likelihood": "medium", "impact": "high", "mitigation": "..." }],
@@ -249,8 +254,7 @@ instead of content. A section left empty without `na` shows as unfinished.
   `tests` (a list, or `na` with a reason), or while a new component lacks a
   `responsibility` or `interface`.
 - Approval is refused while `priorArt` is empty (a list with entries, or `na` naming what was
-  searched), while any question is not `answered` or any decision is not `decided`, or any step lacks an estimate
-  (`low <= likely <= high`, hours, all > 0) or a `doneWhen`.
+  searched), while any question is not `answered` or any decision is not `decided`, or any step lacks a `doneWhen`.
 - Ids are stable: `Q` questions, `F`/`N` requirements, `D` decisions, `T` threats, `S` steps, `A`
   acceptance. Refer to them across sections ("see D2") instead of repeating text.
 - After approval, changes go in `changelog` with `by` naming who decided.

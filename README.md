@@ -224,18 +224,27 @@ level, and a verdict (adopt / learn from / avoid) · research with sources · de
 and your choice · architecture, data model and interfaces · a threat model with
 mitigations tied to steps · error handling, observability, performance, accessibility,
 migration · new dependencies with license and health · testing and acceptance criteria ·
-ordered steps with a runnable "done when" and low/likely/high estimates in human developer
-hours · risks · what was deliberately left out · change log.
+ordered steps, each sized to review in one sitting, with the failing tests it starts from
+and a runnable "done when" · what needs you (accounts, devices, reviews only you can do) ·
+risks · what was deliberately left out · change log.
+
+There are no hour estimates. Claude builds the code, so hours for a human developer would
+be invented precision. The page shows the build's size instead, counted in Claude's work
+(steps, independent reviews, app runs), and lists what needs you, which is where the
+calendar time goes.
 
 ## Commands
 
 | Command | Who | What |
 |---------|-----|------|
 | `/naqsha:plan <request>` | you | Start or resume a plan. Locks project files. |
-| `/naqsha:approve [folder]` | you only | Checks the plan is complete (prior art recorded; no open decisions; every step has an estimate and a done-when check), marks it approved, and unlocks the project. |
+| `/naqsha:approve [folder]` | you only | Checks the plan is complete (prior art recorded; no open decisions; every step has its failing tests and a done-when check), marks it approved, and unlocks the project. |
 | `/naqsha:build [folder]` | you | Build, or resume building, the plan approved last. Name a folder to resume an earlier approved plan, such as one paused when you started a new plan. |
 
-Claude can't run any of these itself. A typed command is the only way in.
+Claude can't run any of these itself. A typed command is the only way in. Send each one as a
+message of its own. If you mention `/naqsha:plan` or `/naqsha:build` mid-sentence, Claude
+Code hands the skill to Claude instead, and the hook applies the same gate there;
+`/naqsha:approve` only ever works typed.
 
 ## Where plans go
 
@@ -316,7 +325,7 @@ Installs stay on the `version` in `.claude-plugin/plugin.json`. Bump it with eac
 `claude plugin update` picks the change up.
 
 Files: `skills/plan` (planning workflow, plus `references/` for the plan format,
-security method and estimating), `skills/build`, `skills/approve`, `scripts/hook.js`
+security method, system design and learnings), `skills/build`, `skills/approve`, `scripts/hook.js`
 (the lock), `scripts/plan-tool.js` (one step's working set and safe plan updates), `scripts/crew.js` (crew mode's worktrees and landing), `scripts/serve.js` (the page server), `assets/plan.html` (the page; it
 renders `plan.js`, reloads it every 3 s, and sends answers and comments when served).
 

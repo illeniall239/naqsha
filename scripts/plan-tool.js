@@ -108,7 +108,6 @@ function stepView(plan, id, planFile) {
     ...(isNa(step.tests) ? [`Tests first: none (${one(step.tests.na)})`]
       : ['Tests first, in order:', ...list(step.tests).map((t, i) => `  ${i + 1}. ${one(t.test)}${t.kind ? ` [${t.kind}]` : ''}${t.seam ? ` at ${one(t.seam)}` : ''}`)]),
     `Done when: ${one(step.doneWhen)}`,
-    ...(step.estimate ? [`Estimate: ${step.estimate.low}-${step.estimate.high} h, likely ${step.estimate.likely}`] : []),
     ...(step.notes ? [`Notes so far: ${one(step.notes).slice(0, 600)}${one(step.notes).length > 600 ? '…' : ''}`] : []),
   ]);
 

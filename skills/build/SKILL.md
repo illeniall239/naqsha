@@ -41,7 +41,9 @@ them in its own context, so whatever you skip is still checked.
 
 ## Working with the plan
 
-The hook context above names the plan folder. Don't read or rewrite the whole `plan.js` for
+The hook context above names the plan folder ("Naqsha: building the approved plan in…"). If
+that message isn't there, the build wasn't checked: stop, and ask the user to send
+`/naqsha:build` as a message of its own. Don't read or rewrite the whole `plan.js` for
 each step; it grows large. Use the plan tool (`T` below is
 `node "${CLAUDE_PLUGIN_ROOT}/scripts/plan-tool.js"`):
 
@@ -199,7 +201,8 @@ Stop and ask with AskUserQuestion when you'd change any of these:
   floor in `secure-coding.md` holds even if the user asks)
 - where a module's responsibility or interface sits, beyond what the plan's architecture says
 - testing at a seam the plan didn't agree, or building a step without its tests first
-- a step's estimate by more than half
+- a step that turns out bigger than planned: more files, modules or behaviors than it
+  lists. Propose splitting it rather than pushing through
 
 Bring the evidence, the options and your recommendation, as in planning. Record the outcome
 in `changelog` with `by: "user"`, update the affected sections, and continue. If the right

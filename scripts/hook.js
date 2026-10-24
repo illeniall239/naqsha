@@ -203,8 +203,6 @@ function checkPlan(plan) {
   if (open.length) problems.push(`open decisions: ${open.map(d => d.id).join(', ')}`);
   const steps = list(plan.steps);
   if (!steps.length) problems.push('no implementation steps');
-  const unestimated = steps.filter(s => !validEstimate(s.estimate));
-  if (unestimated.length) problems.push(`steps without a low/likely/high estimate: ${unestimated.map(s => s.id).join(', ')}`);
   const unchecked = steps.filter(s => !s.doneWhen);
   if (unchecked.length) problems.push(`steps without a "done when" check: ${unchecked.map(s => s.id).join(', ')}`);
   return [...problems, ...checkDesign(plan, steps), ...checkTests(plan, steps), ...checkSecurity(plan, steps), ...checkModules(plan)];
@@ -287,10 +285,6 @@ function isNa(x) {
   return !!x && typeof x === 'object' && typeof x.na === 'string' && x.na.trim() !== '';
 }
 
-function validEstimate(e) {
-  return e && [e.low, e.likely, e.high].every(n => typeof n === 'number' && n > 0) && e.low <= e.likely && e.likely <= e.high;
-}
-
 // ---- every prompt --------------------------------------------------------
 
 // Re-baseline each turn so edits the user makes between prompts are theirs
@@ -320,6 +314,15 @@ function onPreTool(ctx) {
   }
   if (tool === 'Skill' && ti.skill === 'naqsha:approve') {
     return deny('Only the user can approve a plan, by typing /naqsha:approve.');
+  }
+  // A user who mentions /naqsha:plan mid-sentence gets the skill through the
+  // Skill tool, not as a typed command, so the command hook never runs. Do
+  // the same work here: starting a plan only adds the lock, and a build is
+  // checked exactly as /naqsha:build would be.
+  if (tool === 'Skill' && (ti.skill === 'naqsha:plan' || ti.skill === 'naqsha:build')) {
+    const out = ti.skill === 'naqsha:plan' ? startDrafting(ctx) : startBuild(ctx, String(ti.args || '').trim().split(/\s+/)[0] || '');
+    if (out.decision === 'block') return deny(out.reason);
+    return context('PreToolUse', out.hookSpecificOutput.additionalContext);
   }
   // While building, note the first piece of work in each turn (one write a turn).
   if (ctx.state && ctx.state.phase === 'approved' && (tool === 'Bash' || FILE_TOOLS.has(tool)) &&

@@ -1,6 +1,6 @@
 {
   "name": "naqsha",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "description": "Plan before code: a researched, user-driven plan rendered as a local webpage (system design, decisions, security, testing, steps with human-hour estimates). Project files stay locked until you approve the plan.",
   "author": { "name": "illeniall239" },
   "license": "MIT",

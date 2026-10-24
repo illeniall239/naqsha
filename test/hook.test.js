@@ -54,7 +54,7 @@ function writePlan(root, slug, overrides = {}, plansDir = path.join('docs', 'pla
     meta: { title: 'Test plan', slug, kind: 'feature', status: 'draft' },
     priorArt: [{ name: 'Django password reset', verdict: 'learn from' }],
     decisions: [{ id: 'D1', question: 'Q?', status: 'decided', choice: 'A' }],
-    steps: [{ id: 'S1', title: 'Do it', tests: [{ test: 'Unknown email gets the same response' }], doneWhen: 'tests pass', estimate: { low: 1, likely: 2, high: 4 } }],
+    steps: [{ id: 'S1', title: 'Do it', tests: [{ test: 'Unknown email gets the same response' }], doneWhen: 'tests pass' }],
     requirements: { nonFunctional: [{ id: 'N1', measure: '95% within 60 s', source: 'user', verifiedBy: ['S1'] }] },
     architecture: {
       style: { existing: 'One Express app and Postgres' },
@@ -112,6 +112,28 @@ test('Claude cannot touch the gate state or approve', () => {
   }
   assert.ok(denied(p.run({ hook_event_name: 'PreToolUse', tool_name: 'Skill', tool_input: { skill: 'naqsha:approve' } })));
   assert.equal(p.bash('git log --oneline'), null);
+});
+
+test('a skill started by mention gets the same gate as a typed command', () => {
+  // "…let's build it, use /naqsha:plan": Claude Code hands Claude the skill
+  // through the Skill tool, and the typed-command hook never runs.
+  const p = project();
+  const skill = (name, args = '') => p.run({ hook_event_name: 'PreToolUse', tool_name: 'Skill', tool_input: { skill: name, args } });
+
+  const planning = skill('naqsha:plan', 'an AI therapist app');
+  assert.equal(planning.hookSpecificOutput.hookEventName, 'PreToolUse');
+  assert.match(planning.hookSpecificOutput.additionalContext, /planning phase\. Plans go in docs\/plans/);
+  assert.equal(planning.hookSpecificOutput.permissionDecision, undefined, 'no say over the permission prompt');
+  assert.equal(p.state().phase, 'drafting');
+  assert.ok(denied(p.write('src/app.js')), 'the lock is on');
+
+  assert.match(skill('naqsha:build').hookSpecificOutput.permissionDecisionReason, /being drafted/);
+  assert.ok(denied(skill('naqsha:approve')), 'approval stays typed-only');
+
+  writePlan(p.root, 'login');
+  p.cmd('approve');
+  assert.match(skill('naqsha:build').hookSpecificOutput.additionalContext, /building the approved plan in docs\/plans\/login/);
+  assert.match(skill('naqsha:build', 'nope please').hookSpecificOutput.permissionDecisionReason, /No approved, unfinished plan at docs\/plans\/nope/);
 });
 
 test("a command that changes or deletes the gate's state gets it put back", () => {
@@ -356,13 +378,13 @@ test('approval is refused while the plan is incomplete', () => {
   writePlan(p.root, 'login', {
     questions: [{ id: 'Q1', status: 'answered' }, { id: 'Q2', status: 'open' }],
     decisions: [{ id: 'D1', status: 'open' }, { id: 'D2', status: 'decided' }],
-    steps: [{ id: 'S1', estimate: { low: 3, likely: 2, high: 4 } }],
+    steps: [{ id: 'S1' }],
   });
   const out = p.cmd('approve');
   assert.equal(out.decision, 'block');
   assert.match(out.reason, /unanswered questions: Q2\b/);
   assert.match(out.reason, /open decisions: D1\b/);
-  assert.match(out.reason, /estimate: S1/);
+  assert.doesNotMatch(out.reason, /estimate/, 'steps carry no time estimates');
   assert.match(out.reason, /"done when" check: S1/);
   assert.equal(p.state().phase, 'drafting');
 
@@ -417,7 +439,7 @@ test('approval is refused until security and modules are pinned down', () => {
 test('approval is refused until every step says which failing tests it starts from', () => {
   const p = project();
   p.cmd('plan');
-  const step = extra => ({ id: 'S1', title: 't', doneWhen: 'd', estimate: { low: 1, likely: 1, high: 1 }, ...extra });
+  const step = extra => ({ id: 'S1', title: 't', doneWhen: 'd', ...extra });
   const checks = [{ check: 'Secret scan', command: 'gitleaks git' }];
   const refused = (overrides, why) => {
     writePlan(p.root, 'x', overrides);

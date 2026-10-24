@@ -100,9 +100,9 @@ message starting "[S#]"). Your commits are your checkpoints: if you're stopped, 
 worker resumes from them. Leave nothing uncommitted when you report.
 
 Don't change the plan. If the step can't be built as written (a decision, an interface,
-the data model, a dependency, the scope, a security control, a module boundary, or the
-estimate off by more than half), stop and report a deviation with the evidence, the
-options and your recommendation.
+the data model, a dependency, the scope, a security control, a module boundary, or a step
+much bigger than it lists), stop and report a deviation with the evidence, the options and
+your recommendation.
 
 Report, in this order:
 - Status: done, deviation or blocked.

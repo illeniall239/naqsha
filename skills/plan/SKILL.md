@@ -63,6 +63,9 @@ as layered: no pass-throughs, and no seams with only one side.
 
 ## 1. Set up
 
+- **Check that planning started.** The hook's message ("Naqsha: planning phase…") should be
+  in context above. If it isn't, the project isn't locked and approval won't work later:
+  stop, and ask the user to send `/naqsha:plan <what to build>` as a message of its own.
 - **Is naqsha the right tool?** It earns its cost on a feature or a new system. For a
   small change (a one-file fix, a copy change, a dependency bump, a config tweak), say in
   one line that planning is more process than it needs, and offer to just do it instead.
@@ -164,7 +167,7 @@ user knows and the repo can't tell you:
 - Must-haves and nice-to-haves. What is explicitly out (record it in `nonGoals`).
 - Deadline, budget, hosting, compliance, and how sensitive the data is.
 - Freedom of stack: locked, preferred, or open.
-- Who builds and maintains it, and their experience. Estimates depend on this.
+- Who builds and maintains it, and their experience. Choices like the stack depend on this.
 - How it ships: environments, release process, users that must not be disrupted.
 - The numbers the design rests on, as `${CLAUDE_SKILL_DIR}/references/system-design.md`
   describes (read it before this round): volumes and peaks, data size and growth, latency
@@ -297,18 +300,27 @@ number without a source. Then fill the remaining sections of `plan.js`:
   professional standard expects before any feature: formatter, linter, type checking,
   test runner, the security checks, CI and secrets handling. Each step leaves the project building with its tests passing, so the build can stop
   after any step. Keep refactoring and behavior changes in separate steps. Each step is
-  small enough to review, with the files it touches, its `tests` (the failing tests it
+  sized to review: one behavior or one area, a diff a person can read in one sitting. A
+  step that needs "and" to describe, or spans several modules' worth of new behavior, is
+  two steps. Each step has the files it touches, its `tests` (the failing tests it
   starts from, in order: acceptance or attack tests first, then the behaviors; a bug fix
   starts with its regression test, a refactor of untested code with characterization
-  tests), a `doneWhen` check you can actually run, and an estimate. A step's `files`
+  tests), and a `doneWhen` check you can actually run. A step's `files`
   include the docs it changes (`docs-and-setup.md`); a new app's first steps include the
   one-command setup and a README that a fresh clone can follow. Each step's `standards`
   names the build references it needs beyond the always-loaded ones (`performance`,
   `data-and-apis`, `operability`, `docs-and-setup`, `run-like-a-user`), so the build loads
   only what the step calls for. When unsure, include it. A step with no
   behavior a test can state first (CI config, generated code, a visual change) has
-  `tests: { "na": "<why>" }` and a `doneWhen` that names the check replacing them. Read
-  `${CLAUDE_SKILL_DIR}/references/estimating.md` first.
+  `tests: { "na": "<why>" }` and a `doneWhen` that names the check replacing them.
+  There are no time estimates: Claude builds the code, so hours for a human developer
+  would be invented precision. The page shows the build's size instead (steps, reviews,
+  app runs), computed from the plan.
+- **needsYou**: what only the user can do, which is where calendar time actually goes when
+  an AI writes the code. Accounts and approvals (app stores, payment providers, API keys),
+  testing on real devices or with real users, legal or clinical review, content only they
+  can write, and decisions waiting on someone else. For each, say what, which step needs it
+  (or "before the build", "before release"), and why. `[]` when there's nothing.
 - **risks** and **rejected**.
 
 Match the plan's depth to the work. A focused feature has a short plan with every section
@@ -332,7 +344,8 @@ Reread the whole plan as a skeptical staff engineer who has to sign off on it:
 - Generic lines: make them specific or delete them.
 - Claims without a source, versions not checked this session.
 - Design choices that ignore or contradict the prior art without saying why.
-- Steps without a runnable `doneWhen`, or estimates that ignore `meta.developer`.
+- Steps without a runnable `doneWhen`, or too big to review in one sitting.
+- Work only the user can do that isn't in `needsYou`.
 - Data flows that cross a trust boundary with no threat listed, a threat whose mitigation
   no step builds, or a plan that leaves a rule in `secure-coding.md` to chance.
 - A number without a source, a component no driver needs, a quality scenario with no
@@ -351,7 +364,7 @@ on the page, that they can comment on any section there and send it, and that
 `/naqsha:approve` locks the plan and starts the build. Start a `wait` in the background so
 their comments reach you. Approval is that command, not a chat reply and not anything sent
 from the page. The hook refuses it while any question or decision is open or any step lacks
-an estimate or `doneWhen`.
+its tests or a `doneWhen`.
 
 The user may ask for changes at any point, on the page or in chat. Make them, keep the
 changelog, and leave approval to them.

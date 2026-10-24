@@ -122,13 +122,24 @@ const table = (rows, cols) => {
     rows.map(r => `<tr>${cols.map(c => `<td>${c[1](r)}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
 };
 // An empty dependency list is an answer ("none"); elsewhere empty means unwritten.
-const present = (p, id) => id === 'dependencies' ? Array.isArray(p[id]) || isNa(p[id]) : has(p[id]);
+const present = (p, id) => ['dependencies', 'needsYou'].includes(id) ? Array.isArray(p[id]) || isNa(p[id]) : has(p[id]);
 // The failing tests a step starts from, in order.
 const stepTests = t => isNa(t) ? `<br><span class="muted">No test first: ${txt(t.na)}</span>`
   : Array.isArray(t) && t.length ? `<br><b>Tests first</b><ol class="tests">${t.map(x => `<li>${txt(x.test)}${x.kind ? ` <span class="muted">· ${esc(x.kind)}</span>` : ''}</li>`).join('')}</ol>`
   : '<br><span class="empty">No tests listed</span>';
-const pert = e => (e.low + 4 * e.likely + e.high) / 6;
-const hours = h => h >= 10 ? Math.round(h) + ' h' : (Math.round(h * 10) / 10) + ' h';
+// The build's size in the work Claude does, as an honest stand-in for hours.
+// Mirrors plan-tool.js reviewFor, from what the plan states explicitly.
+function buildSize(p) {
+  const steps = Array.isArray(p.steps) ? p.steps : [];
+  const effort = (p.meta || {}).effort || 'standard';
+  const threats = p.security && Array.isArray(p.security.threats) ? p.security.threats : [];
+  const hot = p.architecture && Array.isArray(p.architecture.hotPaths) ? p.architecture.hotPaths : [];
+  const std = (s, r) => Array.isArray(s.standards) && s.standards.includes(r);
+  const reviewed = steps.filter(s => effort === 'thorough' || threats.some(t => t.step === s.id) ||
+    (effort === 'standard' && (std(s, 'data-and-apis') || hot.some(h => h.provedBy === s.id)))).length;
+  const runs = 2 + (effort === 'light' ? 0 : steps.filter(s => std(s, 'run-like-a-user')).length);
+  return { steps: steps.length, reviewed, runs, effort };
+}
 
 // ---- what the user is writing --------------------------------------------
 
@@ -299,9 +310,10 @@ const SECTIONS = [
     ['ID', x => esc(x.id)],
     ['Step', x => `<b>${txt(x.title)}</b>${x.detail ? `<br>${txt(x.detail)}` : ''}${(x.files || []).length ? `<br>${x.files.map(f => `<code>${esc(f)}</code>`).join(' ')}` : ''}${stepTests(x.tests)}${x.notes ? `<br><span class="muted">${txt(x.notes)}</span>` : ''}`],
     ['Done when', x => txt(x.doneWhen) || '<span class="empty">missing</span>'],
-    ['Hours', x => x.estimate ? `${esc(x.estimate.low)}–${esc(x.estimate.high)}<br><span class="muted">likely ${esc(x.estimate.likely)}</span>` : '<span class="empty">missing</span>'],
     ['Status', x => badge(x.status) + ((x.dependsOn || []).length ? `<br><span class="muted">after ${esc(x.dependsOn.join(', '))}</span>` : '')],
   ])],
+  ['needsYou', 'Needs you', p => Array.isArray(p.needsYou) && !p.needsYou.length ? '<p class="na">Nothing. Claude can do all of it.</p>' :
+    table(p.needsYou, [['What', x => txt(x.what)], ['When', x => esc(x.when)], ['Why', x => txt(x.why)]])],
   ['risks', 'Risks', p => table(p.risks, [['Risk', x => txt(x.risk)], ['Likelihood', x => esc(x.likelihood)], ['Impact', x => esc(x.impact)], ['Mitigation', x => txt(x.mitigation)]])],
   ['rejected', 'Deliberately not doing', p => table(p.rejected, [['Option', x => txt(x.option)], ['Why not', x => txt(x.why)]])],
   ['changelog', 'Change log', p => table(p.changelog, [['Date', x => esc(x.date)], ['Change', x => txt(x.change)], ['By', x => esc(x.by)]])],
@@ -318,8 +330,8 @@ function render(p) {
     ? p.security.threats.filter(t => t.acceptedBy === 'user') : [];
   const sections = SECTIONS.filter(([id]) => id !== 'questions' || has(p.questions));
   const steps = Array.isArray(p.steps) ? p.steps : [];
-  const est = steps.filter(s => s.estimate && [s.estimate.low, s.estimate.likely, s.estimate.high].every(n => typeof n === 'number'));
-  const sum = k => est.reduce((t, s) => t + s.estimate[k], 0);
+  const size = buildSize(p);
+  const needs = Array.isArray(p.needsYou) ? p.needsYou.length : 0;
   const done = steps.filter(s => s.status === 'done').length;
   const comment = id => ask ? `<button type="button" class="link" data-toggle="${id}">Comment</button>` : '';
   const commentBox = id => ask ? `<textarea data-comment="${id}" rows="3" placeholder="Your comment on this section" aria-label="Comment on this section"${
@@ -347,13 +359,15 @@ function render(p) {
       <p>These threats will not be mitigated. Approving the plan accepts them. If one wasn't your decision, say so before you approve.</p>
       ${list(accepted, t => `<a href="#security">${esc(t.id)}</a> · ${txt(t.threat)}<br><span class="muted">Your reason: ${txt(t.acceptedReason)}</span>`)}</section>` : ''}
     <section>
-      <h2>Estimate</h2>
+      <h2>Build size</h2>
       <div class="stats">
-        <div class="stat"><span class="muted">Expected</span><b>${est.length ? hours(est.reduce((t, s) => t + pert(s.estimate), 0)) : '—'}</b></div>
-        <div class="stat"><span class="muted">Range</span><b>${est.length ? `${hours(sum('low'))} – ${hours(sum('high'))}` : '—'}</b></div>
+        <div class="stat"><span class="muted">Steps</span><b>${size.steps}</b></div>
+        <div class="stat"><span class="muted">Independent reviews</span><b>about ${size.reviewed}</b><span class="muted">plus the finish review</span></div>
+        <div class="stat"><span class="muted">App runs</span><b>about ${size.runs}</b></div>
+        <div class="stat"><span class="muted">Needs you</span><b>${needs ? `<a href="#needsYou">${needs} item${needs > 1 ? 's' : ''}</a>` : '—'}</b></div>
         <div class="stat"><span class="muted">Progress</span><b>${done} / ${steps.length} steps</b><div class="bar"><i style="width:${steps.length ? (100 * done / steps.length) : 0}%"></i></div></div>
       </div>
-      <p class="muted">Human developer hours: ${txt(m.developer || 'developer profile not set')}. Expected = (low + 4 × likely + high) / 6 per step.</p>
+      <p class="muted">Effort: ${esc(size.effort)}. Claude builds the code, so the size is counted in its work, not in developer hours; the calendar time that remains is what needs you.</p>
     </section>
     <nav>${sections.map(([id, title]) => `<a href="#${id}"${present(p, id) ? '' : ' class="todo"'}>${title}</a>`).join('')}</nav>
     ${sections.map(([id, title, f]) => `<section id="${id}"><h2><span>${title}</span>${comment(id)}</h2>${commentBox(id)}${present(p, id) ? f(p, ask) : empty}</section>`).join('')}

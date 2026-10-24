@@ -12,7 +12,7 @@ const TOOL = path.join(__dirname, '..', 'scripts', 'plan-tool.js');
 
 function planFile(overrides = {}) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'naqsha-tool-'));
-  const step = (id, extra) => ({ id, title: `Do ${id}`, doneWhen: 'tests pass', estimate: { low: 1, likely: 2, high: 3 }, status: 'todo', tests: [{ test: `${id} works`, kind: 'unit' }], ...extra });
+  const step = (id, extra) => ({ id, title: `Do ${id}`, doneWhen: 'tests pass', status: 'todo', tests: [{ test: `${id} works`, kind: 'unit' }], ...extra });
   const plan = {
     meta: { title: 'Export', slug: 'export', status: 'approved' },
     architecture: {
@@ -89,7 +89,7 @@ test('steps are updated in place, and approval can never be set', () => {
   for (const [args, input, why] of [
     [['set-meta', file], '{"status":"approved"}', /must be one of building, done/],
     [['update-step', file, 'S1'], '{"status":"finished"}', /todo, doing, done, blocked/],
-    [['update-step', file, 'S1'], '{"estimate":{"low":9}}', /can't set "estimate"/],
+    [['update-step', file, 'S1'], '{"title":"renamed"}', /can't set "title"/],
     [['update-step', file, 'S9'], '{"status":"done"}', /no step S9/],
     [['update-step', file, 'S1'], 'not json', /JSON object/],
   ]) {
