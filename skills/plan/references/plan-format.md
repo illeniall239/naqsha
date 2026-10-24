@@ -29,6 +29,8 @@ instead of content. A section left empty without `na` shows as unfinished.
     "developer": "1 developer, comfortable with TypeScript and Postgres, new to email delivery",
     "research": "full",             // "full" | "limited: <why, e.g. no web access>"
     "buildReview": null,             // "pause" (after each step) | "run"; asked at build start
+    "effort": "standard",            // "light" | "standard" | "thorough"; asked at plan start; scales research,
+                                    // independent review and app runs, never the gate, security or test-first
     "buildMode": null,               // "solo" | "crew"; asked at build start
     "crewParallel": null             // crew mode: 1 to 4 steps at once
   },

@@ -7,8 +7,18 @@ checks the notes claim pass, and reports only failures it can show.
 
 ## When
 
-- **Every step,** after your own review (`code-quality.md`) and before you set it `done`.
-- **At the finish,** a separate review of the whole change against the whole plan.
+A review costs a fresh agent, so it goes where a second pair of eyes matters most. The
+step's working set (`plan-tool.js step`) says whether this step needs one, and why:
+
+- **light** effort: steps that build a threat mitigation.
+- **standard** (the default): those, plus steps that change data or an API and steps that
+  prove a hot path.
+- **thorough**: every step.
+
+When it's required, run it after your own review (`code-quality.md`) and before you set
+the step `done`. When it isn't, your own review is the check, and you say so in the notes.
+**At the finish, always:** a separate review of the whole change against the whole plan,
+whatever the effort.
 
 ## How
 
@@ -42,14 +52,15 @@ independent. Never skip it silently.
 You are reviewing one step of an approved plan. You review; you don't build. Don't edit
 any file. You may read anything and run read-only commands, tests and checks.
 
-Plan: [plan folder]/plan.js. Step: [S#]. Project learnings, if any: [plans folder]/LEARNINGS.md.
-Read the whole plan first: the step's text, its
-tests, its doneWhen, the decisions, the architecture, the threats it owns, and the hot
-paths it touches.
+Step: [S#] of [plan folder]/plan.js. Get its working set first:
+node [plugin root]/scripts/plan-tool.js step [plan folder]/plan.js [S#]
+It has the step's text, tests, doneWhen, the threats and quality scenarios it owns, the
+hot paths it proves, the modules it touches and one line per decision. Open plan.js only
+for something it doesn't carry, and read just that part.
+Project learnings, if any: [plans folder]/LEARNINGS.md.
 Change under review: [git diff command for the step's range].
-Standards the code is held to: [plugin root]/skills/build/references/secure-coding.md,
-tdd.md, modularity.md, performance.md, data-and-apis.md, operability.md,
-docs-and-setup.md, code-quality.md, run-like-a-user.md.
+Standards: the references the working set lists under "References to read", in
+[plugin root]/skills/build/references/. Read only those.
 
 Check, in this order:
 1. Scope: does the diff do what the step says, all of it, and nothing else? Anything the
@@ -83,7 +94,8 @@ Report:
 
 ## Finish review
 
-At the finish, give a new subagent the same brief with these changes: the change under
+At the finish, give a new subagent the same brief with these changes: it reads the whole
+plan and every reference in [plugin root]/skills/build/references/, once; the change under
 review is everything since the plan was approved; check every acceptance criterion, every
 threat mitigation, every quality scenario's check and every hot path's benchmark against
 the built code; walk the acceptance criteria in the running app; and follow the README

@@ -11,6 +11,8 @@ const HOOK = path.join(__dirname, '..', 'scripts', 'hook.js');
 
 function project({ git = true } = {}) {
   const root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'naqsha-test-')));
+  // The hook keeps a copy of its state under the home folder; never the real one.
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'naqsha-home-'));
   fs.mkdirSync(path.join(root, 'src'));
   fs.writeFileSync(path.join(root, 'src', 'app.js'), 'console.log(1);\n');
   if (git) {
@@ -22,7 +24,7 @@ function project({ git = true } = {}) {
   const run = (input) => {
     const r = spawnSync('node', [HOOK], {
       input: JSON.stringify({ cwd: root, ...input }),
-      env: { ...process.env, CLAUDE_PROJECT_DIR: root },
+      env: { ...process.env, CLAUDE_PROJECT_DIR: root, HOME: home },
       encoding: 'utf8',
     });
     assert.equal(r.status, 0, r.stderr);
@@ -42,7 +44,7 @@ function project({ git = true } = {}) {
   };
   const prompt = () => run({ hook_event_name: 'UserPromptSubmit', prompt: 'hi' });
   const state = () => JSON.parse(fs.readFileSync(path.join(root, '.naqsha', 'state.json'), 'utf8'));
-  return { root, run, cmd, write, bash, afterBash, command, prompt, state };
+  return { root, home, run, cmd, write, bash, afterBash, command, prompt, state };
 }
 
 const denied = out => out && out.hookSpecificOutput && out.hookSpecificOutput.permissionDecision === 'deny';
@@ -98,10 +100,44 @@ test('Claude cannot touch the gate state or approve', () => {
   const p = project();
   p.cmd('plan');
   assert.ok(denied(p.write('.naqsha/state.json')));
-  assert.ok(denied(p.bash('cat .naqsha/state.json')));
-  assert.ok(denied(p.bash('claude -p "/naqsha:approve"')));
+  for (const run of ['claude -p "/naqsha:approve"', 'cd app && claude --print /naqsha:approve', 'env A=1 claude -p "/naqsha:approve x"',
+    'echo ok; /usr/local/bin/claude -p /naqsha:approve', 'x=$(claude -p "/naqsha:approve")']) {
+    assert.ok(denied(p.bash(run)), run);
+  }
+  // Mentioning them is not touching them.
+  for (const mention of ['cat .naqsha/state.json', 'git commit -m "docs: delete .naqsha to leave; approve with /naqsha:approve"',
+    "python3 - <<'EOF'\ntext = 'type /naqsha:approve, or delete the .naqsha folder'\nEOF", 'grep -rn "naqsha:approve" skills/',
+    'claude plugin validate . && echo "/naqsha:approve is user-only" > /dev/null']) {
+    assert.equal(p.bash(mention), null, mention);
+  }
   assert.ok(denied(p.run({ hook_event_name: 'PreToolUse', tool_name: 'Skill', tool_input: { skill: 'naqsha:approve' } })));
   assert.equal(p.bash('git log --oneline'), null);
+});
+
+test("a command that changes or deletes the gate's state gets it put back", () => {
+  const p = project();
+  p.cmd('plan');
+  const stateFile = path.join(p.root, '.naqsha', 'state.json');
+  const before = fs.readFileSync(stateFile, 'utf8');
+
+  fs.writeFileSync(stateFile, JSON.stringify({ phase: 'approved', plan: 'docs/plans/x' }));
+  let out = p.afterBash();
+  assert.equal(out.decision, 'block');
+  assert.match(out.reason, /changed naqsha's state.*put back/);
+  assert.equal(fs.readFileSync(stateFile, 'utf8'), before);
+  assert.ok(denied(p.write('src/app.js')), 'still locked');
+
+  fs.rmSync(path.join(p.root, '.naqsha'), { recursive: true });
+  out = p.afterBash();
+  assert.match(out.reason, /deleted naqsha's state.*from a terminal/);
+  assert.equal(p.state().phase, 'drafting');
+
+  // The user leaving between prompts is not undone.
+  fs.rmSync(path.join(p.root, '.naqsha'), { recursive: true });
+  p.prompt();
+  assert.equal(p.afterBash(), null);
+  assert.equal(fs.existsSync(stateFile), false);
+  assert.equal(p.write('src/app.js'), null, 'unlocked');
 });
 
 test('Bash changes to project files during drafting are caught', () => {

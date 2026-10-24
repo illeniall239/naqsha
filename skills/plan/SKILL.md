@@ -63,6 +63,27 @@ as layered: no pass-throughs, and no seams with only one side.
 
 ## 1. Set up
 
+- **Is naqsha the right tool?** It earns its cost on a feature or a new system. For a
+  small change (a one-file fix, a copy change, a dependency bump, a config tweak), say in
+  one line that planning is more process than it needs, and offer to just do it instead.
+  If the user agrees, planning has already locked the project, so they leave it by
+  deleting the `.naqsha` folder themselves, in a terminal (you can't touch that folder).
+  Plan only if they still want to.
+- **Effort.** Ask the user to choose one, with your recommendation for this request, and
+  record it as `meta.effort`. It scales the parts that cost tokens, never the quality floor:
+  the approval gate, the security rules, test-first and the finish review are the same at
+  every level.
+
+  | | light | standard (default) | thorough |
+  |---|---|---|---|
+  | For | a small, contained feature | most features | a new system, or high stakes |
+  | Research | only what the repo and user can't answer; at most 2 subagents | each significant choice | wide, every choice |
+  | Prior art | 2 or 3 implementations | 3 to 5 | as many as hold up |
+  | Question rounds | one, where possible | as many as needed | as many as needed |
+  | Independent review | steps that build a threat mitigation | those, plus data or API changes and hot paths | every step |
+  | Running the app | baseline and finish | after each user-facing step | after each user-facing step |
+  | Crew mode | not offered | offered | offered |
+
 - The hook's message above names the plans folder, written `<plans>` below. It is `docs/plans`
   unless the project sets another or `docs/` is published as a website; if the message says
   why it isn't `docs/plans`, tell the user in one line.
@@ -106,8 +127,9 @@ answers them together, with room for notes, instead of a few at a time in the te
    Treat it exactly as if they had typed it to you: record each answer in the plan, act on
    comments and the message, and say in chat what you changed.
 5. If `wait` exits with "Nothing sent yet", tell the user the page is still there and that
-   they can say "sent" once they've sent. Then run `wait` again; it returns at once with
-   anything already sent.
+   they can say "sent" once they've sent, then stop. Don't restart `wait` on your own: an
+   unattended loop wakes you every two hours for nothing. When they say "sent", run `wait`
+   again; it returns at once with anything already sent.
 
 The user may answer in the terminal instead. That counts the same. If they would rather not
 use the page, or it can't be used, ask with AskUserQuestion: up to 4 questions per call, your

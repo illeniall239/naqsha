@@ -44,10 +44,12 @@ quietly.
    than one. Write a checkpoint naming the workers you're waiting on, then end your turn;
    you're woken when one reports.
 4. When a worker reports:
-   - **done:** run the independent review (`independent-review.md`) on its branch: the
-     change under review is `git -C <worktree> diff <base>..HEAD`. Send blocking findings
-     back to that worker (SendMessage) to fix test-first and commit. Repeat until the
-     review passes.
+   - **done:** if the step's working set says it needs an independent review, run it
+     (`independent-review.md`) on the branch: the change under review is
+     `git -C <worktree> diff <base>..HEAD`. Send blocking findings back to that worker
+     (SendMessage) to fix test-first and commit, and repeat until the review passes. If it
+     doesn't need one, read the worker's report and diff yourself against the step before
+     landing; the checks after landing still apply.
    - **deviation:** the step can't be built as planned. Bring it to the user as the build
      skill describes, record the decision, and tell the worker what to do.
    - **blocked:** it needs something only the user can give. Ask, then pass it on.

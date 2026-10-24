@@ -193,6 +193,28 @@ used, for example over SSH without port forwarding, Claude asks in the terminal 
 Approval is not on the page. Claude could send anything the page can send, so approving
 stays a command only you can type.
 
+## When to use it, and what it costs
+
+naqsha earns its cost on a feature or a new system. For a one-file fix, a copy change or a
+dependency bump, just ask Claude directly; the plan itself will say so if you start one
+for a small change.
+
+Its cost is in work repeated per step, not in its instructions: planning reads about 25k
+tokens of instructions once, and the build about 12k up front plus up to 6k as steps need
+them. To keep a build inside a usage window, you choose an **effort** at plan start:
+
+| | light | standard (default) | thorough |
+|---|---|---|---|
+| Research | only what the repo and you can't answer | each significant choice | wide |
+| Independent review | steps that build a threat mitigation | those, plus data or API changes and hot paths | every step |
+| Running the app | baseline and finish | after each user-facing step | after each user-facing step |
+| Crew mode | not offered | offered | offered |
+
+The approval gate, the security rules, test-first and the finish review are the same at
+every level. A reviewer reads only the step's working set and the references it lists,
+not the whole plan. Nothing loops unattended: an unanswered questionnaire waits for you
+instead of waking Claude every two hours.
+
 ## What a plan contains
 
 Summary and non-goals · requirements · what the existing codebase already has (with
@@ -246,7 +268,12 @@ a plan is being drafted:
   reported once as not Claude's, and Claude is told not to undo it. Your edits between
   prompts are never reported. The hook's git calls take no optional locks, so they never
   rewrite `.git/index` under your own git commands.
-- Claude's tools can't touch `.naqsha/` or invoke approval.
+- Claude can't change `.naqsha/` or invoke approval. Writes and edits there are denied, and
+  so is running `claude` with the approve command from Bash; merely mentioning either (in
+  docs, a commit message, a script) is fine. The hook keeps a copy of its state under
+  `~/.claude/naqsha/`, and if a Claude command changes or deletes the state anyway, by any
+  route, it's put back and Claude is told. To leave planning, delete `.naqsha/` yourself
+  from a terminal.
 
 Limits, honestly: the hook stops an assistant from drifting into code. It is not a sandbox
 against a process trying to evade it. Bash changes are caught and reverted after the fact,
@@ -255,7 +282,7 @@ checked, so a read-only test run doesn't trip the lock. Without git, only the fi
 files are checked, and the planning phase says so when a project is bigger. If `node` is
 missing or the hook crashes, it fails open and says so, so a session is never stuck.
 
-To leave planning without approving, delete `.naqsha/`. A build that a new plan paused
+To leave planning without approving, delete `.naqsha/` from a terminal. A build that a new plan paused
 resumes with `/naqsha:build <folder>`.
 
 ## Install

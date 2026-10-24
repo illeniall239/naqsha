@@ -271,7 +271,7 @@ async function main(argv) {
     const i = rest.indexOf('--minutes');
     const sent = await wait(dir, i >= 0 ? Number(rest[i + 1]) || WAIT_MINUTES : WAIT_MINUTES);
     if (!sent) {
-      console.log('Nothing sent yet. The page keeps anything the user sends; run wait again to collect it.');
+      console.log('Nothing sent yet. The page keeps anything the user sends. Tell the user, and run wait again only when they say they have sent; never in a loop.');
       process.exitCode = 2;
     } else {
       console.log(JSON.stringify(sent, null, 2));

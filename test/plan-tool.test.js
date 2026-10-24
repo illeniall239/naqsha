@@ -133,6 +133,25 @@ test('a checkpoint keeps your place inside a step until it is done', () => {
   }
 });
 
+test('the independent review goes where the risk is, scaled by effort', () => {
+  // S1 touches a migration (data), S2 builds threat T1 and proves a hot path, S3 is docs.
+  const file = planFile({ security: { threats: [{ id: 'T1', threat: 'x', mitigation: 'y', step: 'S2' }] } });
+  const review = id => /## Independent review\n(.*)/.exec(tool(['step', file, id]).stdout)[1];
+
+  assert.match(review('S1'), /^Required: it changes data or an API\.$/, 'standard is the default');
+  assert.match(review('S2'), /^Required: it builds a threat mitigation; it proves a hot path\.$/);
+  assert.match(review('S3'), /^Not needed for this step \(effort standard: no threat mitigation, data or API change, or hot path\)\. .*finish review covers it/);
+
+  tool(['set-meta', file], '{"effort":"light"}');
+  assert.match(review('S1'), /^Not needed .*effort light: no threat mitigation\)/, 'light reviews only security work');
+  assert.match(review('S2'), /^Required: it builds a threat mitigation\.$/, 'security is never scaled down');
+
+  tool(['set-meta', file], '{"effort":"thorough"}');
+  for (const id of ['S1', 'S2', 'S3']) assert.match(review(id), /^Required: effort is thorough: every step\.$/);
+
+  assert.match(tool(['set-meta', file], '{"effort":"extreme"}').stderr, /light, standard, thorough/);
+});
+
 test('status shows progress and the next step', () => {
   const file = planFile();
   tool(['update-step', file, 'S1'], '{"status":"done"}');

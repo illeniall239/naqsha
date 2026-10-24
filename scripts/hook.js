@@ -22,6 +22,9 @@ const PUBLISHED_DOCS = [
 ].map(f => path.join(...f.split('/')));
 const STATE_DIR = '.naqsha';
 const FILE_TOOLS = new Set(['Write', 'Edit', 'MultiEdit', 'NotebookEdit']);
+// `claude` in command position (start of a line or after ; & | ( or $( ),
+// optionally behind env, npx or exec, with the approve command later on the same line.
+const RUNS_APPROVE = /(^|[;&|(\n`]|\$\()\s*(?:(?:env|exec|npx|command)\s+(?:\S+=\S*\s+)*)?(?:\S*\/)?claude\b[^\n;&|]*naqsha:approve/;
 const WALK_SKIP = new Set(['.git', 'node_modules', STATE_DIR]);
 const WALK_LIMIT = 20000;
 // Claude Code writes this when the user allows a command, mid-turn.
@@ -34,6 +37,7 @@ function main(input) {
   const ctx = { input, root, stateFile: path.join(root, STATE_DIR, 'state.json') };
   ctx.state = readJson(ctx.stateFile);
   ctx.plansDir = (ctx.state && ctx.state.plansDir) || DEFAULT_PLANS_DIR;
+  if (input.hook_event_name !== 'PostToolUse') forgetIfLeft(ctx);
 
   switch (input.hook_event_name) {
     case 'UserPromptExpansion': return onCommand(ctx);
@@ -309,9 +313,10 @@ function onPreTool(ctx) {
   const { tool_name: tool, tool_input: ti = {} } = ctx.input;
   const drafting = ctx.state && ctx.state.phase === 'drafting';
 
-  // The gate's own state and the approval command belong to the user.
-  if (tool === 'Bash' && /\.naqsha\b|naqsha:approve/.test(ti.command || '')) {
-    return deny(`Naqsha state and approval are the user's. Don't read, change or invoke them from Bash.`);
+  // Approval belongs to the user. Running claude with the approve command is
+  // the way around that; mentioning it (docs, a commit message) is not.
+  if (tool === 'Bash' && RUNS_APPROVE.test(ti.command || '')) {
+    return deny('Only the user can approve a plan, by typing /naqsha:approve. Don\'t run it through claude from Bash.');
   }
   if (tool === 'Skill' && ti.skill === 'naqsha:approve') {
     return deny('Only the user can approve a plan, by typing /naqsha:approve.');
@@ -359,7 +364,10 @@ function writableWhileDrafting(abs, ctx) {
 // commands (the user's editor, a dev server, a watcher) is reported once as
 // not Claude's, so Claude never "restores" someone else's work.
 function onPostTool(ctx) {
-  if (ctx.input.tool_name !== 'Bash' || !ctx.state || ctx.state.phase !== 'drafting') return;
+  if (ctx.input.tool_name !== 'Bash') return;
+  const tampered = guardState(ctx);
+  if (tampered) return { decision: 'block', reason: `Naqsha: ${tampered}` };
+  if (!ctx.state || ctx.state.phase !== 'drafting') return;
   const s = ctx.state;
   const preFile = preSnapshotFile(ctx);
   const pre = readJson(preFile) || s.baseline;
@@ -618,7 +626,38 @@ function writeState(ctx, state) {
   fs.mkdirSync(dir, { recursive: true });
   const ignore = path.join(dir, '.gitignore');
   if (!fs.existsSync(ignore)) fs.writeFileSync(ignore, '*\n');
-  writeFileAtomic(ctx.stateFile, JSON.stringify(state, null, 2));
+  const text = JSON.stringify(state, null, 2);
+  writeFileAtomic(ctx.stateFile, text);
+  writeFileAtomic(stateCopy(ctx.root), text);
+}
+
+// The hook's own copy of the state, outside the project, keyed by its path.
+function stateCopy(root) {
+  return path.join(os.homedir(), '.claude', 'naqsha', 'state', `${sha256(root).slice(0, 24)}.json`);
+}
+
+// Claude's Bash commands may read the state but never change it. Text matching
+// can't tell (a script can write the file without naming it), so compare the
+// state with the hook's copy after each command and put it back.
+function guardState(ctx) {
+  const copy = stateCopy(ctx.root);
+  let saved;
+  try { saved = fs.readFileSync(copy, 'utf8'); } catch { return null; }
+  let now = null;
+  try { now = fs.readFileSync(ctx.stateFile, 'utf8'); } catch { /* deleted */ }
+  // A deletion is put back too. The user leaves planning by deleting the
+  // folder from a terminal, which never passes through this hook.
+  if (now === saved) return null;
+  writeState(ctx, JSON.parse(saved));
+  ctx.state = JSON.parse(saved);
+  return `that command ${now === null ? 'deleted' : 'changed'} naqsha's state (${STATE_DIR}/state.json), so it has been put back. ` +
+    'The state is written only by the user\'s commands; leave it alone. To stop planning, the user deletes the folder themselves, from a terminal.';
+}
+
+// Outside Claude's commands, a missing state means the user left (deleted
+// the folder): forget the copy so it's never restored.
+function forgetIfLeft(ctx) {
+  if (!ctx.state) fs.rmSync(stateCopy(ctx.root), { force: true });
 }
 
 function writeFileAtomic(file, text) {

@@ -113,6 +113,8 @@ The build is long, and a full context makes every later step worse. So:
   - **Crew in parallel:** the same, with up to `crewParallel` (2 to 4) steps at once when
     they share no files. Only when the tests share no database, ports or files; it costs
     more tokens at the same time.
+  Crew mode costs a worker per step on top of the coordinator, so don't offer it at `light`
+  effort; build solo.
   In crew mode, read `${CLAUDE_SKILL_DIR}/references/crew.md` and follow its loop instead
   of "Each step" below; workers follow "Each step" themselves.
 - Read `<plans>/LEARNINGS.md` if it exists.
@@ -158,7 +160,7 @@ The build is long, and a full context makes every later step worse. So:
    formatter, linter and type checker, and every check in `testing.securityChecks`, and
    read the output. If the step changes anything a user, client or operator sees, run the
    app and walk the flows it changed, unhappy paths included, as `run-like-a-user.md`
-   says. A
+   says. At `light` effort, the app is walked at the baseline and the finish only. A
    security finding is fixed, or shown to be a false positive with a concrete reason; it is
    never left open, and never silenced without the user's say-so. Put the evidence in the step's `notes`
    with `T update-step` and `notesAppend`: commands, result lines, commit if any. Record each check as exactly one of these:
@@ -172,9 +174,11 @@ The build is long, and a full context makes every later step worse. So:
    stop: no extra polish or tests beyond the step.
 5. Review your own diff against the checklist at the end of `code-quality.md`, and fix what
    it finds.
-6. Get the independent review in `independent-review.md`: a fresh reviewer, its blocking
-   findings fixed (test-first) or rebutted with evidence, rounds until it passes, and
-   anything still disputed after three rounds brought to the user. Record it in the notes.
+6. If the working set says the step needs an independent review, get it as
+   `independent-review.md` describes: a fresh reviewer, its blocking findings fixed
+   (test-first) or rebutted with evidence, rounds until it passes, and anything still
+   disputed after three rounds brought to the user. If it doesn't, your own review in 5 is
+   the check. Either way, record which in the notes.
 7. Set the step to `done` (`T update-step`). Report it to the user in a few lines: what changed, the check
    results, and what you did *not* verify or any risk they should know about. If there's
    nothing to flag, say so. With

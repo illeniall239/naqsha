@@ -8,7 +8,8 @@
 //       { "status": "done", "notesAppend": "..." }  (status: todo | doing | done | blocked)
 //   plan-tool.js set-meta <plan.js> < patch.json
 //       { "status": "building" | "done", "buildReview": "pause" | "run",
-//         "buildMode": "solo" | "crew", "crewParallel": 1-4 }
+//         "buildMode": "solo" | "crew", "crewParallel": 1-4,
+//         "effort": "light" | "standard" | "thorough" }
 //   plan-tool.js ready <plan.js>          crew mode: steps that can start now, and which can run together
 //   plan-tool.js checkpoint <plan.js> <S#> < checkpoint.json
 //       { "did": "...", "next": "...", "red": "...", "files": [...], "open": [...] }
@@ -60,6 +61,23 @@ function referencesFor(plan, step) {
     add('docs-and-setup', 'last step: follow the README from a fresh clone');
   }
   return why;
+}
+
+// The independent review costs a fresh agent per step, so it goes where a
+// second pair of eyes matters most. Security and test-first never scale with
+// effort; this does. The finish review always covers the whole change.
+function reviewFor(plan, step, refs) {
+  const effort = (plan.meta && plan.meta.effort) || 'standard';
+  if (effort === 'thorough') return { effort, why: ['effort is thorough: every step'] };
+  const why = [];
+  const sec = plan.security && !isNa(plan.security) ? plan.security : {};
+  if (list(sec.threats).some(t => t.step === step.id)) why.push('it builds a threat mitigation');
+  if (effort === 'standard') {
+    if (refs.has('data-and-apis')) why.push('it changes data or an API');
+    const arch = plan.architecture && !isNa(plan.architecture) ? plan.architecture : {};
+    if (list(arch.hotPaths).some(h => h.provedBy === step.id)) why.push('it proves a hot path');
+  }
+  return { effort, why };
 }
 
 // The step and only what it touches, as compact text.
@@ -130,6 +148,10 @@ function stepView(plan, id, planFile) {
   if (steps[steps.length - 1] === step) {
     section('Acceptance criteria (finish)', list(t.acceptance).map(a => `- ${a.id}: ${one(a.text)}`));
   }
+  const review = reviewFor(plan, step, refs);
+  section('Independent review', [review.why.length
+    ? `Required: ${review.why.join('; ')}.`
+    : `Not needed for this step (effort ${review.effort}: no threat mitigation${review.effort === 'standard' ? ', data or API change, or hot path' : ''}). Your own review applies; the finish review covers it.`]);
   section('References to read for this step (skip any already read in this context)',
     [...refs].map(([r, reason]) => `- ${r}.md: ${reason}`));
   const learnings = planFile && path.join(path.dirname(path.dirname(planFile)), LEARNINGS);
@@ -215,7 +237,10 @@ function checkpoint(plan, id, patch) {
 
 // Approval belongs to the user's /naqsha:approve; this never sets it.
 function setMeta(plan, patch) {
-  const rules = { status: ['building', 'done'], buildReview: ['pause', 'run'], buildMode: ['solo', 'crew'], crewParallel: [1, 2, 3, 4] };
+  const rules = {
+    status: ['building', 'done'], buildReview: ['pause', 'run'], buildMode: ['solo', 'crew'], crewParallel: [1, 2, 3, 4],
+    effort: ['light', 'standard', 'thorough'],
+  };
   for (const [k, v] of Object.entries(patch)) {
     if (!rules[k]) throw new Error(`can't set meta.${k} here`);
     if (!rules[k].includes(v)) throw new Error(`meta.${k} must be one of ${rules[k].join(', ')}`);
@@ -264,4 +289,4 @@ if (require.main === module) {
   }
 }
 
-module.exports = { stepView, statusView, referencesFor };
+module.exports = { stepView, statusView, referencesFor, reviewFor };
