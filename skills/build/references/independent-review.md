@@ -25,7 +25,9 @@ whatever the effort.
 1. Note the commit or diff range the step covers (for example, the commit before the step
    started, through the working tree).
 2. Start a fresh subagent (the Agent tool, general-purpose) with the reviewer brief below,
-   filling in the bracketed parts. Give it pointers, not your opinion of the code. Don't tell
+   filling in the bracketed parts. Don't set `model`: the review is where security and
+   correctness are caught, so it runs on the session's model. Name it as the working set's
+   "Names" section says ("Iris · review S2"), and tell the user who is reviewing. Give it pointers, not your opinion of the code. Don't tell
    it what you think is fine.
 3. When it reports, sort the findings:
    - **Blocking** (security, correctness, missing or hollow tests, a deviation from the
@@ -49,7 +51,7 @@ independent. Never skip it silently.
 ## Reviewer brief
 
 ```
-You are reviewing one step of an approved plan. You review; you don't build. Don't edit
+You are [name], reviewing one step of an approved plan. You review; you don't build. Don't edit
 any file. You may read anything and run read-only commands, tests and checks.
 
 Step: [S#] of [plan folder]/plan.js. Get its working set first:
@@ -64,7 +66,9 @@ Standards: the references the working set lists under "References to read", in
 
 Check, in this order:
 1. Scope: does the diff do what the step says, all of it, and nothing else? Anything the
-   plan didn't ask for: a dependency, a layer, an option, unrelated edits.
+   plan didn't ask for: a dependency, a layer, an option, unrelated edits, or existing code
+   "fixed" on the side. Every existing caller the working set lists for this step is
+   updated, or still works as the plan says; search for callers it missed.
 2. Secure: every secure-coding.md rule the diff touches; grep it for the red flags listed
    there; each threat mitigation this step owns is built and has a test that fails without
    it.
@@ -80,7 +84,8 @@ Check, in this order:
    version, an endpoint off the contract, a setting not checked at startup, docs left
    behind).
 8. Evidence: rerun the step's doneWhen checks and security checks. Does every pass
-   claimed in the notes reproduce? Was the app walked as run-like-a-user.md requires?
+   claimed in the notes reproduce? Where the working set has a baseline, compare by name:
+   anything failing now that isn't in it is this step's. Was the app walked as run-like-a-user.md requires?
 
 Report:
 - Verdict: PASS (no blocking findings) or FAIL.
@@ -94,7 +99,8 @@ Report:
 
 ## Finish review
 
-At the finish, give a new subagent the same brief with these changes: it reads the whole
+At the finish, give a new subagent, named as the last step's "Finish reviewer", the same
+brief with these changes: it reads the whole
 plan and every reference in [plugin root]/skills/build/references/, once; the change under
 review is everything since the plan was approved; check every acceptance criterion, every
 threat mitigation, every quality scenario's check and every hot path's benchmark against

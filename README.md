@@ -78,6 +78,33 @@ not accepted by you), no security checks for the build to run, no test seams, a 
 doesn't list the failing tests it starts from (or say why none can come first), or a new
 module without a responsibility and an interface.
 
+## Existing codebases
+
+Changing code that other code relies on is where an existing project breaks. On top of
+reading the code, its conventions and how it runs, naqsha does four more things:
+
+- **Who relies on what changes.** For every existing function, endpoint, table, event,
+  config key or file format the plan changes, the plan lists how its users were searched
+  for, each user with `file:line`, and the step that updates it or why it still works.
+  It also names what outside the repo could rely on it: other services, older mobile
+  clients, webhooks, jobs. Approval is refused without this map, and each step's working
+  set lists the callers it has to update.
+- **The versions you have.** Research uses the versions the lockfile pins, not the latest.
+  An upgrade happens only when the goals need it, as its own step. Each new dependency
+  says what the project already has for the job (`overlap`); approval is refused without
+  that, so you don't end up with a second HTTP client or date library.
+- **A baseline for the checks.** Before the first step, the build runs the test suite,
+  linters, type checks and security checks and records what already fails
+  (`plan-tool.js baseline`). Steps are then held to adding nothing to that list, compared
+  by name, instead of stalling on old red tests or "fixing" unrelated code. The baseline
+  can't be retaken after a step is done, so a new failure can't be folded into it. The page
+  shows it under Build.
+- **History before removal.** Before changing or deleting code whose reason isn't visible,
+  Claude reads its history (`git log -L`, `git blame`, linked issues). Problems that were
+  already there in touched code are reported as `found:` with `file:line`, not fixed on the
+  side; if the step can't be built safely without fixing one, it comes to you as a
+  deviation.
+
 ## Contracts, operations and docs
 
 Three shorter references cover what a strong team expects beyond the code itself:
@@ -141,6 +168,12 @@ onto a build branch (never `main`), conflicts aborted cleanly with instructions,
 `drop` refusing unlanded commits without `--force`. `plan-tool.js ready` picks the steps
 that can start, keeping steps that share a file apart.
 
+Every agent naqsha starts has a name from Greek myth, so you can follow who's doing what:
+"Orion is building S5, Iris is reviewing S4, Hermes is researching on-device runtimes". A
+step's worker and reviewer names come from its position in the plan, so they stay the same
+after a handoff or a restart, and steps running side by side never share one. The names
+appear in the agents' descriptions, in what Claude tells you, and in the step notes.
+
 ## Keeping the context lean
 
 A long build degrades as its context fills, so naqsha spends context where it pays:
@@ -154,13 +187,23 @@ A long build degrades as its context fills, so naqsha spends context where it pa
 - **References by need.** Security, test-first, modularity, code quality and the review
   brief are always loaded. Performance, data and APIs, operability, docs and running the
   app load only for the steps that need them (`steps[].standards` in the plan, with file
-  patterns as the fallback). The independent reviewer reads all of them in its own
-  context, so nothing skipped goes unchecked.
+  patterns as the fallback). The independent reviewer reads the same ones for the step,
+  and the finish review reads all of them. In crew mode the coordinator reads only the
+  crew, review and run-the-app references, since it doesn't write code.
 - **Output discipline.** Command output is saved to a file and only summaries and failures
   are read. Screenshots are viewport-sized and only where the look matters. Step notes
   hold excerpts, not logs.
 - **Research in subagents.** Planning sends web research, prior art and large-codebase
-  exploration to subagents that return condensed findings with sources.
+  exploration to subagents that return condensed findings with sources, at most 2, 3 or 5
+  of them by effort, each with a budget of about 15 searches and fetches.
+- **The right model for the work.** Lookups (a version, a license, a spec sheet, where
+  something lives in a large codebase) go to Haiku. Research that compares sources goes to
+  Sonnet. Everything that decides or writes code stays on your session's model: the plan's
+  design and recommendations, the build workers, and the independent reviewers. Run naqsha
+  on Opus and the coding is Opus, while the legwork draws less of your limit.
+- **Workers hand off before they grow.** A crew worker that passes about 60 tool calls
+  commits at its next green and hands off; a fresh worker continues from its commits. Each
+  call re-reads the whole context, so two short contexts cost much less than one long one.
 - **No turn ends blind.** While a step is in progress, a Stop hook blocks a turn that did
   work from ending without a fresh checkpoint. It blocks once and lets a turn with no work
   (a question mid-build) end freely.
@@ -177,9 +220,13 @@ A long build degrades as its context fills, so naqsha spends context where it pa
 
 ## Answering on the page
 
-The plan page doubles as the questionnaire. Claude puts each round of questions and
-decisions on it: options with pros and cons, its recommendation and why, a box for your
-own answer and one for notes. You answer at your own pace and press **Send to Claude**.
+The plan page is split into tabs (Overview, Questions, Requirements, Research, Design,
+Security, Build, Change log) instead of one long scroll; it remembers your tab, and any
+link on the page opens the tab it points into. It doubles as the questionnaire: Claude
+puts each round of questions and decisions in the Questions tab, grouped into phases
+("Who it's for", "Data and privacy", "Decisions"…) that you work through one at a time
+with a progress stepper. Each item has options with pros and cons, Claude's
+recommendation and why, a box for your own answer and one for notes. You answer at your own pace and press **Send to Claude**.
 Claude records your answers, writes the plan from them, and asks a follow-up round only if
 your answers opened new questions. Once the plan is written you can comment on any section
 and send that too. Nothing you write is lost on a reload; it stays in your browser until
@@ -223,10 +270,33 @@ shipped products, engineering write-ups), how each works, whether it holds up at
 level, and a verdict (adopt / learn from / avoid) · research with sources · decisions with options, trade-offs, a recommendation,
 and your choice · architecture, data model and interfaces · a threat model with
 mitigations tied to steps · error handling, observability, performance, accessibility,
-migration · new dependencies with license and health · testing and acceptance criteria ·
+migration · in an existing codebase, what relies on what changes · new dependencies with
+license, health and what they overlap with · testing and acceptance criteria ·
 ordered steps, each sized to review in one sitting, with the failing tests it starts from
 and a runnable "done when" · what needs you (accounts, devices, reviews only you can do) ·
-risks · what was deliberately left out · change log.
+risks · what was deliberately left out · later milestones · change log.
+
+## One piece at a time
+
+AI agents tend to take on everything at once: one giant plan, a whole layer of code before
+anything runs, five fixes stacked on a failing test. naqsha breaks the work down at every
+level:
+
+- **The request.** After the first questions, Claude splits the request into its parts,
+  each with its riskiest unknown, and settles those first. A request bigger than about 12
+  steps becomes milestones: this plan covers the thinnest version a user can actually use
+  from start to end, and each later milestone is its own plan, made after this one is
+  built, with real code in hand. The page lists them under "Later milestones".
+- **The steps.** After setup comes a walking skeleton: the main flow working end to end,
+  however thin. Then each step adds one behavior through every layer it needs, never one
+  whole layer at a time, so every step can be run like a user would and a wrong assumption
+  shows up early.
+- **Inside a step.** One test, the code for it, run, then the next. Crew workers hand off
+  before their context grows long.
+- **When something fails.** Reproduce it with the smallest case, narrow it down (halve
+  the input, the code path, or the history with `git bisect`), and test one guess at a
+  time, undoing a wrong one before the next. After three wrong guesses, stop, re-read, and
+  bring what was ruled out to you.
 
 There are no hour estimates. Claude builds the code, so hours for a human developer would
 be invented precision. The page shows the build's size instead, counted in Claude's work
@@ -240,6 +310,8 @@ calendar time goes.
 | `/naqsha:plan <request>` | you | Start or resume a plan. Locks project files. |
 | `/naqsha:approve [folder]` | you only | Checks the plan is complete (prior art recorded; no open decisions; every step has its failing tests and a done-when check), marks it approved, and unlocks the project. |
 | `/naqsha:build [folder]` | you | Build, or resume building, the plan approved last. Name a folder to resume an earlier approved plan, such as one paused when you started a new plan. |
+| `/naqsha:learn [folder or topic]` | you | Learn what was built and why: a guide on its own page, then taught in chat. Changes no code. |
+| `/naqsha:review [area or path]` | you | Review an existing codebase against naqsha's standards: a map every later plan starts from, and ranked findings on their own page, each able to become a plan. Changes no code. |
 
 Claude can't run any of these itself. A typed command is the only way in. Send each one as a
 message of its own. If you mention `/naqsha:plan` or `/naqsha:build` mid-sentence, Claude
@@ -261,6 +333,55 @@ publish `docs/` without any of those files, set the folder yourself in
 
 The plans folder is the one place Claude may write while planning, so naqsha refuses a
 folder that already holds anything other than plans and Markdown notes.
+
+## Learning what was built
+
+You own the code naqsha builds, so `/naqsha:learn` teaches it to you. It writes a guide
+next to the plan (`<plans>/<slug>/learn/`) and opens it on its own page: the big picture,
+one key flow traced through the code, the modules, each technology and why it was chosen
+over the alternatives, the data, the security defenses and where they live, the tests, how
+to run and ship it, how to make the changes you're likely to make, and what was left out.
+There's also a searchable file map and glossary, and each chapter has questions to check
+yourself. Then Claude teaches it in chat, a chapter at a time, at your level, and answers
+questions you send from the page.
+
+Every "why" cites where it came from (your answer, a decision, a research source) or says
+"not recorded"; it is never made up. Every "where" is checked against the current code.
+It reads the plan through `plan-tool.js digest` (about a third the size of the plan) and
+changes no project code. Without a naqsha plan it still works, from the code, its history
+and its docs. Run it again after the code changes to bring the guide up to date.
+
+## Reviewing an existing codebase
+
+`/naqsha:review` is for code you already have. It works like a senior engineer's first week
+on the team, and changes no project code.
+
+- **A map, made once.** It writes `<plans>/CODEBASE.md`: how to set up, run, test and
+  deploy (commands seen to work, or marked not verified), the layout, the architecture as it
+  is, the conventions with `file:line` examples, what to reuse before writing anything new,
+  the dependencies that matter, the tests, and the hotspots (files that change most, and
+  which of them have no tests). It's stamped with its commit. `/naqsha:plan`,
+  `/naqsha:learn` and the next review start from it, and the hook tells them how many
+  commits it's behind, so only what changed gets read again.
+- **Checks that actually ran.** The test suite, linters, type checks and the project's
+  security checks, plus a dependency audit and a secret scan where the tools exist.
+  Installing a missing tool needs your yes.
+- **Findings against the same standards builds are held to:** security, tests,
+  dependencies, correctness, modularity, data and APIs, operability, performance, docs. You
+  choose the depth (quick, standard, thorough) and what it's for, which sets the ranking.
+  Security is reviewed at every depth. Subagents on Sonnet look, one per area; Claude reads
+  the code behind every critical and high finding itself before it's reported.
+- **Findings you can trust.** Each one has `file:line`, a concrete failure case, how it was
+  verified (`confirmed` if reproduced, `likely` if traced), the rule it breaks, and the
+  direction of a fix. Odd code's history is checked before it's called a bug. At most about
+  30, with repeats grouped as patterns. The report also says what the code does well and
+  what wasn't checked.
+- **Its own page** (`<plans>/reviews/<date>/`): the verdict, top risks, what to plan first,
+  then findings you can filter by severity, area and status, and search. Pick findings and
+  send "Plan a fix", tell Claude one isn't a problem (with your reason), or ask about it.
+  Claude can't start a plan itself, so it gives you the `/naqsha:plan fix F2 and F5 from
+  …` command to type. The plan starts from those findings, re-checked against the code, and
+  marks them planned.
 
 ## How the lock works
 

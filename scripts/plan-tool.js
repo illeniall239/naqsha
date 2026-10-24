@@ -11,10 +11,16 @@
 //         "buildMode": "solo" | "crew", "crewParallel": 1-4,
 //         "effort": "light" | "standard" | "thorough" }
 //   plan-tool.js ready <plan.js>          crew mode: steps that can start now, and which can run together
+//   plan-tool.js digest <plan.js>         the plan's whys in compact text, for /naqsha:learn
 //   plan-tool.js checkpoint <plan.js> <S#> < checkpoint.json
 //       { "did": "...", "next": "...", "red": "...", "files": [...], "open": [...] }
 //       where you are inside a step, so a compaction or a new session picks up
 //       there. Cleared when the step is set done.
+//   plan-tool.js baseline <plan.js> < baseline.json
+//       { "commit": "abc1234", "checks": [{ "check": "tests", "command": "npm test",
+//         "result": "412 passed, 3 failed", "known": ["auth > refresh keeps the session"] }] }
+//       the project's checks as they were before the build changed anything.
+//       Only before the first step is done, so it can't be moved to hide a failure.
 'use strict';
 
 const fs = require('fs');
@@ -35,9 +41,16 @@ const BY_FILES = {
 const KNOWN = new Set([...ALWAYS, 'performance', ...Object.keys(BY_FILES)]);
 const STEP_STATUS = new Set(['todo', 'doing', 'done', 'blocked']);
 const LEARNINGS = 'LEARNINGS.md';
+// Every agent naqsha starts gets a name, so the user can follow who's doing
+// what. A step's names come from its position: the same after a handoff or a
+// restart, and different for steps running side by side.
+const NAMES = ['Atlas', 'Iris', 'Hermes', 'Athena', 'Orion', 'Nyx', 'Helios', 'Selene', 'Theia', 'Eos', 'Rhea', 'Leto',
+  'Apollo', 'Artemis', 'Hestia', 'Demeter', 'Castor', 'Pollux', 'Phoebe', 'Themis', 'Hyperion', 'Calypso', 'Ariadne', 'Perseus'];
+const namesFor = i => ({ worker: NAMES[i % NAMES.length], reviewer: NAMES[(i + NAMES.length / 2) % NAMES.length] });
 
 const list = x => (Array.isArray(x) ? x : []);
 const isNa = x => !!x && typeof x === 'object' && !Array.isArray(x) && typeof x.na === 'string';
+const existing = plan => !!plan.context && !isNa(plan.context);
 const one = x => String(x ?? '').replace(/\s+/g, ' ').trim();
 const minute = iso => one(iso).slice(0, 16).replace('T', ' ');
 
@@ -121,6 +134,9 @@ function stepView(plan, id, planFile) {
   section('Hot paths this step proves', list(arch.hotPaths).filter(h => h.provedBy === step.id)
     .map(h => `- ${one(h.flow)}: size ${one(h.size)}, budget ${one(h.budget)}; approach: ${one(h.approach)}`));
 
+  section('Existing code that relies on what this step changes (update each)', list(plan.impact).flatMap(i =>
+    list(i.users).filter(u => u.step === step.id).map(u => `- ${one(u.where)}: ${one(i.change)}${u.what ? ` (${one(u.what)})` : ''}`)));
+
   const files = list(step.files);
   const touched = list(arch.components).filter(c => c.location && files.some(f => f.startsWith(c.location.replace(/^\.\//, ''))));
   section(touched.length ? 'Modules it touches' : 'Modules', (touched.length ? touched : list(arch.components))
@@ -144,19 +160,106 @@ function stepView(plan, id, planFile) {
       ? [`- Run it: data \`${one(t.runIt.data)}\`; start \`${one(t.runIt.start)}\`; ready \`${one(t.runIt.ready)}\`; drive by ${one(t.runIt.drive)}; stop \`${one(t.runIt.stop)}\``] : []),
   ]);
   section('Seams tests go through', list(t.seams).map(s => `- ${one(s.seam)}`));
+  const b = plan.baseline;
+  if (b) {
+    section(`Baseline before the build (${minute(b.at)}${b.commit ? `, ${one(b.commit)}` : ''}): what was already failing. Don't fix it here and don't add to it`,
+      list(b.checks).flatMap(c => [`- ${one(c.check)}: ${one(c.result)}${c.command ? ` (\`${one(c.command)}\`)` : ''}`,
+        ...list(c.known).slice(0, 10).map(k => `  - ${one(k)}`), ...(list(c.known).length > 10 ? [`  - and ${c.known.length - 10} more`] : [])]));
+  } else if (existing(plan) && !steps.some(s => s.status === 'done')) {
+    section('Baseline', ['Not taken yet. Before this step changes anything, run the whole test suite, the linters and type checks, and the security checks, and record what already fails with `plan-tool.js baseline`.']);
+  }
   if (steps[steps.length - 1] === step) {
     section('Acceptance criteria (finish)', list(t.acceptance).map(a => `- ${a.id}: ${one(a.text)}`));
   }
   const review = reviewFor(plan, step, refs);
+  const names = namesFor(steps.indexOf(step));
   section('Independent review', [review.why.length
     ? `Required: ${review.why.join('; ')}.`
     : `Not needed for this step (effort ${review.effort}: no threat mitigation${review.effort === 'standard' ? ', data or API change, or hot path' : ''}). Your own review applies; the finish review covers it.`]);
+  // Only a crew build has a worker to name; every build has reviewers.
+  const crew = m.buildMode === 'crew';
+  const first = crew ? names.worker : names.reviewer;
+  section('Names', [
+    `${crew ? `Worker: ${names.worker}. ` : ''}Reviewer: ${names.reviewer}.` +
+      (steps[steps.length - 1] === step ? ` Finish reviewer: ${namesFor(steps.length).reviewer}.` : ''),
+    `Put the name first in the agent's description ("${first} · ${crew ? 'build' : 'review'} ${step.id}"), open its brief with "You are ${first}", and use it when you tell the user who is doing what.`,
+  ]);
   section('References to read for this step (skip any already read in this context)',
     [...refs].map(([r, reason]) => `- ${r}.md: ${reason}`));
   const learnings = planFile && path.join(path.dirname(path.dirname(planFile)), LEARNINGS);
   if (learnings && fs.existsSync(learnings)) {
     section('Project learnings', [`- ${learnings}: read once per conversation; add what this step teaches`]);
   }
+  return out.join('\n');
+}
+
+// Everything a guide needs to explain what was built and why, with the ids
+// it cites, and without the bulk (pros and cons tables, evidence logs).
+function digestView(plan, planFile) {
+  const out = [];
+  const m = plan.meta || {};
+  const section = (title, lines) => { if (lines.length) out.push(`## ${title}`, ...lines, ''); };
+  const obj = x => (x && typeof x === 'object' && !isNa(x) ? x : {});
+  const ans = a => !a ? '' : typeof a === 'string' ? a : [list(a.choice).join(', '), a.text, a.note && `(${a.note})`].filter(Boolean).join(' · ');
+  const short = (x, n = 300) => { const t = one(x); return t.length > n ? t.slice(0, n) + '…' : t; };
+
+  out.push(`# ${one(m.title)} · ${one(m.kind)} · plan ${one(m.status)} · effort ${one(m.effort) || 'standard'}`,
+    `Built for: ${one(m.developer) || 'not recorded'}`, '');
+  const sum = obj(plan.summary);
+  section('What and who', [
+    ...(sum.problem ? [`Problem: ${one(sum.problem)}`] : []),
+    ...(sum.outcome ? [`Outcome: ${one(sum.outcome)}`] : []),
+    ...list(sum.users).map(u => `User: ${one(u)}`),
+    ...list(sum.goals).map(g => `Goal: ${one(g)}`),
+    ...list(sum.nonGoals).map(g => `Not a goal: ${one(g)}`),
+  ]);
+  section("The user's answers (cite as Q#)", list(plan.questions).filter(q => q.status === 'answered')
+    .map(q => `- ${q.id}: ${one(q.question)} → ${short(ans(q.answer), 200)}`));
+  section('Decisions (cite as D#)', list(plan.decisions).map(d => [
+    `- ${d.id}: ${one(d.question)} → ${one(d.choice) || `[${one(d.status)}]`} (${one(d.decidedBy) || 'undecided'})`,
+    ...(d.why ? [`  why recommended: ${short(d.why)}`] : []),
+    ...(d.note ? [`  the user's note: ${short(d.note)}`] : []),
+    ...(list(d.options).length > 1 ? [`  passed over: ${list(d.options).map(o => one(o.name)).filter(n => n !== one(d.choice)).join('; ')}`] : []),
+    ...(d.consequences ? [`  consequences: ${short(d.consequences)}`] : []),
+  ].join('\n')));
+  section('Research (cite the source)', isNa(plan.research) ? [] : list(plan.research).map(r =>
+    `- ${one(r.topic)}: ${short(r.finding)}${list(r.sources).length ? ` [${list(r.sources).map(x => `${one(x.url || x.title)}${x.accessed ? ` ${one(x.accessed)}` : ''}`).join('; ')}]` : ''}`));
+  section('Prior art', isNa(plan.priorArt) ? [`Searched, nothing comparable: ${one(plan.priorArt.na)}`] : list(plan.priorArt).map(a =>
+    `- ${one(a.name)} (${one(a.verdict)}): ${short(a.why, 200)}${list(a.takeaways).length ? `; takeaways: ${list(a.takeaways).map(one).join('; ')}` : ''}`));
+  const arch = obj(plan.architecture);
+  section('Architecture', [
+    ...(arch.overview ? [short(arch.overview, 600)] : []),
+    ...(arch.style ? [`Style: ${arch.style.existing ? one(arch.style.existing) + ' (already there)' : `decided in ${one(arch.style.decision)}`}`] : []),
+    ...list(arch.components).map(c => `- module ${one(c.name)}${c.location ? ` (${one(c.location)})` : ''}: ${one(c.responsibility)}${c.interface ? `; interface: ${one(c.interface)}` : ''}${c.hides ? `; hides: ${one(c.hides)}` : ''}${list(c.uses).length ? `; uses: ${c.uses.join(', ')}` : ''}`),
+    ...list(arch.dataModel).map(d => `- data ${one(d.entity)}: ${one(d.fields)}${d.notes ? ` (${one(d.notes)})` : ''}`),
+    ...list(arch.interfaces).map(i => `- interface ${one(i.name)}: ${one(i.contract)}`),
+    ...list(arch.hotPaths).map(h => `- hot path ${one(h.flow)}: ${one(h.size)}, budget ${one(h.budget)}; ${one(h.approach)}`),
+  ]);
+  const req = obj(plan.requirements);
+  section('Quality scenarios (cite as N#)', list(req.nonFunctional).map(n => `- ${n.id}: ${one(n.text)}; measure: ${one(n.measure || n.target)} (${one(n.priority)}, from ${one(n.source)})`));
+  section('Constraints', list(req.constraints).map(c => `- ${one(c)}`));
+  const sec = obj(plan.security);
+  section('Security (cite as T#)', [
+    ...list(sec.assets).map(a => `Protects: ${one(a)}`),
+    ...list(sec.threats).map(t => `- ${t.id}: ${one(t.threat)} → ${t.acceptedBy === 'user' ? `accepted by the user: ${one(t.acceptedReason)}` : `${one(t.mitigation)} (built in ${one(t.step)})`}`),
+  ]);
+  section('New dependencies', isNa(plan.dependencies) ? [] : list(plan.dependencies).map(d => `- ${one(d.name)}@${one(d.version)}: ${one(d.why)} (${one(d.license)})${d.insteadOf ? `; instead of ${one(d.insteadOf)}` : ''}`));
+  const t = obj(plan.testing);
+  section('Testing', [
+    ...list(t.strategy).map(x => `- ${one(x)}`),
+    ...list(t.seams).map(x => `- seam ${one(x.seam)}: catches ${one(x.catches)}`),
+    ...list(t.securityChecks).map(x => `- check ${one(x.check)}: \`${one(x.command)}\``),
+    ...(t.runIt && !isNa(t.runIt) ? [`- run it: start \`${one(t.runIt.start)}\`, driven by ${one(t.runIt.drive)}`] : []),
+  ]);
+  section('What relied on the changed code', isNa(plan.impact) ? [] : list(plan.impact).map(i =>
+    `- ${one(i.change)}: ${list(i.users).map(u => one(u.where)).join(', ') || 'no users found'}${i.outside ? `; outside the repo: ${one(i.outside)}` : ''}`));
+  section('Steps (what was built, in order)', list(plan.steps).map(st => `- ${st.id} [${one(st.status) || 'todo'}] ${one(st.title)}${list(st.files).length ? ` — ${st.files.join(', ')}` : ''}`));
+  section('Deliberately not done', list(plan.rejected).map(r => `- ${one(r.option)}: ${one(r.why)}`));
+  section('Later milestones (planned separately)', list(plan.later).map(l => `- ${one(l.title)}: ${one(l.adds)} (later because ${one(l.why)})`));
+  section('Needs the user', list(plan.needsYou).map(n => `- ${one(n.what)} (${one(n.when)})`));
+  section('Risks', list(plan.risks).map(r => `- ${one(r.risk)} (${one(r.likelihood)}/${one(r.impact)}): ${one(r.mitigation)}`));
+  const learnings = planFile && path.join(path.dirname(path.dirname(planFile)), LEARNINGS);
+  if (learnings && fs.existsSync(learnings)) section('Project learnings', [`Read ${learnings} too: what the build learned the hard way.`]);
   return out.join('\n');
 }
 
@@ -234,6 +337,22 @@ function checkpoint(plan, id, patch) {
   step.checkpoint = { at: new Date().toISOString(), ...patch };
 }
 
+// What the project's checks said before the build touched anything, so a step
+// is judged by what it adds, and old failures are reported instead of "fixed"
+// on the side. Taken once: after a step is done it would only hide failures.
+function baseline(plan, patch) {
+  if (list(plan.steps).some(s => s.status === 'done')) throw new Error('a step is already done; the baseline is what the checks said before the build, so it is taken once, before then');
+  if (!['approved', 'building'].includes(plan.meta.status)) throw new Error(`the plan is ${plan.meta.status}; the baseline is taken when the build starts`);
+  for (const k of Object.keys(patch)) if (!['commit', 'checks'].includes(k)) throw new Error(`a baseline has commit and checks, not "${k}"`);
+  const text = (v, n = 2000) => typeof v === 'string' && v.length <= n;
+  const ok = Array.isArray(patch.checks) && patch.checks.length && patch.checks.length <= 30 && patch.checks.every(c => c && typeof c === 'object' &&
+    text(c.check, 200) && c.check.trim() && text(c.result) && c.result.trim() && (c.command === undefined || text(c.command)) &&
+    (c.known === undefined || (Array.isArray(c.known) && c.known.length <= 500 && c.known.every(k => text(k, 500)))));
+  if (!ok) throw new Error('checks is a list of { check, command, result, known: [what already fails] }, each with its check and result');
+  if (patch.commit !== undefined && !text(patch.commit, 64)) throw new Error('commit is a short hash');
+  plan.baseline = { at: new Date().toISOString(), ...patch };
+}
+
 // Approval belongs to the user's /naqsha:approve; this never sets it.
 function setMeta(plan, patch) {
   const rules = {
@@ -263,16 +382,18 @@ function readPatch() {
 
 function main(argv) {
   const [cmd, file, id] = argv;
-  if (!file || !['step', 'status', 'ready', 'update-step', 'set-meta', 'checkpoint'].includes(cmd)) {
-    throw new Error('usage: plan-tool.js step|status|ready|update-step|set-meta|checkpoint <plan.js> [S#]');
+  if (!file || !['step', 'status', 'ready', 'digest', 'update-step', 'set-meta', 'checkpoint', 'baseline'].includes(cmd)) {
+    throw new Error('usage: plan-tool.js step|status|ready|digest|update-step|set-meta|checkpoint|baseline <plan.js> [S#]');
   }
   const planFile = path.resolve(file);
   const plan = readPlan(planFile);
   if (cmd === 'step') return console.log(stepView(plan, id, planFile));
   if (cmd === 'status') return console.log(statusView(plan));
   if (cmd === 'ready') return console.log(readyView(plan));
+  if (cmd === 'digest') return console.log(digestView(plan, planFile));
   if (cmd === 'update-step') updateStep(plan, id, readPatch());
   else if (cmd === 'checkpoint') checkpoint(plan, id, readPatch());
+  else if (cmd === 'baseline') baseline(plan, readPatch());
   else setMeta(plan, readPatch());
   plan.meta.updated = new Date().toISOString().slice(0, 10);
   writePlan(planFile, plan);
@@ -288,4 +409,4 @@ if (require.main === module) {
   }
 }
 
-module.exports = { stepView, statusView, referencesFor, reviewFor };
+module.exports = { stepView, statusView, digestView, referencesFor, reviewFor, NAMES };

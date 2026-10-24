@@ -136,6 +136,66 @@ test('a skill started by mention gets the same gate as a typed command', () => {
   assert.match(skill('naqsha:build', 'nope please').hookSpecificOutput.permissionDecisionReason, /No approved, unfinished plan at docs\/plans\/nope/);
 });
 
+test('/naqsha:learn says where guides go and which plans exist, and changes nothing', () => {
+  const p = project();
+  let out = p.cmd('learn');
+  assert.match(out.hookSpecificOutput.additionalContext, /plans folder is docs\/plans\/\. Plans, newest first: none, so the guide comes from the code/);
+  assert.equal(fs.existsSync(path.join(p.root, '.naqsha')), false, 'no state, no lock');
+
+  writePlan(p.root, 'login', { meta: { title: 't', slug: 'login', status: 'done' }, steps: [{ id: 'S1', status: 'done' }, { id: 'S2', status: 'done' }] });
+  out = p.cmd('learn', 'login');
+  assert.match(out.hookSpecificOutput.additionalContext, /login \(done, 2\/2 steps done\)/);
+  assert.match(out.hookSpecificOutput.additionalContext, /guide goes in docs\/plans\/<slug>\/learn\//);
+  const viaMention = p.run({ hook_event_name: 'PreToolUse', tool_name: 'Skill', tool_input: { skill: 'naqsha:learn' } });
+  assert.match(viaMention.hookSpecificOutput.additionalContext, /Naqsha learn:/);
+  assert.equal(viaMention.hookSpecificOutput.permissionDecision, undefined);
+
+  // A guide in the plans folder doesn't make it look like it holds code.
+  fs.mkdirSync(path.join(p.root, 'docs', 'plans', 'login', 'learn'));
+  fs.writeFileSync(path.join(p.root, 'docs', 'plans', 'login', 'learn', 'guide.js'), 'window.NAQSHA_GUIDE = {};\n');
+  fs.writeFileSync(path.join(p.root, 'docs', 'plans', 'login', 'learn', 'index.html'), '<!doctype html>');
+  assert.equal(p.cmd('plan').decision, undefined);
+});
+
+test('/naqsha:review gets a folder of its own, earlier findings, and how stale the map is', () => {
+  const p = project();
+  const g = (...a) => execFileSync('git', ['-C', p.root, '-c', 'user.email=t@t', '-c', 'user.name=t', ...a], { encoding: 'utf8' });
+  const ctx = out => out.hookSpecificOutput.additionalContext;
+  const today = (d => [d.getFullYear(), String(d.getMonth() + 1).padStart(2, '0'), String(d.getDate()).padStart(2, '0')].join('-'))(new Date());
+  let out = p.cmd('review');
+  assert.match(ctx(out), new RegExp(`this review goes in docs/plans/reviews/${today}/, and the codebase map in docs/plans/CODEBASE\\.md`));
+  assert.match(ctx(out), /Earlier reviews, newest first: none\. There is no codebase map yet/);
+  assert.equal(fs.existsSync(path.join(p.root, '.naqsha')), false, 'no state, no lock');
+
+  // A map at this commit is current; two commits later it says what moved.
+  const head = g('rev-parse', '--short', 'HEAD').trim();
+  const plans = path.join(p.root, 'docs', 'plans');
+  fs.mkdirSync(path.join(plans, 'reviews', today), { recursive: true });
+  fs.writeFileSync(path.join(plans, 'CODEBASE.md'), `# Codebase map\n<!-- naqsha codebase map · commit ${head} · ${today} -->\n`);
+  fs.writeFileSync(path.join(plans, 'reviews', today, 'review.js'),
+    `window.NAQSHA_REVIEW = ${JSON.stringify({ meta: {}, findings: [{ id: 'F1' }, { id: 'F2', status: 'dismissed' }, { id: 'F3', status: 'open' }] })};\n`);
+  assert.match(ctx(p.cmd('review')), /CODEBASE\.md exists, current with HEAD/);
+  fs.writeFileSync(path.join(p.root, 'src', 'app.js'), 'console.log(2);\n');
+  g('commit', '-qam', 'two');
+  fs.writeFileSync(path.join(p.root, 'src', 'b.js'), '1;\n');
+  g('add', 'src/b.js'); g('commit', '-qm', 'three');
+  out = p.cmd('review');
+  assert.match(ctx(out), new RegExp(`2 commits behind HEAD \\(2 files changed since; \`git diff --stat ${head}\\.\\.HEAD\`\\); refresh only the parts those touch`));
+  assert.match(ctx(out), new RegExp(`Earlier reviews, newest first: ${today} \\(2 open of 3 findings\\)`));
+  assert.match(ctx(out), new RegExp(`reviews/${today}-2/`), 'a second review the same day gets its own folder');
+
+  // Plans and guides start from the map; a review page doesn't make the plans folder look like code.
+  fs.writeFileSync(path.join(plans, 'reviews', today, 'index.html'), '<!doctype html>');
+  assert.match(ctx(p.cmd('learn')), /CODEBASE\.md exists, 2 commits behind/);
+  out = p.cmd('plan');
+  assert.equal(out.decision, undefined);
+  assert.match(ctx(out), /Naqsha: planning phase\..*CODEBASE\.md exists, 2 commits behind HEAD/);
+  assert.match(ctx(p.cmd('review')), /A plan is being drafted, so files outside the plans folder are locked/);
+  const viaMention = p.run({ hook_event_name: 'PreToolUse', tool_name: 'Skill', tool_input: { skill: 'naqsha:review' } });
+  assert.match(viaMention.hookSpecificOutput.additionalContext, /^Naqsha review:/);
+  assert.equal(viaMention.hookSpecificOutput.permissionDecision, undefined);
+});
+
 test("a command that changes or deletes the gate's state gets it put back", () => {
   const p = project();
   p.cmd('plan');
@@ -500,6 +560,37 @@ test('approval is refused while the design rests on assumptions', () => {
   p.cmd('plan');
   writePlan(p.root, 'small', { requirements: { nonFunctional: { na: 'Copy change on one page; no quality affected' } }, architecture: { na: 'No structural change' } });
   assert.equal(p.cmd('approve', 'small').decision, undefined);
+});
+
+test('in an existing codebase, approval needs who relies on what changes', () => {
+  const p = project();
+  p.cmd('plan');
+  const context = { stack: ['Express'], conventions: [] };
+  const change = extra => ({ change: 'requestReset(email) returns a promise', searched: 'grep -rn requestReset src test', outside: 'none: not exported', users: [{ where: 'src/routes/auth.js:40', step: 'S1' }], ...extra });
+  const refused = (overrides, why) => {
+    writePlan(p.root, 'x', { context, impact: [change()], dependencies: [], ...overrides });
+    const out = p.cmd('approve', 'x');
+    assert.equal(out.decision, 'block', String(why));
+    assert.match(out.reason, why);
+  };
+  refused({ impact: undefined }, /no impact map/);
+  refused({ impact: { na: ' ' } }, /no impact map/);
+  refused({ impact: [] }, /no impact map/, 'nothing found is said with na and a reason');
+  refused({ impact: [change({ searched: '' })] }, /impact entries without .*requestReset/);
+  refused({ impact: [change({ outside: undefined })] }, /impact entries without/);
+  refused({ impact: [change({ users: [{ where: 'src/jobs/remind.js:12' }] })] }, /impact entries without/, 'a user nobody updates or vouches for');
+  refused({ impact: [change({ users: [{ where: 'src/jobs/remind.js:12', step: 'S9' }] })] }, /impact entries without/);
+  refused({ dependencies: [{ name: 'dayjs', version: '1.11.13' }] }, /new dependencies without "overlap".*dayjs/);
+
+  writePlan(p.root, 'ok', { context, dependencies: [{ name: 'dayjs', version: '1.11.13', overlap: 'none: package.json has no date library' }],
+    impact: [change({ users: [{ where: 'src/routes/auth.js:40', step: 'S1' }, { where: 'src/jobs/remind.js:12', ok: 'awaits already' }] })] });
+  assert.equal(p.cmd('approve', 'ok').decision, undefined);
+  p.cmd('plan');
+  writePlan(p.root, 'additive', { context, impact: { na: 'Adds a new route and module; changes nothing existing' } });
+  assert.equal(p.cmd('approve', 'additive').decision, undefined);
+  p.cmd('plan');
+  writePlan(p.root, 'newapp', { context: { na: 'new app' } });
+  assert.equal(p.cmd('approve', 'newapp').decision, undefined, 'a new app has nothing to break');
 });
 
 test('approval unlocks the project and marks the plan', () => {

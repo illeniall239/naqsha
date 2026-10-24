@@ -30,7 +30,9 @@ const WALK_LIMIT = 20000;
 // Claude Code writes this when the user allows a command, mid-turn.
 const CLAUDE_LOCAL_SETTINGS = path.join('.claude', 'settings.local.json');
 // What a plan folder holds: the page, the plan, and the page server's files.
-const PLAN_FILES = new Set(['index.html', 'plan.js', '.gitignore', 'server.json', 'inbox']);
+const PLAN_FILES = new Set(['index.html', 'plan.js', 'guide.js', 'review.js', '.gitignore', 'server.json', 'inbox']);
+// Written by /naqsha:review, read first by every later plan, guide and review.
+const CODEBASE_MAP = 'CODEBASE.md';
 
 function main(input) {
   const root = realish(path.resolve(process.env.CLAUDE_PROJECT_DIR || input.cwd));
@@ -57,6 +59,69 @@ function onCommand(ctx) {
   if (name === 'plan') return startDrafting(ctx);
   if (name === 'approve') return approve(ctx, args);
   if (name === 'build') return startBuild(ctx, args);
+  if (name === 'learn') return context('UserPromptExpansion', learnContext(ctx));
+  if (name === 'review') return context('UserPromptExpansion', reviewContext(ctx));
+}
+
+// Where the codebase map is, and how far the code has moved since it was
+// written, so Claude refreshes what changed instead of mapping from scratch.
+function mapNote(ctx, plansDir) {
+  const rel = path.join(plansDir, CODEBASE_MAP);
+  let text;
+  try { text = fs.readFileSync(path.join(ctx.root, rel), 'utf8'); } catch { return null; }
+  const commit = (/commit ([0-9a-f]{7,40})\b/.exec(text.slice(0, 500)) || [])[1];
+  let behind = 'its commit is unknown, so check it against the code';
+  if (commit) {
+    try {
+      const n = Number(git(ctx.root, 'rev-list', '--count', `${commit}..HEAD`).trim());
+      const files = git(ctx.root, 'diff', '--name-only', `${commit}..HEAD`).split('\n').filter(Boolean).length;
+      behind = n ? `${n} commits behind HEAD (${files} files changed since; \`git diff --stat ${commit}..HEAD\`); refresh only the parts those touch` : 'current with HEAD';
+    } catch { behind = `its commit ${commit} isn't in this repository's history, so check it against the code`; }
+  }
+  return `The codebase map ${rel} exists, ${behind}. Read it before exploring.`;
+}
+
+// /naqsha:review is read-only on the code: it writes a map and a report in the
+// plans folder. It needs the folder for this review and what earlier reviews found.
+function reviewContext(ctx) {
+  const plansDir = ctx.state ? ctx.plansDir : path.normalize(String(choosePlansDir(ctx.root).dir));
+  const base = path.join(ctx.root, plansDir, 'reviews');
+  const earlier = safeReaddir(base).map(d => {
+    const r = tryReadData(path.join(base, d, 'review.js'), 'NAQSHA_REVIEW');
+    if (!r) return null;
+    const findings = Array.isArray(r.findings) ? r.findings : [];
+    return `${d} (${findings.filter(f => !f.status || f.status === 'open').length} open of ${findings.length} findings)`;
+  }).filter(Boolean).sort().reverse();
+  const d = new Date();
+  const day = [d.getFullYear(), String(d.getMonth() + 1).padStart(2, '0'), String(d.getDate()).padStart(2, '0')].join('-');
+  let folder = day;
+  for (let i = 2; fs.existsSync(path.join(base, folder, 'review.js')); i++) folder = `${day}-${i}`;
+  let msg = `Naqsha review: this review goes in ${path.join(plansDir, 'reviews', folder)}/, and the codebase map in ${path.join(plansDir, CODEBASE_MAP)}. ` +
+    `Earlier reviews, newest first: ${earlier.join('; ') || 'none'}. ` +
+    (mapNote(ctx, plansDir) || 'There is no codebase map yet; this review writes the first one.');
+  if (ctx.state && ctx.state.phase === 'drafting') {
+    msg += ' A plan is being drafted, so files outside the plans folder are locked: run only checks that write nothing to the project, or tell the user which can\'t run until the plan is approved.';
+  }
+  return msg;
+}
+
+// /naqsha:learn changes nothing; it only needs to know where plans and
+// guides live and which plans there are, so Claude doesn't have to guess.
+function learnContext(ctx) {
+  const plansDir = ctx.state ? ctx.plansDir : path.normalize(String(choosePlansDir(ctx.root).dir));
+  const base = path.join(ctx.root, plansDir);
+  const plans = safeReaddir(base).map(d => {
+    const plan = tryReadPlan(path.join(base, d, 'plan.js'));
+    if (!plan) return null;
+    const steps = Array.isArray(plan.steps) ? plan.steps : [];
+    return { d, status: plan.meta.status, steps: steps.length, done: steps.filter(s => s.status === 'done').length, at: fs.statSync(path.join(base, d, 'plan.js')).mtimeMs };
+  }).filter(Boolean).sort((a, b) => b.at - a.at);
+  const list = plans.length
+    ? plans.map(p => `${p.d} (${p.status}, ${p.done}/${p.steps} steps done)`).join('; ')
+    : 'none, so the guide comes from the code, its history and its docs alone';
+  const map = mapNote(ctx, plansDir);
+  return `Naqsha learn: the plans folder is ${plansDir}/. Plans, newest first: ${list}. ` +
+    `A plan's guide goes in ${plansDir}/<slug>/learn/; a guide with no plan goes in ${plansDir}/learn/.${map ? ` ${map}` : ''}`;
 }
 
 function startDrafting(ctx) {
@@ -84,6 +149,8 @@ function startDrafting(ctx) {
   let msg = `Naqsha: planning phase. Plans go in ${plansDir}/<slug>/${where.why ? ` (${where.why})` : ''}. ` +
     `Files outside ${plansDir}/ are locked until the user runs /naqsha:approve.`;
   if (paused) msg += ` ${resumeHint(paused)}`;
+  const map = mapNote(ctx, plansDir);
+  if (map) msg += ` ${map}`;
   if (baseline.truncated) msg += ` This project has no git and more than ${WALK_LIMIT} files, so Bash changes past the first ${WALK_LIMIT} files go unnoticed. Keep Bash read-only.`;
   return context('UserPromptExpansion', msg);
 }
@@ -205,7 +272,33 @@ function checkPlan(plan) {
   if (!steps.length) problems.push('no implementation steps');
   const unchecked = steps.filter(s => !s.doneWhen);
   if (unchecked.length) problems.push(`steps without a "done when" check: ${unchecked.map(s => s.id).join(', ')}`);
-  return [...problems, ...checkDesign(plan, steps), ...checkTests(plan, steps), ...checkSecurity(plan, steps), ...checkModules(plan)];
+  return [...problems, ...checkDesign(plan, steps), ...checkTests(plan, steps), ...checkSecurity(plan, steps), ...checkModules(plan),
+    ...checkExisting(plan, steps)];
+}
+
+// In an existing codebase, changing what other code relies on is how things
+// break. Every changed interface names how its users were found, and each user
+// is updated by a step or says why it still works. New dependencies say what
+// the codebase already has for the job.
+function checkExisting(plan, steps) {
+  if (!plan.context || isNa(plan.context)) return [];
+  const problems = [];
+  const stepIds = new Set(steps.map(s => s.id));
+  const text = x => typeof x === 'string' && x.trim() !== '';
+  if (!isNa(plan.impact) && !(Array.isArray(plan.impact) && plan.impact.length)) {
+    problems.push('no impact map (impact: what existing code, data or clients rely on what this changes, or { "na": ... } when nothing existing changes)');
+  } else {
+    const loose = list(plan.impact).filter(i => !text(i.change) || !text(i.searched) || !text(i.outside) || !Array.isArray(i.users) ||
+      !i.users.every(u => u && text(u.where) && (stepIds.has(u.step) || text(u.ok))));
+    if (loose.length) problems.push(`impact entries without the change, how its users were searched, what outside the repo relies on it, and for each user a step that updates it or why it still works: ${loose.map(i => one(i.change) || '(unnamed)').join('; ')}`);
+  }
+  const unexplained = list(plan.dependencies).filter(d => !text(d.overlap));
+  if (unexplained.length) problems.push(`new dependencies without "overlap" (what the codebase already has for this job, or "none: <what you checked>"): ${unexplained.map(d => d.name).join(', ')}`);
+  return problems;
+}
+
+function one(x) {
+  return String(x ?? '').replace(/\s+/g, ' ').trim().slice(0, 80);
 }
 
 // No assumed architecture: every quality scenario is measurable, sourced and
@@ -319,6 +412,8 @@ function onPreTool(ctx) {
   // Skill tool, not as a typed command, so the command hook never runs. Do
   // the same work here: starting a plan only adds the lock, and a build is
   // checked exactly as /naqsha:build would be.
+  if (tool === 'Skill' && ti.skill === 'naqsha:learn') return context('PreToolUse', learnContext(ctx));
+  if (tool === 'Skill' && ti.skill === 'naqsha:review') return context('PreToolUse', reviewContext(ctx));
   if (tool === 'Skill' && (ti.skill === 'naqsha:plan' || ti.skill === 'naqsha:build')) {
     const out = ti.skill === 'naqsha:plan' ? startDrafting(ctx) : startBuild(ctx, String(ti.args || '').trim().split(/\s+/)[0] || '');
     if (out.decision === 'block') return deny(out.reason);
@@ -668,6 +763,14 @@ function writeFileAtomic(file, text) {
   const tmp = `${file}.${process.pid}.tmp`;
   fs.writeFileSync(tmp, text);
   fs.renameSync(tmp, file);
+}
+
+// review.js and guide.js are `window.<NAME> = <JSON>;`, like plan.js.
+function tryReadData(file, name) {
+  try {
+    const m = new RegExp(`^\\s*window\\.${name}\\s*=\\s*([\\s\\S]*?)\\s*;?\\s*$`).exec(fs.readFileSync(file, 'utf8'));
+    return m ? JSON.parse(m[1]) : null;
+  } catch { return null; }
 }
 
 function readJson(file) {

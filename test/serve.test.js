@@ -40,6 +40,11 @@ test('the page and plan are served only with the key, from localhost', async t =
   assert.match(page.headers.get('content-security-policy'), /default-src 'none'/);
   assert.equal(page.headers.get('referrer-policy'), 'no-referrer');
   assert.match(await (await fetch(new URL('plan.js' + base.search, base))).text(), /NAQSHA/);
+  assert.equal((await fetch(new URL('guide.js' + base.search, base))).status, 404, 'a plan folder has no guide yet');
+  fs.writeFileSync(path.join(dir, 'guide.js'), 'window.NAQSHA_GUIDE = {};\n');
+  assert.match(await (await fetch(new URL('guide.js' + base.search, base))).text(), /NAQSHA_GUIDE/, 'the learn page reads guide.js');
+  fs.writeFileSync(path.join(dir, 'review.js'), 'window.NAQSHA_REVIEW = {};\n');
+  assert.match(await (await fetch(new URL('review.js' + base.search, base))).text(), /NAQSHA_REVIEW/, 'the review page reads review.js');
 
   assert.equal((await fetch(base.origin + '/')).status, 403, 'no key');
   assert.equal((await fetch(base.origin + '/?key=wrong')).status, 403, 'wrong key');

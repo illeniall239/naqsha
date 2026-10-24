@@ -1,0 +1,321 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Learn</title>
+<style>
+:root {
+  --bg: #fbfbfa; --panel: #ffffff; --text: #1d1d1b; --muted: #6b6b66; --line: #e4e3df;
+  --accent: #2f5bd3; --on-accent: #ffffff; --warn: #8a5a00; --ok: #1f7a46; --bad: #b42318; --code: #f2f1ee; --tint: #eef2fc;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #161615; --panel: #1f1f1d; --text: #ecebe7; --muted: #a3a29c; --line: #34332f;
+    --accent: #8aa8ff; --on-accent: #10204d; --warn: #f2c46b; --ok: #6fcf97; --bad: #ff8a80; --code: #2a2a27; --tint: #232a3d;
+  }
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body { margin: 0; background: var(--bg); color: var(--text); font: 16px/1.65 system-ui, -apple-system, "Segoe UI", sans-serif; }
+main { max-width: 1100px; margin: 0 auto; padding: 24px 16px 80px; }
+header h1 { font-size: 1.7rem; margin: 0 0 4px; line-height: 1.25; }
+.meta { color: var(--muted); font-size: .9rem; display: flex; flex-wrap: wrap; gap: 4px 16px; }
+.intro { margin: 12px 0 0; max-width: 70ch; }
+.layout { display: grid; grid-template-columns: 250px 1fr; gap: 24px; margin-top: 22px; align-items: start; }
+.toc { position: sticky; top: 12px; display: grid; gap: 2px; }
+.toc .progress { font-size: .85rem; color: var(--muted); margin: 0 0 6px 10px; }
+.toc button { display: flex; gap: 8px; align-items: baseline; width: 100%; text-align: left; font: inherit; font-size: .92rem; padding: 6px 10px; border: 0; border-radius: 8px; background: none; color: var(--text); cursor: pointer; }
+.toc button:hover { background: var(--tint); }
+.toc button[aria-current=page] { background: var(--tint); font-weight: 600; }
+.toc .mark { flex: none; width: 1.3em; color: var(--muted); font-size: .85rem; }
+.toc .mark.read { color: var(--ok); }
+.toc hr { border: 0; border-top: 1px solid var(--line); margin: 8px 0; width: 100%; }
+article { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 22px 26px; min-width: 0; }
+article h2 { font-size: 1.4rem; margin: 0 0 4px; line-height: 1.3; }
+.summary { color: var(--muted); font-size: 1.02rem; margin: 0 0 16px; }
+article h3 { font-size: 1rem; margin: 22px 0 8px; }
+article p, article ul { max-width: 72ch; }
+a { color: var(--accent); }
+code { background: var(--code); padding: 1px 5px; border-radius: 4px; font-size: .88em; }
+ul { padding-left: 22px; }
+li { margin: 3px 0; }
+table { width: 100%; border-collapse: collapse; font-size: .92rem; }
+th, td { text-align: left; vertical-align: top; padding: 7px 8px; border-bottom: 1px solid var(--line); }
+th { color: var(--muted); font-weight: 600; font-size: .8rem; text-transform: uppercase; letter-spacing: .03em; }
+.scroll { overflow-x: auto; }
+.why li { list-style: none; margin-left: -22px; padding: 8px 12px; border-left: 3px solid var(--accent); background: var(--tint); border-radius: 0 8px 8px 0; margin-bottom: 6px; }
+.src { display: inline-block; margin-left: 6px; font-size: .75rem; font-weight: 600; padding: 0 7px; border-radius: 999px; border: 1px solid currentColor; color: var(--muted); white-space: nowrap; }
+.src.unknown { color: var(--warn); }
+.try li::marker { content: '→ '; color: var(--accent); }
+details.check { border: 1px solid var(--line); border-radius: 8px; padding: 8px 12px; margin: 8px 0; }
+details.check summary { cursor: pointer; font-weight: 600; }
+details.check[open] summary { margin-bottom: 6px; }
+.diagram { overflow-x: auto; margin: 12px 0; }
+pre { background: var(--code); padding: 10px; border-radius: 6px; overflow-x: auto; font-size: .85rem; }
+.nav { display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; margin-top: 26px; padding-top: 14px; border-top: 1px solid var(--line); }
+button.btn { font: inherit; font-size: .92rem; padding: 7px 14px; border-radius: 8px; border: 1px solid var(--line); background: var(--panel); color: var(--text); cursor: pointer; }
+button.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); font-weight: 600; }
+button.btn:disabled { opacity: .5; cursor: default; }
+input[type=search], textarea { display: block; width: 100%; font: inherit; font-size: .95rem; color: var(--text); background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; }
+textarea { resize: vertical; margin-top: 6px; }
+.ask { margin-top: 22px; padding: 14px; border: 1px dashed var(--line); border-radius: 10px; }
+.ask p { margin: 0; font-size: .9rem; color: var(--muted); }
+.ask .row { display: flex; gap: 8px; align-items: center; margin-top: 8px; flex-wrap: wrap; }
+.status { font-size: .85rem; color: var(--muted); }
+.status.bad { color: var(--bad); }
+.empty { color: var(--muted); font-style: italic; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+footer { color: var(--muted); font-size: .8rem; margin-top: 24px; }
+@media (max-width: 760px) {
+  .layout { grid-template-columns: 1fr; }
+  .toc { position: static; display: flex; gap: 6px; overflow-x: auto; padding-bottom: 4px; }
+  .toc .progress, .toc hr { display: none; }
+  .toc button { width: auto; white-space: nowrap; border: 1px solid var(--line); border-radius: 999px; }
+  article { padding: 18px 16px; }
+}
+@media print {
+  .toc, .nav, .ask, footer { display: none; }
+  .layout { display: block; }
+  [data-view][hidden] { display: block !important; }
+  details.check { break-inside: avoid; }
+}
+</style>
+</head>
+<body>
+<main id="app"><p class="empty">Loading guide.js…</p></main>
+<script>
+'use strict';
+// The guide /naqsha:learn wrote: what was built, why, and where everything is.
+// Read-only, except that when served live you can ask Claude about a chapter.
+const app = document.getElementById('app');
+const KEY = new URLSearchParams(location.search).get('key');
+const LIVE = /^https?:$/.test(location.protocol) && !!KEY;
+let guide = null;
+let last = '';
+let view = null;
+let status = { text: '', bad: false };
+
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+// Plain text with `code` spans; everything else stays escaped.
+const txt = s => esc(s).replace(/`([^`]+)`/g, '<code>$1</code>');
+const arr = x => (Array.isArray(x) ? x : []);
+// Paragraphs split on blank lines; a block whose lines all start with "- " is a list.
+const prose = s => String(s || '').split(/\n\s*\n/).map(b => b.trim()).filter(Boolean).map(b => {
+  const lines = b.split('\n');
+  return lines.every(l => /^\s*-\s/.test(l))
+    ? `<ul>${lines.map(l => `<li>${txt(l.replace(/^\s*-\s/, ''))}</li>`).join('')}</ul>`
+    : `<p>${txt(b).replace(/\n/g, '<br>')}</p>`;
+}).join('');
+const safeUrl = u => /^https?:\/\//i.test(u || '') ? esc(u) : null;
+// Where a "why" comes from: an answer, a decision, research, or nothing recorded.
+const KINDS = { Q: 'your answer', D: 'decision', N: 'quality scenario', T: 'threat', S: 'step', A: 'acceptance criterion', F: 'requirement' };
+function source(s) {
+  const v = String(s || '').trim();
+  if (!v || /^not recorded$/i.test(v)) return '<span class="src unknown" title="No reason was recorded for this">reason not recorded</span>';
+  const link = safeUrl(v);
+  if (link) return `<a class="src" href="${link}" target="_blank" rel="noopener noreferrer">source</a>`;
+  const id = /^([QDNTSAF])\d+$/.exec(v);
+  return `<span class="src" title="${id ? esc(KINDS[id[1]]) : ''}">${esc(v)}</span>`;
+}
+
+// ---- reading progress (this browser only) ----------------------------------
+
+const storeKey = () => 'naqsha-learn:' + ((guide && guide.meta && (guide.meta.plan || guide.meta.title)) || location.pathname);
+let read = new Set();
+function loadProgress() {
+  try {
+    const v = JSON.parse(localStorage.getItem(storeKey()) || 'null');
+    if (v) { read = new Set(v.read || []); view = v.view || null; }
+  } catch { /* storage blocked: progress lives in memory only */ }
+}
+function saveProgress() {
+  try { localStorage.setItem(storeKey(), JSON.stringify({ read: [...read], view: view && view.id })); } catch { /* same */ }
+}
+
+// ---- views -----------------------------------------------------------------
+
+function views(g) {
+  return [
+    ...arr(g.chapters).map((c, i) => ({ id: c.id || `C${i + 1}`, title: c.title, chapter: c, n: i + 1 })),
+    ...(arr(g.map).length ? [{ id: 'map', title: 'Where everything is' }] : []),
+    ...(arr(g.glossary).length ? [{ id: 'glossary', title: 'Glossary' }] : []),
+  ];
+}
+
+function chapterHtml(c) {
+  return `<h2>${txt(c.title)}</h2>
+    ${c.summary ? `<p class="summary">${txt(c.summary)}</p>` : ''}
+    ${prose(c.body)}
+    ${c.diagram ? `<div class="diagram" data-mermaid="${esc(c.diagram)}"><pre>${esc(c.diagram)}</pre></div>` : ''}
+    ${arr(c.why).length ? `<h3>Why it's this way</h3><ul class="why">${c.why.map(w => `<li>${txt(w.text)}${source(w.source)}</li>`).join('')}</ul>` : ''}
+    ${arr(c.where).length ? `<h3>Where it lives</h3><div class="scroll"><table><thead><tr><th>File</th><th>What's there</th></tr></thead><tbody>${
+      c.where.map(w => `<tr><td><code>${esc(w.path)}${w.line ? `:${esc(w.line)}` : ''}</code></td><td>${txt(w.what)}</td></tr>`).join('')}</tbody></table></div>` : ''}
+    ${arr(c.try).length ? `<h3>Try it yourself</h3><ul class="try">${c.try.map(t => `<li>${txt(t)}</li>`).join('')}</ul>` : ''}
+    ${arr(c.check).length ? `<h3>Check yourself</h3>${c.check.map(q => `<details class="check"><summary>${txt(q.q)}</summary>${prose(q.a)}</details>`).join('')}` : ''}`;
+}
+
+const filterTable = (id, rows, cols, label) => `<input type="search" data-filter="${id}" placeholder="Filter ${label}" aria-label="Filter ${label}">
+  <div class="scroll"><table data-rows="${id}"><thead><tr>${cols.map(c => `<th>${c[0]}</th>`).join('')}</tr></thead><tbody>${
+  rows.map(r => `<tr>${cols.map(c => `<td>${c[1](r)}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
+
+function viewHtml(g, v, all) {
+  const i = all.indexOf(v);
+  let body;
+  if (v.chapter) body = chapterHtml(v.chapter);
+  else if (v.id === 'map') body = `<h2>Where everything is</h2><p class="summary">Every folder and file that matters, and what it's for.</p>${
+    filterTable('map', arr(g.map), [['Path', r => `<code>${esc(r.path)}</code>`], ['What it is', r => txt(r.what)]], 'files')}`;
+  else body = `<h2>Glossary</h2><p class="summary">The words this project uses, in plain language.</p>${
+    filterTable('glossary', arr(g.glossary), [['Term', r => `<b>${txt(r.term)}</b>`], ['Meaning', r => txt(r.meaning)]], 'terms')}`;
+  const prev = all[i - 1];
+  const next = all[i + 1];
+  return `<article data-view="${esc(v.id)}"${v === view ? '' : ' hidden'}>${body}
+    ${LIVE && v.chapter ? `<div class="ask"><p>Something unclear? Ask Claude about this chapter; the answer comes in your terminal.</p>
+      <textarea data-ask="${esc(v.id)}" rows="2" aria-label="Your question about this chapter"></textarea>
+      <div class="row"><button type="button" class="btn" data-action="ask" data-chapter="${esc(v.id)}">Ask</button>
+      <span class="status${status.bad ? ' bad' : ''}" data-status="${esc(v.id)}"></span></div></div>` : ''}
+    <div class="nav">${prev ? `<button type="button" class="btn" data-go="${esc(prev.id)}">← ${txt(prev.title)}</button>` : '<span></span>'}
+      ${next ? `<button type="button" class="btn primary" data-go="${esc(next.id)}" data-read="${esc(v.id)}">Next: ${txt(next.title)} →</button>`
+        : `<button type="button" class="btn primary" data-read="${esc(v.id)}">Mark as read</button>`}</div></article>`;
+}
+
+function render(g) {
+  const m = g.meta || {};
+  document.title = `Learn · ${m.title || 'project'}`;
+  const all = views(g);
+  if (!all.length) { app.innerHTML = '<p class="empty">The guide has no chapters yet.</p>'; return; }
+  view = all.find(v => v.id === (view && view.id ? view.id : view)) || all[0];
+  const chapters = all.filter(v => v.chapter);
+  const done = chapters.filter(v => read.has(v.id)).length;
+  app.innerHTML = `
+    <header>
+      <h1>Learn: ${txt(m.title || 'this project')}</h1>
+      <div class="meta">
+        ${m.scope ? `<span>${txt(m.scope)}</span>` : ''}
+        ${m.audience ? `<span>Written for: ${txt(m.audience)}</span>` : ''}
+        ${m.commit ? `<span>Code as of <code>${esc(String(m.commit).slice(0, 10))}</code></span>` : ''}
+        ${m.generated ? `<span>Written ${esc(m.generated)}</span>` : ''}
+      </div>
+      ${g.intro ? `<div class="intro">${prose(g.intro)}</div>` : ''}
+    </header>
+    <div class="layout">
+      <nav class="toc" aria-label="Chapters">
+        <p class="progress">${done} of ${chapters.length} chapters read</p>
+        ${all.map((v, i) => `${!v.chapter && all[i - 1] && all[i - 1].chapter ? '<hr>' : ''}<button type="button" data-go="${esc(v.id)}"${v === view ? ' aria-current="page"' : ''}>
+          <span class="mark${read.has(v.id) ? ' read' : ''}">${v.chapter ? (read.has(v.id) ? '✓' : v.n) : '·'}</span><span>${txt(v.title)}</span></button>`).join('')}
+      </nav>
+      <div>${all.map(v => viewHtml(g, v, all)).join('')}</div>
+    </div>
+    <footer>Rendered from guide.js · run /naqsha:learn again after the code changes</footer>`;
+  drawDiagrams();
+}
+
+function go(id) {
+  const all = views(guide);
+  const v = all.find(x => x.id === id);
+  if (!v) return;
+  view = v;
+  saveProgress();
+  for (const a of app.querySelectorAll('[data-view]')) a.hidden = a.dataset.view !== id;
+  for (const b of app.querySelectorAll('.toc button')) {
+    if (b.dataset.go === id) b.setAttribute('aria-current', 'page');
+    else b.removeAttribute('aria-current');
+  }
+  app.querySelector('.layout').scrollIntoView({ block: 'start' });
+  drawDiagrams();
+}
+
+function markRead(id) {
+  read.add(id);
+  saveProgress();
+  const all = views(guide);
+  const chapters = all.filter(v => v.chapter);
+  for (const b of app.querySelectorAll('.toc button')) {
+    if (b.dataset.go !== id) continue;
+    const mark = b.querySelector('.mark');
+    mark.classList.add('read');
+    if (chapters.some(v => v.id === id)) mark.textContent = '✓';
+  }
+  app.querySelector('.toc .progress').textContent = `${chapters.filter(v => read.has(v.id)).length} of ${chapters.length} chapters read`;
+}
+
+async function ask(id) {
+  const box = app.querySelector(`[data-ask="${CSS.escape(id)}"]`);
+  const out = app.querySelector(`[data-status="${CSS.escape(id)}"]`);
+  const question = box.value.trim();
+  if (!question) return;
+  const chapter = views(guide).find(v => v.id === id);
+  out.textContent = 'Sending…';
+  out.className = 'status';
+  try {
+    const r = await fetch('submit?key=' + encodeURIComponent(KEY), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message: `[Learn · ${id} ${chapter ? chapter.title : ''}] ${question}` }),
+    });
+    if (!r.ok) throw new Error(await r.text());
+    box.value = '';
+    out.textContent = 'Sent. Claude answers in your terminal.';
+  } catch (e) {
+    out.textContent = `Not sent: ${e.name === 'TypeError' ? 'the page server isn’t running' : e.message}. Ask in the terminal instead.`;
+    out.className = 'status bad';
+  }
+}
+
+app.addEventListener('click', e => {
+  const b = e.target.closest('button');
+  if (!b) return;
+  if (b.dataset.read) markRead(b.dataset.read);
+  if (b.dataset.go) go(b.dataset.go);
+  if (b.dataset.action === 'ask') ask(b.dataset.chapter);
+});
+app.addEventListener('input', e => {
+  const f = e.target.dataset.filter;
+  if (!f) return;
+  const q = e.target.value.trim().toLowerCase();
+  for (const row of app.querySelectorAll(`table[data-rows="${CSS.escape(f)}"] tbody tr`)) row.hidden = q !== '' && !row.textContent.toLowerCase().includes(q);
+});
+
+// Fetched once, as soon as the guide has a diagram anywhere.
+let mermaidLoad = null;
+const loadMermaid = () => mermaidLoad || (mermaidLoad = import('https://cdn.jsdelivr.net/npm/mermaid@11.4.1/dist/mermaid.esm.min.mjs').then(m => {
+  m.default.initialize({ startOnLoad: false, securityLevel: 'strict', theme: matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'default' });
+  return m.default;
+}));
+async function drawDiagrams() {
+  const all = [...document.querySelectorAll('[data-mermaid]')];
+  if (!all.length) return;
+  const els = all.filter(el => !el.closest('[hidden]') && !el.querySelector('svg'));
+  try {
+    const mermaid = await loadMermaid();
+    for (const [i, el] of els.entries()) {
+      const { svg } = await mermaid.render('mmd' + i + Date.now(), el.dataset.mermaid);
+      el.innerHTML = svg;
+    }
+  } catch { /* offline or invalid diagram: the source stays visible */ }
+}
+
+// file:// pages can't fetch(), but they can load a script, so poll guide.js.
+function load() {
+  const s = document.createElement('script');
+  s.src = 'guide.js?t=' + Date.now() + (KEY ? '&key=' + encodeURIComponent(KEY) : '');
+  s.onload = s.onerror = () => {
+    s.remove();
+    const g = window.NAQSHA_GUIDE;
+    const now = g ? JSON.stringify(g) : '';
+    if (!now || now === last) return;
+    const first = !guide;
+    last = now;
+    guide = g;
+    if (first) loadProgress();
+    const y = scrollY;
+    render(g);
+    scrollTo(0, y);
+  };
+  document.head.appendChild(s);
+}
+load();
+setInterval(load, 3000);
+</script>
+</body>
+</html>

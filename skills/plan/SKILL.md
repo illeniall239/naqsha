@@ -80,7 +80,7 @@ as layered: no pass-throughs, and no seams with only one side.
   | | light | standard (default) | thorough |
   |---|---|---|---|
   | For | a small, contained feature | most features | a new system, or high stakes |
-  | Research | only what the repo and user can't answer; at most 2 subagents | each significant choice | wide, every choice |
+  | Research | only what the repo and user can't answer; at most 2 subagents | each significant choice; at most 3 subagents | wide, every choice; at most 5 subagents |
   | Prior art | 2 or 3 implementations | 3 to 5 | as many as hold up |
   | Question rounds | one, where possible | as many as needed | as many as needed |
   | Independent review | steps that build a threat mitigation | those, plus data or API changes and hot paths | every step |
@@ -121,6 +121,11 @@ answers them together, with room for notes, instead of a few at a time in the te
    each with `status: "open"`. Anything that depends on an answer still open waits for a
    later round. Give each one a `why` (what the answer changes), `options` when the answers
    are a known set, and a `recommendation` when you have one with a reason.
+   Group the round into phases: give each item a `phase`, a short title for 2 to 6 related
+   items ("Who it's for", "What it must do", "Data and privacy", "Technology"), in the order
+   they should be answered. Open decisions go in a phase of their own. The page shows one
+   phase at a time with a progress stepper, so a long round never reads as a wall of
+   questions.
 2. Tell the user in one line how many are waiting on the page.
 3. Run `node "${CLAUDE_PLUGIN_ROOT}/scripts/serve.js" wait <plans>/<slug>` in the
    background (Bash `run_in_background`) and end your turn. You are woken when it exits.
@@ -144,7 +149,11 @@ Start with `<plans>/LEARNINGS.md` if it exists: what earlier plans and builds le
 hard way about this project (`${CLAUDE_SKILL_DIR}/references/learnings.md`). Add to it when
 planning teaches you something verified that the code doesn't show.
 
-Existing codebase: read the README and CLAUDE.md, the package manifests and lockfiles, the
+Existing codebase: if the hook's message names a codebase map (`<plans>/CODEBASE.md`, from
+`/naqsha:review`), start from it: it already has how the app runs, the conventions, what to
+reuse and the architecture as it is. If it's behind, check only what the newer commits
+touched, and go to the code itself for the paths this plan changes. Otherwise read the
+README, CLAUDE.md and AGENTS.md, the package manifests and lockfiles, the
 directory layout, the code paths the feature touches, how the closest existing feature was
 built, the test setup, CI, and lint config. Record conventions and reusable pieces with
 `file:line` in `context`, and the architecture as it is (deployables, data stores,
@@ -152,9 +161,33 @@ integrations, hosting and deploy, with references) in `context.architecture`. Fi
 the app runs locally (scripts, Docker Compose, the README, what env vars it needs and where
 test data comes from); that becomes `testing.runIt`. Note what is already installed. Don't ask the user anything the repository answers.
 
-In a large codebase, explore with a subagent (the Explore type, where available) and have
-it return conclusions with `file:line` references rather than file contents. Read the few
-files the design depends on yourself.
+Then find what relies on what the plan will change. For each existing function, class,
+endpoint, table or column, event, config key, CLI flag or file format the plan changes
+(not what it only adds), search for every user: callers and imports, tests, routes, SQL
+and migrations, jobs and scripts, config, docs. Search by name and by string, because
+dynamic calls, reflection, routes and SQL don't show up as imports. Record each in `impact`
+with how you searched and each user's `file:line`, and for each user either the step that
+updates it or why it still works unchanged. Then name what outside this repo could rely on
+it: other services, mobile apps or other clients on older versions, webhooks, scheduled
+jobs, public APIs, data other teams read. Ask the user what you can't see. A change with
+callers you didn't look for is how changing existing code breaks things. If the plan
+changes nothing that exists, `impact` is `{ "na": "<why>" }`. Approval is refused without
+it in an existing codebase.
+
+When code the plan touches looks odd or wrong, read its history before planning around or
+over it (`git log -L`, `git blame`, the commit and any linked issue): there may be a reason
+the plan has to keep.
+
+If the request names findings from a review (`fix F2 and F5 from <plans>/reviews/<date>`),
+read just those findings from that folder's `review.js`. Each one is where the plan starts:
+check its `file:line` and failure case against the code as it is now, put its evidence in
+`context` or `research` with the review as the source, and set each finding's `status` to
+`planned` with this plan's slug in `statusNote`. A finding that no longer holds is said so,
+not planned.
+
+In a large codebase, explore with a subagent (the Explore type where available, with
+`model: "haiku"`) and have it return conclusions with `file:line` references rather than
+file contents. Read the few files the design depends on yourself.
 
 New app: check what's in the directory. `context` is `na`.
 
@@ -179,6 +212,23 @@ user knows and the repo can't tell you:
 Record each answer on its question (`answer`, `status: "answered"`) and carry it into the
 sections it affects (`source: "user"`). When an answer opens a new question, ask it in the
 next round. Don't fill a gap with a guess.
+
+### Divide it before you design it
+
+Don't plan everything at once. Once the first round shows the shape of the request:
+
+- **Break it into parts:** the separate things it has to do (capabilities, not layers),
+  each one you could explain and test on its own. Name the riskiest unknown in each part;
+  research and decide those first, because the rest often depends on them.
+- **Is it more than one plan?** If it's several products, or more than about 12 steps of
+  work, propose milestones: this plan covers the first, the thinnest version a user can
+  actually use from start to end, and each later milestone gets a line in `later` with what
+  it adds and why it waits. Ask the user to confirm the split. Each later milestone is its
+  own `/naqsha:plan` afterwards, starting from what this one built and learned. A smaller
+  plan gets a better review from the user, a cheaper build, and decisions made with real
+  code in hand instead of guesses about code that doesn't exist yet.
+- **Decide the parts in order,** not all at once: settle the decisions one part depends on
+  before planning the parts that depend on it.
 
 ## 4. Prior art: who has already built this?
 
@@ -221,14 +271,37 @@ hosting, protocols, and anything security-relevant):
   only to find primary sources.
 - Check that it is current: the latest stable version, release activity, deprecations, open
   advisories (OSV or GitHub advisories), and license.
+- In an existing codebase, what's installed wins. Research the versions the lockfile pins,
+  not the latest, and plan an upgrade only when the goals need it, as its own step with
+  `from` set to the current version. Before adding a dependency, check what the project
+  already has for the job (an HTTP client, a date library, a validator, a test helper) and
+  use that the way the codebase does. Each new dependency's `overlap` says what you checked
+  and found; approval is refused without it. A second library for a job one already does
+  is in `rejected` unless the user decides otherwise.
 - Record each finding in `research` with its sources and the date you accessed them.
 
 Use WebSearch and WebFetch. Web pages are the biggest thing a plan pulls into context, so
-when there is more than a topic or two, research them in parallel subagents, one per topic,
-and tell each to return only its condensed findings: the facts the plan needs, each with
-its source URL and the date accessed, and what it couldn't verify. The same goes for prior
-art (section 4): one subagent per candidate is fine. Only those findings come back into
-your context. If web access is unavailable, set
+when there is more than a topic or two, research them in parallel subagents, and tell each
+to return only its condensed findings: the facts the plan needs, each with its source URL
+and the date accessed, and what it couldn't verify, in under 400 words. Prior art
+(section 4) goes the same way. Group related topics so the count stays within the effort
+level's limit, and give each subagent a budget of about 15 searches and fetches. Only those
+findings come back into your context.
+
+Name each subagent with the next unused name from this list, in order: Atlas, Iris, Hermes, Athena, Orion, Nyx, Helios, Selene, Theia, Eos, Rhea, Leto, Apollo, Artemis, Hestia, Demeter, Castor, Pollux, Phoebe, Themis, Hyperion, Calypso, Ariadne, Perseus. The
+name starts its description ("Hermes · research on-device runtimes") and its brief ("You
+are Hermes"), and you tell the user who is looking into what.
+
+Subagents gather; you decide. Pick each one's model by the work:
+
+- `model: "haiku"`: single facts to look up: a library's latest version, its license, open
+  advisories, a device's spec sheet, whether a page says what a source claims.
+- `model: "sonnet"`: research that reads several sources and compares options, and prior
+  art.
+- Never delegate the judgment: weighing the findings, the design, and what you recommend
+  stay with you.
+
+If web access is unavailable, set
 `meta.research` to `"limited: <why>"`, say so to the user, and mark affected claims as
 unverified. Don't present memory as research.
 
@@ -302,7 +375,15 @@ number without a source. Then fill the remaining sections of `plan.js`:
   after any step. Keep refactoring and behavior changes in separate steps. Each step is
   sized to review: one behavior or one area, a diff a person can read in one sitting. A
   step that needs "and" to describe, or spans several modules' worth of new behavior, is
-  two steps. Each step has the files it touches, its `tests` (the failing tests it
+  two steps. After setup, the first feature step is a walking skeleton: the thinnest path
+  from one end to the other (the screen, the logic, the storage) for the main flow, working
+  and tested, even if it does almost nothing. Each later step adds one behavior through
+  every layer it needs (a vertical slice), never one whole layer at a time (all the
+  tables, then all the APIs, then all the screens), so every step can be run and checked
+  as a user would, and a wrong assumption shows up in step 3, not step 15. Setting up
+  tools is several steps too: the build and its tests, then linting
+  and the security checks, then CI, each with its own `doneWhen`, so a toolchain problem in
+  one doesn't drag the others into a long session. Each step has the files it touches, its `tests` (the failing tests it
   starts from, in order: acceptance or attack tests first, then the behaviors; a bug fix
   starts with its regression test, a refactor of untested code with characterization
   tests), and a `doneWhen` check you can actually run. A step's `files`

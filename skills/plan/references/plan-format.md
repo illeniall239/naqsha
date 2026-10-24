@@ -37,6 +37,7 @@ instead of content. A section left empty without `na` shows as unfinished.
 
   "questions": [{                    // what only the user can tell you; answered on the page or in chat
     "id": "Q1",
+    "phase": "Scale",                 // short title grouping 2 to 6 related items; the page shows one phase at a time
     "question": "How many users reset a password on a busy day?",
     "why": "Decides whether the provider's free tier is enough",   // what the answer changes
     "options": ["Under 100", "100 to 10,000", "More than 10,000"],  // optional; leave out for free text
@@ -97,6 +98,7 @@ instead of content. A section left empty without `na` shows as unfinished.
 
   "decisions": [{
     "id": "D1",
+    "phase": "Decisions",             // optional; open decisions are answered in the Questions tab
     "question": "How do we send email?",
     "options": [
       { "name": "Transactional provider (Postmark)", "pros": ["..."], "cons": ["..."] },
@@ -178,8 +180,27 @@ instead of content. A section left empty without `na` shows as unfinished.
   "dependencies": [{
     "name": "postmark", "version": "4.0.5", "why": "...", "license": "MIT",
     "health": "Released 2026-09, 2 maintainers, no open advisories (OSV checked 2026-10-21)",
-    "insteadOf": "Hand-rolled SMTP client"
-  }],                                // new dependencies only; [] when none
+    "insteadOf": "Hand-rolled SMTP client",
+    "overlap": "none: package.json has no email client; mail goes through nothing today",  // existing codebase: required
+    "from": "3.9.1"                  // only for an upgrade: the version the lockfile pins now
+  }],                                // new dependencies and upgrades only; [] when none
+
+  "later": [{                        // milestones this plan leaves for later plans; [] or absent when it covers it all
+    "title": "Mood history and trends",
+    "adds": "A weekly chart of logged moods, and export",
+    "why": "Needs a few weeks of real entries to design well; nothing in milestone 1 depends on it"
+  }],
+
+  "impact": [{                       // existing codebase: required, or { "na": "<nothing existing changes, because...>" }
+    "change": "findUserByEmail(email) now lower-cases the address before lookup",
+    "kind": "function",              // function | endpoint | table | event | config | cli | file format
+    "searched": "grep -rn 'findUserByEmail\\|users.email' src test scripts; checked SQL in db/",
+    "users": [
+      { "where": "src/app/(auth)/login/actions.ts:31", "what": "login lookup", "step": "S2" },
+      { "where": "scripts/import-users.ts:58", "what": "bulk import", "ok": "already lower-cases before calling" }
+    ],                               // each user: the step that updates it, or why it still works ("ok")
+    "outside": "Mobile app 2.x sends mixed-case emails to POST /login; covered by S2's normalization"
+  }],
 
   "testing": {
     "strategy": ["Unit: token hashing and expiry", "Integration: full reset flow against test DB", "..."],

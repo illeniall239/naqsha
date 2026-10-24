@@ -21,6 +21,8 @@ const PAGES = {
   '/': ['index.html', 'text/html; charset=utf-8'],
   '/index.html': ['index.html', 'text/html; charset=utf-8'],
   '/plan.js': ['plan.js', 'text/javascript; charset=utf-8'],
+  '/guide.js': ['guide.js', 'text/javascript; charset=utf-8'],
+  '/review.js': ['review.js', 'text/javascript; charset=utf-8'],
 };
 const MAX_BODY = 512 * 1024;
 const MAX_TEXT = 20000;

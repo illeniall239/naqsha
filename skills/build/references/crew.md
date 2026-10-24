@@ -27,7 +27,9 @@ quietly.
 1. The main checkout must be on a build branch of its own, because steps land as merge
    commits. If it's on `main` or similar, ask the user before creating one (for example
    `git switch -c build/<slug>`).
-2. Parallel runs need tests that don't share state: no common database, ports or files
+2. In an existing codebase, take the checks' baseline yourself before starting any worker,
+   as the build skill describes (`T baseline`). Every worker's working set then carries it.
+3. Parallel runs need tests that don't share state: no common database, ports or files
    between two test runs. If the plan's testing strategy doesn't show that, keep
    `crewParallel` at 1.
 
@@ -39,8 +41,11 @@ quietly.
    - `T update-step ... {"status": "doing"}`
    - `C open <plan>/plan.js S#`, which gives the worktree path and branch
    - `T step <plan>/plan.js S#`, which gives the working set
-3. Start one worker per step with the Agent tool (general-purpose). Give it the worker
-   brief below with the brackets filled in. Run them in the background when there's more
+3. Start one worker per step with the Agent tool (general-purpose). Don't set `model`: the
+   worker writes the code, so it runs on the session's model. Name it as the working set's
+   "Names" section says: the description starts with the name ("Orion · build S5"), and the
+   user hears "Orion is building S5". Give it the worker brief below with the brackets
+   filled in. Run them in the background when there's more
    than one. Write a checkpoint naming the workers you're waiting on, then end your turn;
    you're woken when one reports.
 4. When a worker reports:
@@ -53,11 +58,16 @@ quietly.
    - **deviation:** the step can't be built as planned. Bring it to the user as the build
      skill describes, record the decision, and tell the worker what to do.
    - **blocked:** it needs something only the user can give. Ask, then pass it on.
+   - **handoff:** its context grew long before the step was done. Write a checkpoint from
+     its report, then start a fresh worker under the same name on the same worktree with
+     the same brief, plus
+     "resume from the commits already on your branch" and the report's next action. A
+     fresh context costs far less than one that keeps growing.
 5. Land it: `C land <plan>/plan.js S#`.
    - **On a conflict** (exit 2), nothing was merged. Ask the worker to merge the build
      branch into its branch, resolve, rerun its checks and commit, then land again.
 6. On the build branch, after landing, run the project's whole test suite and the security
-   checks. If the step changed anything users see, walk it in the running app
+   checks, judged against the baseline as the build skill describes. If the step changed anything users see, walk it in the running app
    (`run-like-a-user.md`). You do this, one step at a time, never the workers: one app,
    one database, no collisions.
 7. Record it. Use `T update-step` with `notesAppend` for the worker's evidence (its red-run
@@ -79,7 +89,7 @@ quietly.
 ## Worker brief
 
 ```
-You are building one step of an approved plan, as a crew worker. You report to the
+You are [name], building one step of an approved plan, as a crew worker. You report to the
 coordinator, not to the user, and you can't ask the user anything.
 
 Your worktree: [path]. Your branch: [branch]. Work only there: run every command inside
@@ -89,11 +99,17 @@ everything.
 Your step:
 [the output of plan-tool.js step for this step]
 
-How to build it: read [plugin root]/skills/build/SKILL.md, section "Each step", items 2
-to 5, and every reference your step lists under "References to read"; they're in
-[plugin root]/skills/build/references/. Follow them exactly: test-first with each red run
-seen and noted, the security rules, modules, and every check the step names. Don't run the
-app; the coordinator does that after landing.
+How to build it: read [plugin root]/skills/build/SKILL.md, sections "Keeping the context
+lean" and "Each step" items 2 to 5, and every reference your step lists under "References
+to read" except independent-review.md; they're in [plugin root]/skills/build/references/.
+Follow them exactly: test-first with each red run seen and noted, the security rules,
+modules, and every check the step names. Don't run the app or an emulator; the coordinator
+does that after landing.
+
+Keep your context small: build, test and lint output goes to a file, and you read the
+summary and the failures. If you pass about 60 tool calls and the step isn't done, stop at
+the next green: commit, and report a handoff with what's done, the next action, and the
+files in progress. A fresh worker continues from your commits.
 
 Commit to your branch after each green and when you finish (git add, then git commit with a
 message starting "[S#]"). Your commits are your checkpoints: if you're stopped, the next
@@ -105,10 +121,11 @@ much bigger than it lists), stop and report a deviation with the evidence, the o
 your recommendation.
 
 Report, in this order:
-- Status: done, deviation or blocked.
+- Status: done, handoff, deviation or blocked.
 - What you built, in a few lines.
 - Each check with pass, fail, unavailable or blocked, and its result line.
 - The red runs: each test's failing line before its code existed.
+- Problems that were already there in code you touched, as `found:` with file:line, if any.
 - Verified learnings for the project's LEARNINGS.md (facts that cost time to find), if any.
 - What you did not verify.
 ```

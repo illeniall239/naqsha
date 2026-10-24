@@ -36,8 +36,18 @@ what that means.
 
 Read each reference once per conversation; don't re-read it for every step. If the context
 was compacted, read the always-loaded ones again before going on. When unsure whether a
-reference applies, read it: it's cheap next to a miss. The independent reviewer reads all of
-them in its own context, so whatever you skip is still checked.
+reference applies, read it: it's cheap next to a miss. In crew mode you don't build, so you
+read only `crew.md`, `independent-review.md` and `run-like-a-user.md`; each worker reads the
+ones its step needs, in its own context.
+
+Names: every agent you start has a name, so the user can follow who is doing what. The
+step's working set gives the worker's and reviewer's names; use them in the agent's
+description, its brief, and what you tell the user ("Orion is building S5, Iris is
+reviewing S4"). Other agents take the next unused name from this list: Atlas, Iris, Hermes, Athena, Orion, Nyx, Helios, Selene, Theia, Eos, Rhea, Leto, Apollo, Artemis, Hestia, Demeter, Castor, Pollux, Phoebe, Themis, Hyperion, Calypso, Ariadne, Perseus.
+
+Models: whatever writes or reviews code runs on the session's model, so don't set `model`
+for workers or reviewers. Delegate only lookups to a smaller one, such as `model: "haiku"`
+to find a library's latest version or search a large codebase for `file:line` answers.
 
 ## Working with the plan
 
@@ -123,13 +133,24 @@ The build is long, and a full context makes every later step worse. So:
 - If this is the first step, take the baseline in `run-like-a-user.md`: start the app as
   `testing.runIt` says and walk one existing flow, before changing anything. Report anything
   already broken as inherited.
+- In an existing codebase, also baseline the checks before the first step changes anything:
+  run the whole test suite, the formatter, linter and type checker, and every check in
+  `testing.securityChecks`, output to files, and record each one's result line and what
+  already fails with `T baseline <plan>/plan.js` (JSON on stdin: `{"commit": "<short
+  hash>", "checks": [{"check": "tests", "command": "...", "result": "412 passed, 3 failed",
+  "known": ["the failing tests, findings or files"]}]}`). It can't be retaken once a step is
+  done. Tell the user in a few lines what was already failing. Real projects often start
+  with red tests or lint warnings; from here on each step is held to adding nothing to
+  them, not to fixing them.
 - Tell the user in one line which step you're on and how many remain.
 
 ## Each step
 
 1. Set it to `doing` (`T update-step`), and get its working set (`T step`). Read any
    reference it lists that isn't in your context yet.
-2. Re-read the files it touches. Code may have changed since the plan was written.
+2. Re-read the files it touches. Code may have changed since the plan was written. The
+   working set lists the existing code that relies on what this step changes: update each
+   one in this step, or check it still works as the plan says.
 3. Build it test-first, the way the plan says and the way the codebase already does things:
    - Run the loop in `tdd.md`, starting from the step's `tests`: the outer test (an
      acceptance criterion or threat mitigation) first, then one red test, the least code to
@@ -139,6 +160,10 @@ The build is long, and a full context makes every later step worse. So:
    - Follow the conventions recorded in `context`. Reuse what `context.reuse` names.
    - Write only what the step needs. No extra options, layers or "for later" code, and no
      dependency that isn't in the plan.
+   - Work in small pieces: one test, the code for it, run; then the next. Don't write
+     several files' worth of code before running anything; a mistake found after ten
+     minutes is cheap and one found after an hour is buried under everything built on it.
+     When a piece turns out to be several, do them one at a time.
    - Security first: apply every rule in `secure-coding.md` the code touches, and build
      the threat mitigations assigned to this step, each starting as an attack test you watch
      get through. Nothing there is cut for time, tokens or scope.
@@ -158,9 +183,22 @@ The build is long, and a full context makes every later step worse. So:
      mid-build that a step can't be tested first is a deviation, not your call.
    - Leave alone code the step doesn't need. That includes the user's uncommitted changes,
      plus unrelated cleanup, renames and reformatting.
+   - **Code that looks wrong may be there on purpose.** Before you change or delete code
+     whose reason you can't see (an odd check, a sleep, a special case, a pinned version, a
+     disabled test), read its history: `git log -L <start>,<end>:<file>` or `git blame`, then
+     the commit message and any issue it links. If it guards against something real, keep
+     the guard. Say what you found in the notes.
+   - **Problems that were already there:** a bug, a vulnerability or a smell in code the step
+     touches but doesn't need to change is reported, not fixed on the side. Add it to the
+     notes as `found:` with `file:line` and why it matters, and tell the user when you report
+     the step. If the step can't be built safely without fixing it (say, the new code would
+     call a function that's open to injection), that's a deviation: bring it to the user.
 4. Prove `doneWhen`. Run the tests and commands it names, the project's whole test suite,
    formatter, linter and type checker, and every check in `testing.securityChecks`, and
-   read the output. If the step changes anything a user, client or operator sees, run the
+   read the output. With a baseline, a check passes when it adds nothing to the baseline:
+   no failing test, finding or warning that wasn't already there, and no new warning in a
+   file the step touched. Compare by name, not by count, so a new failure can't hide behind
+   an old one that went away. If the step changes anything a user, client or operator sees, run the
    app and walk the flows it changed, unhappy paths included, as `run-like-a-user.md`
    says. At `light` effort, the app is walked at the baseline and the finish only. A
    security finding is fixed, or shown to be a false positive with a concrete reason; it is
@@ -171,7 +209,19 @@ The build is long, and a full context makes every later step worse. So:
    - **unavailable**: the tool or service isn't there.
    - **blocked**: it needs something only the user can provide.
 
-   Never report "should work" as a pass. If a check fails, fix the code. Don't move on with
+   Never report "should work" as a pass. If a check fails, debug it one piece at a time:
+   - **Reproduce it** with the smallest thing that fails: one test, one input, one command.
+   - **Narrow it down** before changing anything: halve the input, the code path or the
+     history (`git bisect` for something that used to work), and read the actual error and
+     values, not what you expect them to be.
+   - **One guess at a time.** Say what you think is wrong and what would prove it, make
+     one change to test it, and run. If it was wrong, undo that change before trying the
+     next guess. Never stack fixes on top of each other.
+   - **After three wrong guesses,** stop: write a checkpoint, re-read the code and the
+     plan from the start, and if it's still unclear, bring it to the user with what you
+     ruled out.
+
+   Once you know the cause, fix the code. Don't move on with
    a failing check, and don't weaken the check to make it pass. Once every check passes,
    stop: no extra polish or tests beyond the step.
 5. Review your own diff against the checklist at the end of `code-quality.md`, and fix what

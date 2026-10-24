@@ -152,6 +152,82 @@ test('the independent review goes where the risk is, scaled by effort', () => {
   assert.match(tool(['set-meta', file], '{"effort":"extreme"}').stderr, /light, standard, thorough/);
 });
 
+test("the digest carries the plan's whys with the ids a guide cites", () => {
+  const file = planFile({
+    questions: [{ id: 'Q1', question: 'Where may data go?', status: 'answered', answer: { choice: ['Nowhere'], text: '', note: 'privacy first' } },
+      { id: 'Q2', question: 'Still open?', status: 'open' }],
+    decisions: [{ id: 'D1', question: 'Stream or job?', status: 'decided', choice: 'Stream', decidedBy: 'user', note: 'keep it simple',
+      why: 'Fits the 5 s budget', options: [{ name: 'Stream' }, { name: 'Background job' }] }],
+    research: [{ topic: 'Cursors', finding: 'Server-side cursors keep memory flat', sources: [{ url: 'https://example.org/cursors', accessed: '2026-10-24' }] }],
+    rejected: [{ option: 'Kafka', why: 'No driver needs it' }],
+    later: [{ title: 'Yearly export', adds: 'A 12-month CSV', why: 'needs the monthly one in use first' }],
+  });
+  const d = tool(['digest', file]).stdout;
+  assert.match(d, /- Q1: Where may data go\? → Nowhere · \(privacy first\)/);
+  assert.doesNotMatch(d, /Q2/, 'unanswered questions are not reasons');
+  assert.match(d, /- D1: Stream or job\? → Stream \(user\)\n {2}why recommended: Fits the 5 s budget\n {2}the user's note: keep it simple\n {2}passed over: Background job/);
+  assert.match(d, /- Cursors: Server-side cursors keep memory flat \[https:\/\/example\.org\/cursors 2026-10-24\]/);
+  assert.match(d, /- T1: Another store reads exports → Scope by store \(built in S2\)/);
+  assert.match(d, /- module export module \(src\/export\/\): Build CSV exports; interface: exportMonth\(store, month\)/);
+  assert.match(d, /- Kafka: No driver needs it/);
+  assert.match(d, /## Later milestones \(planned separately\)\n- Yearly export: A 12-month CSV \(later because needs the monthly one in use first\)/);
+});
+
+test('the baseline is taken once, before any step is done, and every step sees it', () => {
+  const file = planFile({ context: { stack: ['Express'] },
+    impact: [{ change: 'exportMonth gains a format argument', searched: 'grep -rn exportMonth', outside: 'none',
+      users: [{ where: 'src/reports/monthly.ts:42', step: 'S2', what: 'passes two arguments' }, { where: 'src/cli.ts:9', ok: 'uses the default' }] }] });
+  assert.match(tool(['step', file, 'S1']).stdout, /## Baseline\nNot taken yet\. .*plan-tool\.js baseline/, 'an existing codebase is reminded');
+  assert.doesNotMatch(tool(['step', planFile(), 'S1']).stdout, /Baseline/, 'a new app has nothing to baseline');
+
+  const taken = { commit: 'abc1234', checks: [
+    { check: 'tests', command: 'npm test', result: '412 passed, 2 failed', known: ['auth > refresh keeps the session', 'mail > retries'] },
+    { check: 'lint', command: 'npm run lint', result: '37 warnings, 0 errors' }] };
+  for (const [input, why] of [
+    [{ checks: [] }, /checks is a list/],
+    [{ checks: [{ check: 'tests', result: '' }] }, /checks is a list/],
+    [{ ...taken, mood: 'ok' }, /not "mood"/],
+  ]) {
+    const r = tool(['baseline', file], JSON.stringify(input));
+    assert.equal(r.status, 1, JSON.stringify(input));
+    assert.match(r.stderr, why);
+  }
+  assert.equal(tool(['baseline', file], JSON.stringify(taken)).status, 0);
+  const v = tool(['step', file, 'S2']).stdout;
+  assert.match(v, /## Baseline before the build \(\d{4}-\d{2}-\d{2} \d{2}:\d{2}, abc1234\): .*Don't fix it here and don't add to it\n- tests: 412 passed, 2 failed \(`npm test`\)\n {2}- auth > refresh keeps the session\n {2}- mail > retries\n- lint: 37 warnings, 0 errors/);
+  assert.match(v, /## Existing code that relies on what this step changes \(update each\)\n- src\/reports\/monthly\.ts:42: exportMonth gains a format argument \(passes two arguments\)\n\n/);
+  assert.doesNotMatch(tool(['step', file, 'S1']).stdout, /relies on what this step changes/, "another step's callers");
+  assert.match(tool(['digest', file]).stdout, /- exportMonth gains a format argument: src\/reports\/monthly\.ts:42, src\/cli\.ts:9; outside the repo: none/);
+
+  tool(['update-step', file, 'S1'], '{"status":"done"}');
+  const late = tool(['baseline', file], JSON.stringify({ checks: [{ check: 'tests', result: '412 passed, 3 failed' }] }));
+  assert.equal(late.status, 1);
+  assert.match(late.stderr, /a step is already done/, 'a new failure cannot be folded into the baseline');
+  assert.match(tool(['baseline', planFile({ meta: { title: 'x', status: 'draft' } })], JSON.stringify(taken)).stderr, /taken when the build starts/);
+});
+
+test('every agent has a name: fixed per step, distinct side by side, and the same list everywhere', () => {
+  const { NAMES } = require('../scripts/plan-tool.js');
+  const file = planFile();
+  tool(['set-meta', file], '{"buildMode":"crew"}');
+  const names = id => /## Names\n(.*)\n(.*)/.exec(tool(['step', file, id]).stdout);
+  assert.match(names('S1')[1], /^Worker: Atlas\. Reviewer: Apollo\.$/);
+  assert.match(names('S2')[1], /^Worker: Iris\. Reviewer: Artemis\.$/);
+  assert.match(names('S2')[2], /"Iris · build S2".*"You are Iris"/);
+  assert.match(names('S3')[1], /^Worker: Hermes\. Reviewer: Hestia\. Finish reviewer: Demeter\.$/, 'the last step names the finish reviewer');
+  assert.doesNotMatch(names('S2')[1], /Finish/);
+  tool(['set-meta', file], '{"buildMode":"solo"}');
+  assert.match(names('S1')[1], /^Reviewer: Apollo\.$/, 'a solo build has no worker to name');
+  assert.match(names('S1')[2], /"Apollo · review S1"/);
+  assert.equal(new Set(NAMES).size, NAMES.length);
+  assert.equal(NAMES.length % 2, 0, 'a reviewer is half the list away from its worker, so never the same name');
+  const listed = NAMES.join(', ');
+  for (const skill of ['plan', 'build', 'review']) {
+    const text = fs.readFileSync(path.join(__dirname, '..', 'skills', skill, 'SKILL.md'), 'utf8').replace(/\s+/g, ' ');
+    assert.ok(text.includes(listed), `skills/${skill}/SKILL.md names agents from the same list`);
+  }
+});
+
 test('status shows progress and the next step', () => {
   const file = planFile();
   tool(['update-step', file, 'S1'], '{"status":"done"}');

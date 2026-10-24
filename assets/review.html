@@ -1,0 +1,332 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Review</title>
+<style>
+:root {
+  --bg: #fbfbfa; --panel: #ffffff; --text: #1d1d1b; --muted: #6b6b66; --line: #e4e3df;
+  --accent: #2f5bd3; --on-accent: #ffffff; --warn: #8a5a00; --ok: #1f7a46; --bad: #b42318; --code: #f2f1ee; --tint: #eef2fc;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #161615; --panel: #1f1f1d; --text: #ecebe7; --muted: #a3a29c; --line: #34332f;
+    --accent: #8aa8ff; --on-accent: #10204d; --warn: #f2c46b; --ok: #6fcf97; --bad: #ff8a80; --code: #2a2a27; --tint: #232a3d;
+  }
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body { margin: 0; background: var(--bg); color: var(--text); font: 16px/1.6 system-ui, -apple-system, "Segoe UI", sans-serif; }
+main { max-width: 1000px; margin: 0 auto; padding: 24px 16px 100px; }
+header h1 { font-size: 1.7rem; margin: 0 0 4px; line-height: 1.25; }
+.meta { color: var(--muted); font-size: .9rem; display: flex; flex-wrap: wrap; gap: 4px 16px; }
+section { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 20px 24px; margin-top: 18px; min-width: 0; }
+section h2 { font-size: 1.25rem; margin: 0 0 10px; }
+h3 { font-size: 1rem; margin: 18px 0 6px; }
+p, ul { max-width: 75ch; }
+a { color: var(--accent); }
+code { background: var(--code); padding: 1px 5px; border-radius: 4px; font-size: .88em; overflow-wrap: anywhere; }
+ul { padding-left: 22px; }
+li { margin: 3px 0; }
+.verdict { font-size: 1.08rem; margin: 0 0 14px; }
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 10px; margin: 14px 0; }
+.stat { border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; }
+.stat b { display: block; font-size: 1.5rem; line-height: 1.2; }
+.stat span { color: var(--muted); font-size: .85rem; }
+.sev { display: inline-block; font-size: .75rem; font-weight: 700; padding: 0 8px; border-radius: 999px; border: 1px solid currentColor; text-transform: uppercase; letter-spacing: .03em; white-space: nowrap; }
+.sev.critical { color: var(--bad); background: color-mix(in srgb, var(--bad) 12%, transparent); }
+.sev.high { color: var(--warn); }
+.sev.medium { color: var(--accent); }
+.sev.low { color: var(--muted); }
+.tag { display: inline-block; font-size: .78rem; padding: 0 7px; border-radius: 6px; background: var(--code); color: var(--muted); white-space: nowrap; }
+.tag.ok { color: var(--ok); }
+.tag.bad { color: var(--bad); }
+.filters { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 12px; }
+.filters select, .filters input { font: inherit; font-size: .9rem; color: var(--text); background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px; }
+.filters input { flex: 1 1 180px; min-width: 0; }
+.count { color: var(--muted); font-size: .85rem; }
+details.finding { border: 1px solid var(--line); border-radius: 10px; margin: 8px 0; background: var(--panel); }
+details.finding[data-status=dismissed], details.finding[data-status=fixed] { opacity: .65; }
+details.finding > summary { list-style: none; cursor: pointer; padding: 10px 12px; display: grid; grid-template-columns: auto 1fr; gap: 4px 10px; align-items: start; }
+details.finding > summary::-webkit-details-marker { display: none; }
+details.finding > summary .pick { margin-top: 4px; }
+details.finding > summary .head { min-width: 0; }
+details.finding > summary .title { font-weight: 600; }
+details.finding > summary .sub { display: flex; flex-wrap: wrap; gap: 4px 8px; align-items: center; margin-top: 3px; font-size: .85rem; color: var(--muted); }
+details.finding[open] > summary { border-bottom: 1px solid var(--line); }
+.body { padding: 4px 16px 14px; }
+.body dl { display: grid; grid-template-columns: 9em 1fr; gap: 6px 14px; margin: 10px 0; }
+.body dt { color: var(--muted); font-size: .88rem; }
+.body dd { margin: 0; min-width: 0; }
+table { width: 100%; border-collapse: collapse; font-size: .92rem; }
+th, td { text-align: left; vertical-align: top; padding: 7px 8px; border-bottom: 1px solid var(--line); }
+th { color: var(--muted); font-weight: 600; font-size: .8rem; text-transform: uppercase; letter-spacing: .03em; }
+.scroll { overflow-x: auto; }
+button.btn { font: inherit; font-size: .9rem; padding: 6px 12px; border-radius: 8px; border: 1px solid var(--line); background: var(--panel); color: var(--text); cursor: pointer; }
+button.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); font-weight: 600; }
+button.btn:disabled { opacity: .5; cursor: default; }
+textarea { display: block; width: 100%; font: inherit; font-size: .95rem; color: var(--text); background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; resize: vertical; }
+.act { margin-top: 12px; padding-top: 12px; border-top: 1px dashed var(--line); }
+.act .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-top: 8px; }
+.status { font-size: .85rem; color: var(--muted); }
+.status.bad { color: var(--bad); }
+.bar { position: fixed; left: 0; right: 0; bottom: 0; background: var(--panel); border-top: 1px solid var(--line); padding: 10px 16px; }
+.bar .in { max-width: 1000px; margin: 0 auto; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.empty { color: var(--muted); font-style: italic; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+footer { color: var(--muted); font-size: .8rem; margin-top: 24px; }
+@media (max-width: 640px) {
+  section { padding: 16px; }
+  .body { padding: 4px 12px 12px; }
+  .body dl { grid-template-columns: 1fr; gap: 2px; }
+  .body dd { margin-bottom: 8px; }
+}
+@media print {
+  .filters, .act, .bar, .pick { display: none !important; }
+  details.finding { break-inside: avoid; }
+}
+</style>
+</head>
+<body>
+<main id="app"><p class="empty">Loading review.js…</p></main>
+<div class="bar" id="bar" hidden><div class="in">
+  <span id="picked"></span>
+  <button type="button" class="btn primary" data-action="plan-picked">Plan a fix for these</button>
+  <button type="button" class="btn" data-action="clear">Clear</button>
+  <span class="status" id="bar-status" role="status"></span>
+</div></div>
+<script>
+'use strict';
+// The report /naqsha:review wrote. Read-only, except that when served live you
+// can send findings to Claude: plan a fix, say one isn't a problem, or ask.
+const app = document.getElementById('app');
+const bar = document.getElementById('bar');
+const KEY = new URLSearchParams(location.search).get('key');
+const LIVE = /^https?:$/.test(location.protocol) && !!KEY;
+const SEVERITIES = ['critical', 'high', 'medium', 'low'];
+const AREAS = { security: 'Security', tests: 'Tests', dependencies: 'Dependencies', correctness: 'Correctness', modularity: 'Modularity', data: 'Data and APIs', operability: 'Operability', performance: 'Performance', docs: 'Docs and setup' };
+let review = null;
+let last = '';
+const picked = new Set();
+const open = new Set();
+const drafts = {};
+let filter = { severity: '', area: '', status: 'open', q: '' };
+
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const txt = s => esc(s).replace(/`([^`]+)`/g, '<code>$1</code>');
+const arr = x => (Array.isArray(x) ? x : []);
+const where = w => `<code>${esc(w.path)}${w.line ? ':' + esc(w.line) : ''}</code>`;
+const sev = s => `<span class="sev ${SEVERITIES.includes(s) ? s : 'low'}">${esc(s || 'unrated')}</span>`;
+
+// Filters are a per-viewer convenience, kept in this browser only.
+const storeKey = () => 'naqsha-review:' + location.pathname;
+function loadView() {
+  try { const v = JSON.parse(localStorage.getItem(storeKey()) || 'null'); if (v) filter = { ...filter, ...v }; } catch { /* storage blocked */ }
+}
+function saveView() {
+  try { localStorage.setItem(storeKey(), JSON.stringify(filter)); } catch { /* same */ }
+}
+
+function shown(f) {
+  if (filter.severity && f.severity !== filter.severity) return false;
+  if (filter.area && f.area !== filter.area) return false;
+  if (filter.status && (f.status || 'open') !== filter.status) return false;
+  if (filter.q) {
+    const hay = [f.id, f.title, f.problem, f.failure, f.fix, f.pattern, ...arr(f.where).map(w => w.path)].join(' ').toLowerCase();
+    if (!hay.includes(filter.q.toLowerCase())) return false;
+  }
+  return true;
+}
+
+function finding(f) {
+  const status = f.status || 'open';
+  const draft = drafts[f.id] || '';
+  return `<details class="finding" id="${esc(f.id)}" data-id="${esc(f.id)}" data-status="${esc(status)}"${open.has(f.id) ? ' open' : ''}>
+    <summary>
+      ${LIVE && status === 'open' ? `<input type="checkbox" class="pick" data-pick="${esc(f.id)}" aria-label="Pick ${esc(f.id)} to plan"${picked.has(f.id) ? ' checked' : ''}>` : '<span></span>'}
+      <span class="head"><span class="title">${esc(f.id)} · ${txt(f.title)}</span>
+        <span class="sub">${sev(f.severity)} <span class="tag">${esc(AREAS[f.area] || f.area)}</span>
+          <span class="tag ${f.confidence === 'confirmed' ? 'ok' : ''}">${esc(f.confidence || 'likely')}</span>
+          ${status !== 'open' ? `<span class="tag">${esc(status)}</span>` : ''}
+          ${arr(f.where).slice(0, 2).map(where).join(' ')}${arr(f.where).length > 2 ? ` +${arr(f.where).length - 2}` : ''}</span></span>
+    </summary>
+    <div class="body">
+      <dl>
+        <dt>What's wrong</dt><dd>${txt(f.problem) || '<span class="empty">not written</span>'}</dd>
+        <dt>When it fails</dt><dd>${txt(f.failure) || '<span class="empty">no concrete case</span>'}</dd>
+        <dt>Why ${esc(f.severity || '')}</dt><dd>${txt(f.severityWhy) || '<span class="empty">not given</span>'}</dd>
+        <dt>Where</dt><dd>${arr(f.where).length ? `<ul>${arr(f.where).map(w => `<li>${where(w)}${w.what ? ` ${txt(w.what)}` : ''}</li>`).join('')}</ul>` : '<span class="empty">not given</span>'}${f.pattern ? `<p>${txt(f.pattern)}</p>` : ''}</dd>
+        <dt>How we know</dt><dd>${txt(f.evidence) || '<span class="empty">not given</span>'}</dd>
+        ${f.history ? `<dt>History</dt><dd>${txt(f.history)}</dd>` : ''}
+        <dt>Rule</dt><dd>${txt(f.rule) || '<span class="empty">none named</span>'}</dd>
+        <dt>Fix, in short</dt><dd>${txt(f.fix) || '<span class="empty">not given</span>'}</dd>
+        ${f.statusNote ? `<dt>${status === 'dismissed' ? 'Dismissed because' : 'Note'}</dt><dd>${txt(f.statusNote)}</dd>` : ''}
+      </dl>
+      ${LIVE ? `<div class="act">
+        <label for="note-${esc(f.id)}" class="status">Tell Claude about ${esc(f.id)}: why it isn't a problem, or a question</label>
+        <textarea id="note-${esc(f.id)}" rows="2" data-note="${esc(f.id)}">${esc(draft)}</textarea>
+        <div class="row">
+          ${status === 'open' ? `<button type="button" class="btn primary" data-action="plan" data-id="${esc(f.id)}">Plan a fix</button>
+          <button type="button" class="btn" data-action="dismiss" data-id="${esc(f.id)}">Not a problem</button>` : ''}
+          <button type="button" class="btn" data-action="ask" data-id="${esc(f.id)}">Ask</button>
+          <span class="status" data-status="${esc(f.id)}" role="status"></span>
+        </div>
+      </div>` : ''}
+    </div>
+  </details>`;
+}
+
+function render(r) {
+  const m = r.meta || {};
+  const s = r.summary || {};
+  const fs = arr(r.findings);
+  const byId = Object.fromEntries(fs.map(f => [f.id, f]));
+  const openOnes = fs.filter(f => (f.status || 'open') === 'open');
+  document.title = (m.title || 'Review') + ' · review';
+  const list = fs.filter(shown);
+  const option = (v, label, cur) => `<option value="${esc(v)}"${v === cur ? ' selected' : ''}>${esc(label)}</option>`;
+  app.innerHTML = `
+    <header>
+      <h1>${txt(m.title || 'Codebase review')}</h1>
+      <div class="meta">${[m.date, m.commit && `commit ${m.commit}`, m.depth && `${m.depth} depth`, m.purpose && `for ${m.purpose}`, m.scope].filter(Boolean).map(x => `<span>${esc(x)}</span>`).join('')}
+        ${m.map ? `<span>map: <code>${esc(m.map)}</code></span>` : ''}</div>
+    </header>
+    <section aria-labelledby="h-summary">
+      <h2 id="h-summary">Summary</h2>
+      <p class="verdict">${txt(s.verdict) || '<span class="empty">No verdict yet.</span>'}</p>
+      <div class="stats">${SEVERITIES.map(v => `<div class="stat"><b>${openOnes.filter(f => f.severity === v).length}</b><span>${v} open</span></div>`).join('')}
+        <div class="stat"><b>${fs.length - openOnes.length}</b><span>dismissed, planned or fixed</span></div></div>
+      ${arr(s.topRisks).length ? `<h3>Top risks</h3><ul>${arr(s.topRisks).map(id => `<li><a href="#${esc(id)}" data-open="${esc(id)}">${esc(id)}</a> ${byId[id] ? `${sev(byId[id].severity)} ${txt(byId[id].title)}` : ''}</li>`).join('')}</ul>` : ''}
+      ${s.planFirst ? `<h3>Plan first</h3><p>${txt(s.planFirst)}</p>` : ''}
+      ${arr(s.strengths).length ? `<h3>What it does well</h3><ul>${arr(s.strengths).map(x => `<li>${txt(x.text || x)}${x.where ? ` <code>${esc(x.where)}</code>` : ''}</li>`).join('')}</ul>` : ''}
+      <h3>Not checked</h3>${arr(s.notChecked).length ? `<ul>${arr(s.notChecked).map(x => `<li>${txt(x)}</li>`).join('')}</ul>` : '<p class="empty">Nothing listed.</p>'}
+    </section>
+    <section aria-labelledby="h-findings">
+      <h2 id="h-findings">Findings</h2>
+      <div class="filters" role="search">
+        <select data-filter="severity" aria-label="Severity">${option('', 'Any severity', filter.severity)}${SEVERITIES.map(v => option(v, v, filter.severity)).join('')}</select>
+        <select data-filter="area" aria-label="Area">${option('', 'Any area', filter.area)}${[...new Set(fs.map(f => f.area))].map(a => option(a, AREAS[a] || a, filter.area)).join('')}</select>
+        <select data-filter="status" aria-label="Status">${option('', 'Any status', filter.status)}${['open', 'planned', 'dismissed', 'fixed'].map(v => option(v, v, filter.status)).join('')}</select>
+        <input type="search" data-filter="q" placeholder="Search findings or paths" aria-label="Search findings" value="${esc(filter.q)}">
+        <span class="count">${list.length} of ${fs.length}</span>
+      </div>
+      ${list.length ? list.map(finding).join('') : `<p class="empty">${fs.length ? 'No findings match these filters.' : 'No findings.'}</p>`}
+    </section>
+    <section aria-labelledby="h-checks">
+      <h2 id="h-checks">Checks that ran</h2>
+      ${arr(r.checks).length ? `<div class="scroll"><table><thead><tr><th>Check</th><th>Result</th><th>Status</th></tr></thead><tbody>${arr(r.checks).map(c => `<tr>
+        <td>${txt(c.check)}${c.command ? `<br><code>${esc(c.command)}</code>` : ''}</td>
+        <td>${txt(c.result)}${arr(c.details).length ? `<ul>${arr(c.details).map(d => `<li>${txt(d)}</li>`).join('')}</ul>` : ''}</td>
+        <td><span class="tag ${c.status === 'pass' ? 'ok' : c.status === 'fail' ? 'bad' : ''}">${esc(c.status)}</span></td></tr>`).join('')}</tbody></table></div>` : '<p class="empty">No checks recorded.</p>'}
+    </section>
+    <footer>${LIVE ? 'Live: this page updates as Claude records your choices.' : 'Opened from a file: read-only. Run /naqsha:review to send findings to Claude.'}</footer>`;
+  updateBar();
+}
+
+function updateBar() {
+  bar.hidden = !LIVE || !picked.size;
+  document.getElementById('picked').textContent = `${picked.size} picked: ${[...picked].join(', ')}`;
+}
+
+async function send(message, out) {
+  out.textContent = 'Sending…';
+  out.className = 'status';
+  try {
+    const r = await fetch('submit?key=' + encodeURIComponent(KEY), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message }),
+    });
+    if (!r.ok) throw new Error(await r.text());
+    out.textContent = 'Sent. Claude answers in your terminal.';
+    return true;
+  } catch (e) {
+    out.textContent = `Not sent: ${e.name === 'TypeError' ? 'the page server isn’t running' : e.message}. Say it in the terminal instead.`;
+    out.className = 'status bad';
+    return false;
+  }
+}
+
+async function act(kind, id) {
+  const f = arr(review.findings).find(x => x.id === id);
+  const out = app.querySelector(`[data-status="${CSS.escape(id)}"]`);
+  const note = (drafts[id] || '').trim();
+  const head = `[Review · ${id} ${f ? f.title : ''}]`;
+  if (kind !== 'plan' && !note) {
+    out.textContent = kind === 'dismiss' ? 'Say why it isn’t a problem first.' : 'Write your question first.';
+    out.className = 'status bad';
+    return;
+  }
+  const message = kind === 'plan' ? `${head} Plan a fix.${note ? ' ' + note : ''}`
+    : kind === 'dismiss' ? `${head} Not a problem: ${note}` : `${head} ${note}`;
+  if (await send(message, out)) delete drafts[id];
+}
+
+app.addEventListener('click', e => {
+  const link = e.target.closest('[data-open]');
+  if (link) {
+    open.add(link.dataset.open);
+    if (filter.status && filter.status !== ((arr(review.findings).find(f => f.id === link.dataset.open) || {}).status || 'open')) filter.status = '';
+    render(review);
+    return;
+  }
+  const b = e.target.closest('button[data-action]');
+  if (b && b.dataset.id) act(b.dataset.action, b.dataset.id);
+});
+app.addEventListener('toggle', e => {
+  const d = e.target;
+  if (d.matches && d.matches('details.finding')) d.open ? open.add(d.dataset.id) : open.delete(d.dataset.id);
+}, true);
+app.addEventListener('change', e => {
+  const t = e.target;
+  if (t.dataset.pick) { t.checked ? picked.add(t.dataset.pick) : picked.delete(t.dataset.pick); updateBar(); return; }
+  if (t.dataset.filter && t.tagName === 'SELECT') { filter[t.dataset.filter] = t.value; saveView(); render(review); }
+});
+app.addEventListener('input', e => {
+  const t = e.target;
+  if (t.dataset.note) drafts[t.dataset.note] = t.value;
+  if (t.dataset.filter === 'q') {
+    filter.q = t.value;
+    saveView();
+    const pos = t.selectionStart;
+    render(review);
+    const box = app.querySelector('[data-filter=q]');
+    box.focus();
+    box.setSelectionRange(pos, pos);
+  }
+});
+bar.addEventListener('click', async e => {
+  const b = e.target.closest('button[data-action]');
+  if (!b) return;
+  if (b.dataset.action === 'clear') { picked.clear(); render(review); return; }
+  const ids = [...picked];
+  if (await send(`[Review] Plan a fix for ${ids.join(', ')} together.`, document.getElementById('bar-status'))) { picked.clear(); updateBar(); }
+});
+
+// file:// pages can't fetch(), but they can load a script, so poll review.js.
+function load() {
+  const s = document.createElement('script');
+  s.src = 'review.js?t=' + Date.now() + (KEY ? '&key=' + encodeURIComponent(KEY) : '');
+  s.onload = s.onerror = () => {
+    s.remove();
+    const r = window.NAQSHA_REVIEW;
+    const now = r ? JSON.stringify(r) : '';
+    if (!now || now === last) return;
+    if (!review) loadView();
+    last = now;
+    review = r;
+    for (const id of picked) if (((arr(r.findings).find(f => f.id === id) || {}).status || 'open') !== 'open') picked.delete(id);
+    const y = scrollY;
+    // Don't redraw under someone typing; the next poll catches up.
+    if (document.activeElement && document.activeElement.matches('textarea')) { last = ''; return; }
+    render(r);
+    scrollTo(0, y);
+  };
+  document.head.appendChild(s);
+}
+load();
+setInterval(load, 3000);
+</script>
+</body>
+</html>
