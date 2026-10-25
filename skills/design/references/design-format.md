@@ -126,9 +126,11 @@ into CSS variables and the fonts loaded, at phone, tablet and desktop width:
 - `--size-<name>`, `--leading-<name>` and `--weight-<name>` for each step of the type scale
 
 Google fonts load in the previews with the `weights` listed (only weights the family has).
-Images in previews are inline `data:` URIs or left out; nothing else loads. A direction
-option's `preview` in a decision is self-contained, with its own styles, since the tokens
-come after the choice.
+Images in previews are inline `data:` URIs or left out; nothing else loads. Option
+previews in a decision render with the design's tokens once it has them, so an option for
+one part (a hero, a button) uses the token variables and shows that part inside the real
+screen. Direction options proposed before any tokens exist are self-contained, with their
+own styles.
 - `--space-1` … `--space-n` in order, `--radius-<name>`, `--shadow-<name>`
 
 Write previews as plain HTML and CSS using only those variables, with realistic content.

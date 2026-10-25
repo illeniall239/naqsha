@@ -104,7 +104,8 @@ label.option { display: block; cursor: pointer; }
 .screen h3 { display: flex; flex-wrap: wrap; gap: 8px; align-items: baseline; }
 .frame { overflow: hidden; border: 1px solid var(--line); border-radius: 8px; background: #fff; margin: 8px auto 0; max-width: 100%; }
 .frame iframe { border: 0; display: block; transform-origin: 0 0; }
-.options.wide { grid-template-columns: 1fr; }
+.options.wide { grid-template-columns: minmax(0, 1fr); }
+.options > * { min-width: 0; }
 .swatches { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
 .swatch .chip { height: 56px; border-radius: 6px; border: 1px solid var(--line); }
 .swatch small { display: block; color: var(--muted); }
@@ -229,12 +230,13 @@ function decision(d, ask, idPrefix = '') {
     const inner = `<h4>${pick ? `<input type="radio" name="ans-${esc(d.id)}" data-id="${esc(d.id)}" data-f="choice" value="${esc(o.name)}"> ` : ''}${txt(o.name)}${
       o.name === d.choice ? ' ✓ chosen' : rec ? ' · recommended' : ''}</h4>
       <div class="pc"><div><b>Pros</b>${list(o.pros)}</div><div><b>Cons</b>${list(o.cons)}</div></div>
-      ${o.preview ? frame(frameDoc(null, o.preview, false), `${o.name}, preview`, 'desktop') : ''}`;
+      ${o.preview ? frame(frameDoc(plan || {}, o.preview, !!(plan && plan.tokens)), `${o.name}, preview`) : ''}`;
     const cls = `option${rec ? ' rec' : ''}${o.name === d.choice ? ' chosen' : ''}`;
     return pick ? `<label class="${cls}">${inner}</label>` : `<div class="${cls}">${inner}</div>`;
   };
   return `<div class="decision" id="${esc(idPrefix + d.id)}">
       <h3>${esc(d.id)} · ${txt(d.question)} ${badge(d.status)}</h3>
+      ${(d.options || []).some(o => o.preview) ? sizeBar() : ''}
       <div class="options${(d.options || []).some(o => o.preview) ? ' wide' : ''}">${(d.options || []).map(card).join('')}</div>
       ${d.why ? `<p><b>Why the recommendation:</b> ${txt(d.why)}</p>` : ''}
       ${(d.drivers || []).length ? `<p><b>Serves:</b> ${d.drivers.map(id => `<code>${esc(id)}</code>`).join(' ')}</p>` : ''}
@@ -283,8 +285,10 @@ const frame = (doc, label, size = frameWidth) => `<div class="frame" data-size="
 function fitFrames() {
   for (const box of app.querySelectorAll('.frame')) {
     const [w, h] = WIDTHS[box.dataset.size] || WIDTHS.desktop;
-    const avail = box.parentElement.clientWidth;
-    if (!avail) continue;
+    const parent = box.parentElement;
+    const pad = parseFloat(getComputedStyle(parent).paddingLeft) + parseFloat(getComputedStyle(parent).paddingRight);
+    const avail = parent.clientWidth - pad;
+    if (avail <= 0) continue;
     const scale = Math.min(1, avail / w);
     Object.assign(box.firstElementChild.style, { width: `${w}px`, height: `${h}px`, transform: `scale(${scale})` });
     Object.assign(box.style, { width: `${Math.floor(w * scale)}px`, height: `${Math.round(h * scale)}px` });
@@ -302,6 +306,11 @@ const contrast = (a, b) => {
   const x = luminance(a), y = luminance(b);
   return x === null || y === null ? null : (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05);
 };
+// Phone, tablet and desktop for every preview on the page, plus dark when the tokens have it.
+const sizeBar = (dark = arr(((plan || {}).tokens || {}).dark).length) => `<div class="frames-bar" role="group" aria-label="Preview size">${
+  Object.keys(WIDTHS).map(w => `<button type="button" data-width="${w}" aria-pressed="${w === frameWidth}">${w[0].toUpperCase() + w.slice(1)} · ${WIDTHS[w][0]}px</button>`).join('')}${
+  dark ? `<button type="button" data-dark="1" aria-pressed="${frameDark}">Dark</button>` : ''}</div>`;
+
 // An existing screen also shows how it looks now, as the first button.
 function screenHtml(p, sc, ask) {
   const states = [...(sc.current ? ['now'] : []), ...(arr(sc.states).length ? sc.states : ['default'])];
@@ -464,8 +473,7 @@ const SECTIONS = [
     const screens = arr(p.screens);
     if (!screens.length) return empty;
     const dark = arr((p.tokens || {}).dark).length;
-    return `<div class="frames-bar" role="group" aria-label="Preview size">${Object.keys(WIDTHS).map(w => `<button type="button" data-width="${w}" aria-pressed="${w === frameWidth}">${
-      w[0].toUpperCase() + w.slice(1)} · ${WIDTHS[w][0]}px</button>`).join('')}${dark ? `<button type="button" data-dark="1" aria-pressed="${frameDark}">Dark</button>` : ''}</div>
+    return `${sizeBar(dark)}
       ${screens.map(sc => screenHtml(p, sc, ask)).join('')}`;
   }],
   ['steps', 'Implementation steps', p => !has(p.steps) || isNa(p.steps) ? empty : table(p.steps, [

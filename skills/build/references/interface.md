@@ -22,6 +22,10 @@ wins.
 
 ## Follow the design
 
+- **Show, don't describe.** Outside a design, when the user asks to change how something
+  looks, don't list suggestions in the terminal: say in one line that
+  `/naqsha:design <the change>` shows them rendered options that fit the product's look.
+
 - **Tokens only.** Colors, type, spacing, radii, shadows and motion come from the design's
   tokens, set up once in the project's styling system (CSS custom properties, the Tailwind
   theme, the platform theme). A raw hex value or a one-off pixel size in a component is a

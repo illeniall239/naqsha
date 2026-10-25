@@ -408,6 +408,13 @@ the plan avoids assumed architecture:
   of the Day, Month and Year, by category and by the animation, transitions and
   microinteractions tags) that fit the product's mood, plus the best products in its
   category, and takes ideas, never copies.
+- **Options you can see, never suggestions in the terminal.** Every visual choice, from a
+  whole direction to one section ("redo the hero") or one component ("change this
+  button"), arrives as two to four rendered options on the page, shown inside the real
+  screen at phone, tablet or desktop width. In a product that has a design, every option
+  uses its colors, type, spacing and motion, so it gels with the rest; the creativity goes
+  into composition, imagery and motion. With no design yet, the options can be different
+  directions.
 - **Two or three ambitious directions,** each with its composition, type, palette, motion
   language and signature moment, and a rendered preview of the key screen, animations
   running. You pick.

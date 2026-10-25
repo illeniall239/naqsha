@@ -28,6 +28,23 @@ clean and fast. No typical UI, ever, unless the user asks for it.
 The brief wins. When the user names a look, a brand, fonts or a palette, or asks for
 something calmer, that's the design, even where `interface.md` calls it a default.
 
+**Show options, never just describe them.** Every visual choice reaches the user as two to
+four rendered options on the page, never as a suggestion in the terminal and never as a
+text-only question: a whole direction, a screen's layout, one section ("redo the hero"),
+one component ("change this button"), a state, a piece of copy. Write them as a decision
+whose options each carry a `preview`, rendered in context: the real screen around the part
+that changes, so the user sees how it sits with everything else. In chat, say only how many
+options are waiting and where. Ask in the terminal only what isn't visual.
+
+**Options gel with the whole.** In a product that has a design (this design's tokens once
+they exist, an approved earlier design, or the system in the code, as `current` records),
+every option speaks its language: its colors, type, spacing, radii and motion. The
+creativity goes into composition, imagery, motion and the idea, never into something that
+looks pasted in from another site. A change to one part that would clash with the rest is
+either brought into the system or shown with what else would have to change for it to fit.
+With no design yet, the options can be different directions, each complete enough to judge
+on its own.
+
 ## 1. Set up
 
 - **Check that the design phase started.** The hook's message ("Naqsha: design phase…")
