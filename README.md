@@ -4,7 +4,7 @@
 
 [![The naqsha demo](media/naqsha-demo.gif)](https://github.com/illeniall239/naqsha/releases/download/v0.11.0/naqsha-demo.mp4)
 
-*Made with naqsha itself, using `/naqsha:demo`. Click for the full video.*
+*The demo you are seeing was made with naqsha itself, using `/naqsha:demo`. Click it for the full video.*
 
 A Claude Code plugin that puts you back in charge of AI coding. Claude plans with you on a
 page you can see, you make every decision, and no code is written until you approve.
