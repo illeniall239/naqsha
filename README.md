@@ -2,10 +2,10 @@
 
 *Naqsha* (نقشہ) is Urdu for map, plan or blueprint.
 
-[![Watch the naqsha demo (49 s)](media/naqsha-demo-poster.png)](https://github.com/illeniall239/naqsha/releases/download/v0.11.0/naqsha-demo.mp4)
+[![The naqsha demo](media/naqsha-demo.gif)](https://github.com/illeniall239/naqsha/releases/download/v0.11.0/naqsha-demo.mp4)
 
-*Watch the 49-second demo. It was made with naqsha itself: planned, recorded and rendered
-by `/naqsha:demo`.*
+*This demo was made with naqsha itself: planned, recorded and rendered by `/naqsha:demo`.
+Click it for the full-quality video (49 s, 1080p).*
 
 Plan before code. `/naqsha:plan <what to build>` makes Claude interview you, study your
 codebase, research the industry-standard approach, and write a plan you steer decision by
