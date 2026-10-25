@@ -2,7 +2,7 @@
   "hooks": {
     "UserPromptExpansion": [
       {
-        "matcher": "^naqsha:(plan|design|approve|build|learn|review|help)$",
+        "matcher": "^naqsha:(plan|design|approve|build|learn|review|help|demo)$",
         "hooks": [
           {
             "type": "command",

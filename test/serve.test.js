@@ -46,6 +46,24 @@ test('the page and plan are served only with the key, from localhost', async t =
   fs.writeFileSync(path.join(dir, 'review.js'), 'window.NAQSHA_REVIEW = {};\n');
   assert.match(await (await fetch(new URL('review.js' + base.search, base))).text(), /NAQSHA_REVIEW/, 'the review page reads review.js');
 
+  // A demo's renders: video, images and captions from renders/, with ranges for seeking.
+  fs.mkdirSync(path.join(dir, 'renders'));
+  fs.writeFileSync(path.join(dir, 'renders', 'demo-16x9.mp4'), Buffer.from('0123456789'));
+  fs.writeFileSync(path.join(dir, 'renders', 'notes.txt'), 'x');
+  const video = await fetch(new URL('renders/demo-16x9.mp4' + base.search, base));
+  assert.equal(video.status, 200);
+  assert.equal(video.headers.get('content-type'), 'video/mp4');
+  assert.equal(video.headers.get('accept-ranges'), 'bytes');
+  const part = await fetch(new URL('renders/demo-16x9.mp4' + base.search, base), { headers: { Range: 'bytes=2-5' } });
+  assert.equal(part.status, 206);
+  assert.equal(part.headers.get('content-range'), 'bytes 2-5/10');
+  assert.equal(await part.text(), '2345');
+  assert.equal((await fetch(new URL('renders/demo-16x9.mp4' + base.search, base), { headers: { Range: 'bytes=20-' } })).status, 416);
+  assert.equal((await fetch(new URL('renders/notes.txt' + base.search, base))).status, 404, 'only media types');
+  assert.equal((await fetch(new URL('renders/..%2fplan.js' + base.search, base))).status, 404);
+  assert.equal((await fetch(base.origin + '/renders/demo-16x9.mp4')).status, 403, 'renders need the key too');
+  assert.match((await fetch(url)).headers.get('content-security-policy'), /media-src 'self'/);
+
   assert.equal((await fetch(base.origin + '/')).status, 403, 'no key');
   assert.equal((await fetch(base.origin + '/?key=wrong')).status, 403, 'wrong key');
   assert.equal((await fetch(new URL('server.json' + base.search, base))).status, 404, 'only the page and plan');

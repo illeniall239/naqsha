@@ -24,6 +24,9 @@ const PAGES = {
   '/guide.js': ['guide.js', 'text/javascript; charset=utf-8'],
   '/review.js': ['review.js', 'text/javascript; charset=utf-8'],
 };
+// A demo's rendered files, served from its renders/ folder by name only.
+const RENDERS = /^\/renders\/([A-Za-z0-9][A-Za-z0-9._-]{0,120})$/;
+const MEDIA = { '.mp4': 'video/mp4', '.webm': 'video/webm', '.png': 'image/png', '.jpg': 'image/jpeg', '.gif': 'image/gif', '.vtt': 'text/vtt; charset=utf-8', '.srt': 'text/plain; charset=utf-8' };
 const MAX_BODY = 512 * 1024;
 const MAX_TEXT = 20000;
 const MAX_ITEMS = 200;
@@ -32,7 +35,7 @@ const IDLE_MS = 60 * 60 * 1000;
 const WAIT_MINUTES = 110;
 const CSP = "default-src 'none'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; " +
   "style-src 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data:; " +
-  "connect-src 'self'; base-uri 'none'; form-action 'none'";
+  "media-src 'self'; connect-src 'self'; base-uri 'none'; form-action 'none'";
 
 // ---- the server ----------------------------------------------------------
 
@@ -66,6 +69,10 @@ function handle(req, res, dir, key, port) {
     let body;
     try { body = fs.readFileSync(path.join(dir, file)); } catch { return send(res, 404, 'Not found'); }
     return send(res, 200, body, type);
+  }
+  const render = req.method === 'GET' && RENDERS.exec(url.pathname);
+  if (render && MEDIA[path.extname(render[1]).toLowerCase()] && !render[1].includes('..')) {
+    return sendFile(req, res, path.join(dir, 'renders', render[1]), MEDIA[path.extname(render[1]).toLowerCase()]);
   }
   if (req.method === 'POST' && url.pathname === '/submit') {
     if (req.headers.origin && !origins.some(o => req.headers.origin === `http://${o}`)) return send(res, 403, 'Forbidden');
@@ -138,6 +145,30 @@ function send(res, status, body, type = 'text/plain; charset=utf-8') {
     ...(type.startsWith('text/html') ? { 'Content-Security-Policy': CSP } : {}),
   });
   res.end(body);
+}
+
+// Video players seek with Range requests, so answer them; everything else gets the whole file.
+function sendFile(req, res, file, type) {
+  let size;
+  try {
+    const st = fs.statSync(file);
+    if (!st.isFile()) throw new Error();
+    size = st.size;
+  } catch { return send(res, 404, 'Not found'); }
+  const head = { 'Content-Type': type, 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff', 'Referrer-Policy': 'no-referrer', 'Accept-Ranges': 'bytes' };
+  const m = /^bytes=(\d*)-(\d*)$/.exec(req.headers.range || '');
+  if (m && (m[1] || m[2])) {
+    const start = m[1] ? Number(m[1]) : Math.max(0, size - Number(m[2]));
+    const end = m[1] && m[2] ? Math.min(Number(m[2]), size - 1) : size - 1;
+    if (start > end || start >= size) {
+      res.writeHead(416, { ...head, 'Content-Range': `bytes */${size}` });
+      return res.end();
+    }
+    res.writeHead(206, { ...head, 'Content-Range': `bytes ${start}-${end}/${size}`, 'Content-Length': end - start + 1 });
+    return fs.createReadStream(file, { start, end }).pipe(res);
+  }
+  res.writeHead(200, { ...head, 'Content-Length': size });
+  fs.createReadStream(file).pipe(res);
 }
 
 function sameSecret(a, b) {

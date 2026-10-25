@@ -2,6 +2,11 @@
 
 *Naqsha* (نقشہ) is Urdu for map, plan or blueprint.
 
+[![Watch the naqsha demo (49 s)](media/naqsha-demo-poster.png)](https://github.com/illeniall239/naqsha/releases/download/v0.11.0/naqsha-demo.mp4)
+
+*Watch the 49-second demo. It was made with naqsha itself: planned, recorded and rendered
+by `/naqsha:demo`.*
+
 Plan before code. `/naqsha:plan <what to build>` makes Claude interview you, study your
 codebase, research the industry-standard approach, and write a plan you steer decision by
 decision. The plan is rendered as a local webpage. Project files stay locked until you
@@ -342,6 +347,7 @@ calendar time goes.
 | `/naqsha:approve [folder]` | you only | Checks the plan is complete (prior art recorded; no open decisions; every step has its failing tests and a done-when check), marks it approved, and unlocks the project. |
 | `/naqsha:build [folder]` | you | Build, or resume building, the plan approved last. Name a folder to resume an earlier approved plan, such as one paused when you started a new plan. |
 | `/naqsha:learn [folder or topic]` | you | Learn what was built and why: a guide on its own page, then taught in chat. Changes no code. |
+| `/naqsha:demo <what it's for>` | you | Make a demo video of the app: a storyboard you approve, the look chosen from rendered template clips, the real app recorded with exact zooms and cursor, rendered to MP4 with captions. Changes no project code. |
 | `/naqsha:help` | you | The commands, the flow, and where this project stands: plans and designs with their status and cost, and what to type next. Changes nothing. |
 | `/naqsha:review [area or path]` | you | Review an existing codebase against naqsha's standards: a map every later plan starts from, and ranked findings on their own page, each able to become a plan. Changes no code. |
 
@@ -500,6 +506,36 @@ Impeccable and Taste Skill:
   the three biggest problems and looks again, up to three rounds, then stress-tests (long
   names, emoji, right-to-left, 1,000 items, offline, a forced error, ten fast clicks,
   keyboard only).
+
+## Demo videos
+
+`/naqsha:demo` makes a demo video of your app: a recorded walkthrough of the real app, a
+motion-graphics launch video, or a hybrid of both (the default). The demo at the top of
+this page was made with it.
+
+- **A storyboard first, on a page.** Claude asks where the video goes, how long, and what
+  viewers should remember, then writes the scenes: a hook in the first two seconds, the
+  problem, the moment the product clicks, a few features, the call to action. The wording
+  is settled with you in chat.
+- **The look, chosen from real clips.** A still can't show motion, so you pick from two or
+  three rendered 10 to 15 second clips of the same short script (the hook, one recorded
+  moment, the end card), each in a different template and entrance: `signal` (dark, heavy
+  type, one accent), `paper` (light, serif, calm) or `blueprint` (navy grid), with lines
+  revealed from behind their edge, snapped in, or cut on the beat.
+- **The real app, recorded exactly.** Claude drives your app with Playwright at a human
+  pace and logs every move, click and keystroke with its time. That log gives a camera
+  that zooms toward each action, a drawn cursor, click ripples and key chips, all exact,
+  with no screen recorder or input logger. Frames come from Chrome's screencast at device
+  pixels, so text stays sharp when zoomed. Every shot is rehearsed until each step passes
+  before it's recorded. Demo data only, and anything sensitive is masked, frame by frame.
+- **Right the first time.** A composer turns the storyboard into the video with every
+  lesson from real renders built in, after a check that reports every problem at once
+  (missing tools, segments past the end of a recording, captions too short to read,
+  missing fonts). Claude doesn't run, fix and retry.
+- **Rendered with [HyperFrames](https://github.com/heygen-com/hyperframes)** (Apache-2.0,
+  HTML and GSAP to MP4) with its telemetry turned off, then checked frame by frame.
+  Captions are burned in, with `.srt` and `.vtt` files; a voice or music only if you
+  choose. You watch on the page and comment at a timestamp to get changes.
 
 ## Reviewing an existing codebase
 

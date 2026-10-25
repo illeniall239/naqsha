@@ -131,7 +131,8 @@ let pending = null;
 // Claude. Opened as a file it is read-only.
 const KEY = new URLSearchParams(location.search).get('key');
 const LIVE = /^https?:$/.test(location.protocol) && !!KEY;
-const asking = p => LIVE && (p.meta || {}).status === 'draft';
+// Plans and designs take answers while they're drafts; a demo takes comments throughout.
+const asking = p => LIVE && ((p.meta || {}).status === 'draft' || (p.meta || {}).kind === 'demo');
 
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 // Plain text with `code` spans and line breaks; everything else stays escaped.
@@ -151,7 +152,7 @@ const table = (rows, cols) => {
     rows.map(r => `<tr>${cols.map(c => `<td>${c[1](r)}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
 };
 // An empty dependency list is an answer ("none"); elsewhere empty means unwritten.
-const present = (p, id) => id === 'later' || id === 'current' || id === 'cost' ? true : id === 'impact' ? isNa(p.context) || has(p.impact) || isNa(p.impact)
+const present = (p, id) => id === 'later' || id === 'current' || id === 'cost' || id === 'video' ? true : id === 'impact' ? isNa(p.context) || has(p.impact) || isNa(p.impact)
   : ['dependencies', 'needsYou'].includes(id) ? Array.isArray(p[id]) || isNa(p[id]) : has(p[id]);
 // The failing tests a step starts from, in order.
 const stepTests = t => isNa(t) ? `<br><span class="muted">No test first: ${txt(t.na)}</span>`
@@ -230,14 +231,15 @@ function decision(d, ask, idPrefix = '') {
     const inner = `<h4>${pick ? `<input type="radio" name="ans-${esc(d.id)}" data-id="${esc(d.id)}" data-f="choice" value="${esc(o.name)}"> ` : ''}${txt(o.name)}${
       o.name === d.choice ? ' ✓ chosen' : rec ? ' · recommended' : ''}</h4>
       <div class="pc"><div><b>Pros</b>${list(o.pros)}</div><div><b>Cons</b>${list(o.cons)}</div></div>
-      ${o.preview ? frame(frameDoc(plan || {}, o.preview, !!(plan && plan.tokens)), `${o.name}, preview`) : ''}`;
+      ${o.preview ? frame(frameDoc(plan || {}, o.preview, !!(plan && plan.tokens)), `${o.name}, preview`) : ''}
+      ${o.video && /^renders\/[A-Za-z0-9][A-Za-z0-9._-]*\.(mp4|webm)$/.test(o.video) ? `<video src="${esc(o.video)}${KEY ? `?key=${encodeURIComponent(KEY)}` : ''}" controls loop muted playsinline preload="metadata" style="width:100%;margin-top:8px;border-radius:8px;background:#000"></video>` : ''}`;
     const cls = `option${rec ? ' rec' : ''}${o.name === d.choice ? ' chosen' : ''}`;
     return pick ? `<label class="${cls}">${inner}</label>` : `<div class="${cls}">${inner}</div>`;
   };
   return `<div class="decision" id="${esc(idPrefix + d.id)}">
       <h3>${esc(d.id)} · ${txt(d.question)} ${badge(d.status)}</h3>
       ${(d.options || []).some(o => o.preview) ? sizeBar() : ''}
-      <div class="options${(d.options || []).some(o => o.preview) ? ' wide' : ''}">${(d.options || []).map(card).join('')}</div>
+      <div class="options${(d.options || []).some(o => o.preview || o.video) ? ' wide' : ''}">${(d.options || []).map(card).join('')}</div>
       ${d.why ? `<p><b>Why the recommendation:</b> ${txt(d.why)}</p>` : ''}
       ${(d.drivers || []).length ? `<p><b>Serves:</b> ${d.drivers.map(id => `<code>${esc(id)}</code>`).join(' ')}</p>` : ''}
       ${d.consequences ? `<p><b>Consequences:</b> ${txt(d.consequences)}</p>` : ''}
@@ -500,6 +502,33 @@ const SECTIONS = [
       <p class="muted">Weighted tokens count a cached read as ${esc(c.weights.cacheRead)}, a cache write as ${esc(c.weights.cacheWrite5m)} to ${esc(c.weights.cacheWrite1h)} and output as ${esc(c.weights.output)} fresh input tokens.
         Sonnet and Haiku cost less per token than Opus, so compare within a model. Measured ${esc(String(c.at || '').slice(0, 16).replace('T', ' '))}.</p>`;
   }],
+  // A demo (meta.kind "demo", from /naqsha:demo): the storyboard and the video.
+  ['scenes', 'Storyboard', p => {
+    const st = p.story || {};
+    let at = 0;
+    const rows = arr(p.scenes).map(sc => { const r = { ...sc, from: at }; at += Number(sc.seconds) || 0; return r; });
+    const mmss = t => `${Math.floor(t / 60)}:${String(Math.round(t % 60)).padStart(2, '0')}`;
+    return `${st.hook ? `<p><b>Hook:</b> ${txt(st.hook)}</p>` : ''}
+      <p class="muted">${rows.length} scenes · ${mmss(at)}${p.meta && p.meta.length ? ` of a ${esc(p.meta.length)} s target` : ''}${p.meta && p.meta.formats ? ` · ${esc(arr(p.meta.formats).join(', '))}` : ''}</p>
+      ${table(rows, [['', x => `<b>${esc(x.id)}</b><br><span class="muted">${esc(mmss(x.from))}</span>`], ['Kind', x => `<span class="badge">${esc(x.kind)}</span><br><span class="muted">${esc(x.seconds)} s</span>`],
+        ['On screen', x => txt(x.shows) + (x.notes ? `<br><span class="muted">${txt(x.notes)}</span>` : '')], ['Caption', x => x.caption ? `“${txt(x.caption)}”` : '<span class="muted">none</span>']])}`;
+  }],
+  ['video', 'Video', p => {
+    const r = arr(p.renders);
+    if (!r.length) return '<p class="na">Not rendered yet. Production starts when you approve the storyboard.</p>';
+    const q = KEY ? `?key=${encodeURIComponent(KEY)}` : '';
+    const safe = f => /^renders\/[A-Za-z0-9][A-Za-z0-9._-]*$/.test(f || '') ? esc(f) + q : '';
+    const cur = r.find(x => x.format === videoFormat) || r[0];
+    let at = 0;
+    const chapters = arr(p.scenes).map(sc => { const c = { id: sc.id, caption: sc.caption || sc.shows, from: at }; at += Number(sc.seconds) || 0; return c; });
+    return `<div class="frames-bar" role="group" aria-label="Format">${r.map(x => `<button type="button" data-format="${esc(x.format)}" aria-pressed="${x === cur}">${esc(x.format)}</button>`).join('')}</div>
+      <video id="demo-video" controls preload="metadata" playsinline style="width:100%;max-height:70vh;background:#000;border-radius:8px"${p.poster && safe(p.poster) ? ` poster="${safe(p.poster)}"` : ''} src="${safe(cur.file)}">
+        ${p.captions && /\.vtt$/.test(p.captions) && safe(p.captions) ? `<track kind="captions" src="${safe(p.captions)}" default>` : ''}</video>
+      <p class="muted">${esc(cur.format)} · ${esc(cur.seconds)} s · <a href="${safe(cur.file)}" download>Download</a>${p.captions && safe(p.captions) ? ` · <a href="${safe(p.captions)}" download>Captions</a>` : ''}</p>
+      ${asking(p) || LIVE ? '<p><button type="button" data-action="stamp">Comment at this moment</button> <span class="muted">pauses the video and adds its time to your comment on this section</span></p>' : ''}
+      ${chapters.length ? `<h3>Scenes</h3><ul>${chapters.map(c => `<li><button type="button" class="link" data-seek="${c.from}">${esc(c.id)} · ${Math.floor(c.from / 60)}:${String(Math.round(c.from % 60)).padStart(2, '0')}</button> ${txt(c.caption)}</li>`).join('')}</ul>` : ''}
+      ${arr(p.qa).length ? `<h3>Checks</h3>${table(p.qa, [['Check', x => txt(x.check)], ['Result', x => txt(x.result)]])}` : ''}`;
+  }],
   ['needsYou', 'Needs you', p => Array.isArray(p.needsYou) && !p.needsYou.length ? '<p class="na">Nothing. Claude can do all of it.</p>' :
     table(p.needsYou, [['What', x => txt(x.what)], ['When', x => esc(x.when)], ['Why', x => txt(x.why)]])],
   ['risks', 'Risks', p => table(p.risks, [['Risk', x => txt(x.risk)], ['Likelihood', x => esc(x.likelihood)], ['Impact', x => esc(x.impact)], ['Mitigation', x => txt(x.mitigation)]])],
@@ -522,6 +551,15 @@ const TABS = [
   ['design', 'Design', ['decisions', 'architecture', 'impact', 'quality', 'dependencies', 'rejected']],
   ['security', 'Security', ['security']],
   ['build', 'Build', ['testing', 'steps', 'cost']],
+  ['log', 'Change log', ['changelog']],
+];
+let videoFormat = null;
+const DEMO_TABS = [
+  ['overview', 'Overview', ['summary']],
+  ['questions', 'Questions', []],
+  ['story', 'Story', ['scenes']],
+  ['style', 'Style', ['decisions']],
+  ['video', 'Video', ['video']],
   ['log', 'Change log', ['changelog']],
 ];
 // A design (meta.kind "design", from /naqsha:design) reads in its own tabs.
@@ -649,8 +687,8 @@ function overviewTop(p, ask) {
 function render(p) {
   const m = p.meta || {};
   const ask = asking(p);
-  document.title = (m.title || 'Plan') + (m.kind === 'design' ? ' · design' : ' · plan');
-  const tabs = (m.kind === 'design' ? DESIGN_TABS : TABS).filter(([id]) => id !== 'questions' || phasesOf(p).length);
+  document.title = (m.title || 'Plan') + (m.kind === 'design' ? ' · design' : m.kind === 'demo' ? ' · demo' : ' · plan');
+  const tabs = (m.kind === 'design' ? DESIGN_TABS : m.kind === 'demo' ? DEMO_TABS : TABS).filter(([id]) => id !== 'questions' || phasesOf(p).length);
   if (!tabs.some(([id]) => id === activeTab)) {
     activeTab = openItems(p).length && tabs.some(([id]) => id === 'questions') ? 'questions' : 'overview';
   }
@@ -667,7 +705,7 @@ function render(p) {
       <h1>${txt(m.title || 'Untitled plan')}</h1>
       <div class="meta">
         ${badge(m.status)}
-        <span>${m.kind === 'new-app' ? 'New app' : m.kind === 'design' ? `Design${m.approach ? ` · ${esc(m.approach)}` : ''}` : 'Feature'}</span>
+        <span>${m.kind === 'new-app' ? 'New app' : m.kind === 'design' ? `Design${m.approach ? ` · ${esc(m.approach)}` : ''}` : m.kind === 'demo' ? 'Demo' : 'Feature'}</span>
         ${m.updated ? `<span>Updated ${esc(m.updated)}</span>` : ''}
         ${m.approvedAt ? `<span>Approved ${esc(m.approvedAt.slice(0, 10))}</span>` : ''}
         ${m.research && m.research !== 'full' ? `<span class="s-blocked">Research ${txt(m.research)}</span>` : ''}
@@ -715,6 +753,7 @@ function setPhase(i) {
   }
   const top = app.querySelector('.phases');
   if (top && top.getBoundingClientRect().top < 0) top.scrollIntoView({ block: 'start' });
+  fitFrames(); // previews in a phase that was hidden have no size yet
 }
 
 // A link to anything on the page opens the tab and phase it lives in.
@@ -853,6 +892,23 @@ app.addEventListener('click', e => {
   const t = e.target.closest('button');
   if (!t) return;
   if (t.dataset.tab) setTab(t.dataset.tab);
+  else if (t.dataset.seek !== undefined || t.dataset.action === 'stamp') {
+    const v = document.getElementById('demo-video');
+    if (!v) return;
+    if (t.dataset.seek !== undefined) { v.currentTime = Number(t.dataset.seek); v.play().catch(() => {}); return; }
+    v.pause();
+    const stamp = `[${Math.floor(v.currentTime / 60)}:${(v.currentTime % 60).toFixed(1).padStart(4, '0')}] `;
+    const box = app.querySelector('[data-comment="video"]');
+    if (!box) return;
+    box.hidden = false;
+    opened.add('video');
+    box.value = (box.value ? box.value.replace(/\s*$/, '\n') : '') + stamp;
+    draft.comments.video = box.value;
+    saveDraft();
+    box.focus();
+    updateBar();
+  }
+  else if (t.dataset.format) { videoFormat = t.dataset.format; render(plan); }
   else if (t.dataset.width || t.dataset.dark || t.dataset.state) {
     if (t.dataset.width) frameWidth = t.dataset.width;
     else if (t.dataset.dark) frameDark = !frameDark;

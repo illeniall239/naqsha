@@ -33,6 +33,8 @@ const CLAUDE_LOCAL_SETTINGS = path.join('.claude', 'settings.local.json');
 const PLAN_FILES = new Set(['index.html', 'plan.js', 'guide.js', 'review.js', '.gitignore', 'server.json', 'inbox']);
 // Written by /naqsha:review, read first by every later plan, guide and review.
 const CODEBASE_MAP = 'CODEBASE.md';
+// /naqsha:demo's folders, inside the plans folder.
+const DEMOS = 'demos';
 
 function main(input) {
   const root = realish(path.resolve(process.env.CLAUDE_PROJECT_DIR || input.cwd));
@@ -63,6 +65,28 @@ function onCommand(ctx) {
   if (name === 'learn') return context('UserPromptExpansion', learnContext(ctx));
   if (name === 'review') return context('UserPromptExpansion', reviewContext(ctx));
   if (name === 'help') return context('UserPromptExpansion', helpContext(ctx));
+  if (name === 'demo') return context('UserPromptExpansion', demoContext(ctx));
+}
+
+// /naqsha:demo changes no project code: it needs its folder, the demos already
+// made, the product's design to stay on-brand, and how to run the app to record it.
+function demoContext(ctx) {
+  const plansDir = ctx.state ? ctx.plansDir : path.normalize(String(choosePlansDir(ctx.root).dir));
+  const base = path.join(ctx.root, plansDir, DEMOS);
+  const demos = safeReaddir(base).map(d => {
+    const p = tryReadPlan(path.join(base, d, 'plan.js'));
+    return p ? `${d} (${p.meta.status || 'storyboard'}, ${Array.isArray(p.renders) ? p.renders.length : 0} renders)` : null;
+  }).filter(Boolean);
+  const plans = plansIn(ctx, plansDir);
+  const design = plans.find(p => p.kind === 'design' && p.status !== 'draft');
+  const runner = plans.map(p => ({ p, plan: tryReadPlan(path.join(ctx.root, plansDir, p.d, 'plan.js')) }))
+    .find(x => x.plan && x.plan.testing && x.plan.testing.runIt && x.plan.testing.runIt.start);
+  const map = fs.existsSync(path.join(ctx.root, plansDir, CODEBASE_MAP));
+  return `Naqsha demo: each demo goes in ${path.join(plansDir, DEMOS)}/<slug>/ (renders in its renders/ folder). ` +
+    `Demos so far: ${demos.join('; ') || 'none'}. ` +
+    `Design to match: ${design ? `${path.join(plansDir, design.d)} (its tokens and screens)` : map ? `the system recorded in ${path.join(plansDir, CODEBASE_MAP)}` : 'none recorded; read it from the code (theme, CSS variables, components)'}. ` +
+    `How the app runs: ${runner ? `testing.runIt in ${path.join(plansDir, runner.p.d)}/plan.js (start: ${runner.plan.testing.runIt.start})` : map ? `the "Run it" section of ${path.join(plansDir, CODEBASE_MAP)}` : 'not recorded; find it in the README and package scripts'}. ` +
+    'This changes no project code; record against demo data only.';
 }
 
 // Where the codebase map is, and how far the code has moved since it was
@@ -146,8 +170,9 @@ function helpContext(ctx) {
     : `${s.plan} is approved and being built (/naqsha:build resumes it)`;
   const list = plans.map(p => `${p.d}: ${p.kind}, ${p.status}, ${p.done}/${p.steps} steps done${p.cost ? `, cost so far ${Math.round(p.cost / 1e5) / 10}M weighted tokens` : ''}`);
   const reviews = safeReaddir(path.join(ctx.root, plansDir, 'reviews')).length;
+  const demos = safeReaddir(path.join(ctx.root, plansDir, DEMOS)).length;
   return `Naqsha help: in this project ${now}. The plans folder is ${plansDir}/. ` +
-    `Plans and designs, newest first: ${list.join('; ') || 'none yet'}. Reviews: ${reviews}. ` +
+    `Plans and designs, newest first: ${list.join('; ') || 'none yet'}. Reviews: ${reviews}. Demos: ${demos}. ` +
     `Codebase map: ${fs.existsSync(path.join(ctx.root, plansDir, CODEBASE_MAP)) ? 'yes' : 'not yet'}.`;
 }
 
@@ -216,6 +241,8 @@ function strayFile(dir, depth) {
     const abs = path.join(dir, d.name);
     if (d.isFile() && /\.md$/i.test(d.name)) continue;
     if (depth === 0 ? d.name === '.gitignore' : PLAN_FILES.has(d.name)) continue;
+    // Demos hold a video project and renders, not app code.
+    if (depth === 0 && d.isDirectory() && d.name === DEMOS) continue;
     if (d.isDirectory() && depth < 3) {
       const s = strayFile(abs, depth + 1);
       if (s) return s;
@@ -518,6 +545,7 @@ function onPreTool(ctx) {
   if (tool === 'Skill' && ti.skill === 'naqsha:learn') return context('PreToolUse', learnContext(ctx));
   if (tool === 'Skill' && ti.skill === 'naqsha:review') return context('PreToolUse', reviewContext(ctx));
   if (tool === 'Skill' && ti.skill === 'naqsha:help') return context('PreToolUse', helpContext(ctx));
+  if (tool === 'Skill' && ti.skill === 'naqsha:demo') return context('PreToolUse', demoContext(ctx));
   if (tool === 'Skill' && ['naqsha:plan', 'naqsha:design', 'naqsha:build'].includes(ti.skill)) {
     const out = ti.skill === 'naqsha:build' ? startBuild(ctx, String(ti.args || '').trim().split(/\s+/)[0] || '')
       : startDrafting(ctx, ti.skill === 'naqsha:design' ? 'design' : 'plan');

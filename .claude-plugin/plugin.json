@@ -1,11 +1,11 @@
 {
   "name": "naqsha",
   "displayName": "Naqsha",
-  "version": "0.10.1",
-  "description": "Plan before code. You steer a researched plan and a designed interface on local pages; project files stay locked until you approve; then Claude builds it test-first and security-first, with reviews, cost tracking, codebase audits and guides to what was built.",
+  "version": "0.11.0",
+  "description": "Plan before code. You steer a researched plan and a designed interface on local pages; project files stay locked until you approve; then Claude builds it test-first and security-first, with reviews, cost tracking, codebase audits, guides to what was built, and demo videos of the result.",
   "author": { "name": "illeniall239" },
   "homepage": "https://github.com/illeniall239/naqsha",
   "repository": "https://github.com/illeniall239/naqsha",
   "license": "MIT",
-  "keywords": ["planning", "system-design", "ui-design", "security", "tdd", "code-review", "approval-gate"]
+  "keywords": ["planning", "system-design", "ui-design", "security", "tdd", "code-review", "approval-gate", "demo-video"]
 }

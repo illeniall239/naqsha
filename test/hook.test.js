@@ -160,7 +160,7 @@ test('/naqsha:learn says where guides go and which plans exist, and changes noth
 test('/naqsha:help says where the project stands, and changes nothing', () => {
   const p = project();
   const ctx = out => out.hookSpecificOutput.additionalContext;
-  assert.match(ctx(p.cmd('help')), /^Naqsha help: in this project nothing is being planned or built\. The plans folder is docs\/plans\/\. Plans and designs, newest first: none yet\. Reviews: 0\. Codebase map: not yet\./);
+  assert.match(ctx(p.cmd('help')), /^Naqsha help: in this project nothing is being planned or built\. The plans folder is docs\/plans\/\. Plans and designs, newest first: none yet\. Reviews: 0\. Demos: 0\. Codebase map: not yet\./);
   assert.equal(fs.existsSync(path.join(p.root, '.naqsha')), false, 'no state, no lock');
 
   p.cmd('plan');
@@ -168,6 +168,30 @@ test('/naqsha:help says where the project stands, and changes nothing', () => {
   assert.match(ctx(p.cmd('help')), /a plan or design is being drafted, so project files are locked.*login: plan, draft, 1\/2 steps done, cost so far 2\.4M weighted tokens/);
   const viaMention = p.run({ hook_event_name: 'PreToolUse', tool_name: 'Skill', tool_input: { skill: 'naqsha:help' } });
   assert.match(viaMention.hookSpecificOutput.additionalContext, /^Naqsha help:/);
+});
+
+test('/naqsha:demo knows its folder, the design to match and how the app runs, and changes nothing', () => {
+  const p = project();
+  const ctx = out => out.hookSpecificOutput.additionalContext;
+  assert.match(ctx(p.cmd('demo', 'launch video')), /^Naqsha demo: each demo goes in docs\/plans\/demos\/<slug>\/.*Demos so far: none\. Design to match: none recorded.*How the app runs: not recorded/);
+  assert.equal(fs.existsSync(path.join(p.root, '.naqsha')), false, 'no state, no lock');
+
+  writePlan(p.root, 'admin', { testing: { runIt: { start: 'npm run dev', drive: 'browser' } } });
+  writePlan(p.root, 'admin-design', { meta: { title: 'Design', slug: 'admin-design', kind: 'design', status: 'approved' } });
+  const demo = path.join(p.root, 'docs', 'plans', 'demos', 'launch');
+  fs.mkdirSync(path.join(demo, 'renders'), { recursive: true });
+  fs.mkdirSync(path.join(demo, 'video', 'assets'), { recursive: true });
+  fs.writeFileSync(path.join(demo, 'plan.js'), `window.NAQSHA = ${JSON.stringify({ meta: { title: 'Launch', kind: 'demo', status: 'rendered' }, renders: [{ file: 'renders/a.mp4' }] })};\n`);
+  fs.writeFileSync(path.join(demo, 'renders', 'a.mp4'), 'x');
+  fs.writeFileSync(path.join(demo, 'video', 'index.html'), '<!doctype html>');
+  fs.writeFileSync(path.join(demo, 'video', 'assets', 'naqsha-demo.js'), '//');
+  const out = ctx(p.cmd('demo'));
+  assert.match(out, /Demos so far: launch \(rendered, 1 renders\)/);
+  assert.match(out, /Design to match: docs\/plans\/admin-design \(its tokens and screens\)/);
+  assert.match(out, /How the app runs: testing\.runIt in docs\/plans\/admin\/plan\.js \(start: npm run dev\)/);
+  assert.equal(p.cmd('plan').decision, undefined, 'a demo\'s video project and renders don\'t make the plans folder look like code');
+  const viaMention = p.run({ hook_event_name: 'PreToolUse', tool_name: 'Skill', tool_input: { skill: 'naqsha:demo' } });
+  assert.match(viaMention.hookSpecificOutput.additionalContext, /^Naqsha demo:/);
 });
 
 test('/naqsha:review gets a folder of its own, earlier findings, and how stale the map is', () => {
