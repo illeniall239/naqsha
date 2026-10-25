@@ -237,12 +237,14 @@ test("a design step's view carries its screens and tokens, and UI work loads the
     meta: { title: 'Admin design', slug: 'x', kind: 'design', status: 'approved' },
     direction: { signature: 'a green rail', motion: 'rows expand in place' },
     tokens: { motion: { fast: '120ms' }, color: [{ name: 'bg', value: '#f7f6f2', role: 'background' }], type: { families: [{ name: 'IBM Plex Sans', role: 'body' }], scale: [{ name: 'body', size: '15px' }] }, space: ['4px', '8px'] },
-    screens: [{ id: 'SC1', name: 'Orders', mode: 'operate', purpose: 'Act on orders', states: ['default', 'empty'] }, { id: 'SC2', name: 'Settings', mode: 'operate', purpose: 'x', states: ['default'] }],
+    screens: [{ id: 'SC1', name: 'Orders', mode: 'operate', purpose: 'Act on orders', states: ['default', 'empty'],
+      needs: [{ what: 'open orders', status: 'exists', from: 'GET /api/orders' }, { what: 'timeline', status: 'contract', from: 'GET /api/orders/:id/events', owed: 'no backend yet' }] }, { id: 'SC2', name: 'Settings', mode: 'operate', purpose: 'x', states: ['default'] }],
     testing: { uiChecks: [{ check: 'Accessibility', command: 'npx playwright test a11y' }] },
     steps: [{ id: 'S1', title: 'Orders', screens: ['SC1'], files: ['src/ui/Orders.tsx'], tests: [{ test: 't' }], doneWhen: 'd' }],
   });
   const v = tool(['step', file, 'S1']).stdout;
   assert.match(v, /## Screens this step builds \(match the approved preview in each state\)\n- SC1 Orders \[operate\]: Act on orders; states: default, empty/);
+  assert.match(v, /\n {2}needs open orders: exists, GET \/api\/orders\n {2}needs timeline: contract GET \/api\/orders\/:id\/events, faked behind its adapter \(owed: no backend yet\)/);
   assert.doesNotMatch(v, /SC2/, "another step's screen");
   assert.match(v, /## Design tokens \(use these, never raw values\)\nColor: bg #f7f6f2 \(background\)\nType: IBM Plex Sans for body; scale body 15px\nSpace: 4px, 8px\nMotion tokens: fast 120ms\nMotion language: rows expand in place\nSignature: a green rail/);
   assert.match(v, /interface\.md: a design build/);
@@ -296,6 +298,8 @@ test('cost is measured from the session logs: planning, each step and each agent
   assert.match(r.stdout, /Planning: 1k \(22%\)/);
   assert.match(r.stdout, /- Iris · build S2 \(S2, claude-opus-5-5\): 4k over 1 calls/);
   assert.match(readPlan(file).steps[0].startedAt, /^2026/, 'starting a step records when');
+  const line = spawnSync('node', [TOOL, 'cost', file, 'S2'], { encoding: 'utf8', env: { ...process.env, NAQSHA_TRANSCRIPTS: logs } }).stdout.trim();
+  assert.equal(line, 'S2: 4k weighted tokens (55% of 6k so far); costliest agent Iris · build S2, 4k. Full breakdown on the plan page.', 'after a step, one line');
 });
 
 test('status shows progress and the next step', () => {

@@ -80,6 +80,12 @@ window.NAQSHA = {
     "mode": "operate",                 // operate | persuade | read | experience
     "purpose": "See what needs action now and act on it without leaving the list",
     "data": "Orders: 0 to 2,000 open, 40 a page",   // when present, empty, loading and error are required states
+    "needs": [                         // required when "data" is set: where each piece of data comes from
+      { "what": "open orders, 40 a page, newest first", "status": "exists", "from": "GET /api/orders (src/routes/orders.ts:12)" },
+      { "what": "approve an order", "status": "planned", "from": "docs/plans/admin S4: POST /api/orders/:id/approve" },
+      { "what": "order timeline events", "status": "contract", "from": "GET /api/orders/:id/events → [{ at, kind, by }]",
+        "owed": "no backend yet; built against this contract with a fake until /naqsha:plan builds it" }
+    ],                                 // status: exists (in the code) | planned (a backend plan step) | contract (agreed, faked, owed)
     "states": ["default", "empty", "loading", "error", "long"],
     "previews": {                      // static HTML for each state, styled only with the token variables below
       "default": "<main class=\\"list\\">...</main><style>.list{padding:var(--space-4);font:var(--weight-body) var(--size-body)/var(--leading-body) var(--font-body)}</style>",

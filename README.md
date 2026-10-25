@@ -205,6 +205,13 @@ A long build degrades as its context fills, so naqsha spends context where it pa
   patterns as the fallback). The independent reviewer reads the same ones for the step,
   and the finish review reads all of them. In crew mode the coordinator reads only the
   crew, review and run-the-app references, since it doesn't write code.
+- **No repeated test runs.** Inside the test-first loop, Claude runs only the test it's
+  working on and that module's tests, by name (Playwright `-g`, Vitest `-t`, pytest
+  `::name`, Go `-run`, Gradle `--tests`); the whole suite runs once per step. In crew mode,
+  `crew.js land` reports whether anything else landed since the worker branched or the step
+  changed a lockfile or environment config; if neither, the merged code is exactly what the
+  worker tested and the coordinator doesn't rerun the suites, only walks the app. On a real
+  build, rerunning the whole browser suite 10 to 15 times was a third of each step's time.
 - **Output discipline.** Command output is saved to a file and only summaries and failures
   are read. Screenshots are viewport-sized and only where the look matters. Step notes
   hold excerpts, not logs.
@@ -261,9 +268,9 @@ naqsha earns its cost on a feature or a new system. For a one-file fix, a copy c
 dependency bump, just ask Claude directly; the plan itself will say so if you start one
 for a small change.
 
-Its cost is in work repeated per step, not in its instructions: planning reads about 25k
-tokens of instructions once, and the build about 12k up front plus up to 6k as steps need
-them. To keep a build inside a usage window, you choose an **effort** at plan start:
+Its cost is in work repeated per step, not in its instructions: planning reads about 26k
+tokens of instructions once; a build step about 14k, plus up to 6k of backend references
+and 5k for interface work when the step needs them; a design about 12k. To keep a build inside a usage window, you choose an **effort** at plan start:
 
 | | light | standard (default) | thorough |
 |---|---|---|---|

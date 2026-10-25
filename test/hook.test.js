@@ -615,6 +615,8 @@ test('a design is gated like a plan, and approved on what the user can see', () 
   assert.match(viaMention.hookSpecificOutput.additionalContext, /^Naqsha: design phase/);
 
   const screen = extra => ({ id: 'SC1', name: 'Orders', mode: 'operate', purpose: 'Act on orders', data: 'orders',
+    needs: [{ what: 'open orders', status: 'exists', from: 'GET /api/orders (src/routes/orders.ts:12)' },
+      { what: 'order timeline', status: 'contract', from: 'GET /api/orders/:id/events', owed: 'backend not built yet' }],
     states: ['default', 'empty', 'loading', 'error'], previews: { default: '<main>x</main>', empty: 'e', loading: 'l', error: 'r' }, ...extra });
   const design = extra => ({
     meta: { title: 'Admin design', slug: 'x', kind: 'design', status: 'draft' },
@@ -642,6 +644,9 @@ test('a design is gated like a plan, and approved on what the user can see', () 
   refused({ screens: [screen({ states: ['default'] })] }, /screen SC1 Orders needs empty, loading and error states/);
   refused({ screens: [screen({ previews: { default: 'x', empty: 'e', loading: 'l' } })] }, /needs previews for error/);
   refused({ screens: [screen({ mode: 'pretty' })] }, /needs a mode/);
+  refused({ screens: [screen({ needs: [] })] }, /needs its data needs/);
+  refused({ screens: [screen({ needs: [{ what: 'streak count', status: 'missing', from: '?' }] })] }, /a source for every data need.*streak count/);
+  refused({ screens: [screen({ needs: [{ what: 'streak count', status: 'contract', from: 'GET /api/streak' }] })] }, /a source for every data need.*streak count/, 'a contract says what is owed');
   refused({ steps: [{ id: 'S1', tests: [{ test: 't' }], doneWhen: 'd', screens: [] }] }, /needs a step that builds it/);
   refused({ testing: { uiChecks: { na: 'none' } } }, /no way to run the interface/);
   refused({ testing: { runIt: { start: 'npm run dev' } } }, /no interface checks/);

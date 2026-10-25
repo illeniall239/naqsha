@@ -69,6 +69,10 @@ function ahead(c, branch) {
   return Number(git(c.root, 'rev-list', '--count', `HEAD..${branch}`));
 }
 
+// Files that change what's installed or how the app runs: a step that touches
+// one is checked again after landing, since the worker's folder may differ.
+const ENVIRONMENT = /(^|\/)(package-lock\.json|npm-shrinkwrap\.json|pnpm-lock\.yaml|yarn\.lock|bun\.lockb?|poetry\.lock|uv\.lock|Pipfile\.lock|requirements[^/]*\.txt|Cargo\.lock|go\.sum|Gemfile\.lock|composer\.lock|gradle\.lockfile|[^/]*\.gradle(\.kts)?|\.nvmrc|\.node-version|\.tool-versions|\.env\.example|(docker-)?compose\.ya?ml|Dockerfile)$/;
+
 function land(c) {
   if (!fs.existsSync(c.dir)) throw new Error(`no worktree for ${c.step.id} at ${c.dir}`);
   const left = git(c.dir, 'status', '--porcelain=v1', '--untracked-files=all');
@@ -76,6 +80,11 @@ function land(c) {
   if (!ahead(c, c.branch)) throw new Error(`${c.branch} has no commits to land`);
   const dirty = dirtyOutsidePlans(c);
   if (dirty.length) throw new Error(`the main checkout has uncommitted changes outside the plans folder: ${dirty.slice(0, 10).join(', ')}`);
+  // If nothing landed since the worker branched, the merge result is exactly the
+  // code the worker tested, and its check results stand.
+  const tip = git(c.root, 'rev-parse', 'HEAD');
+  const untouched = git(c.root, 'merge-base', tip, c.branch) === tip;
+  const environment = git(c.root, 'diff', '--name-only', `${tip}...${c.branch}`).split('\n').filter(f => f && ENVIRONMENT.test(f));
   const merge = tryGit(c.root, 'merge', '--no-ff', '-m', `${c.step.id}: ${c.step.title || 'step'}`, c.branch);
   if (merge.status !== 0) {
     const conflicts = git(c.root, 'diff', '--name-only', '--diff-filter=U').split('\n').filter(Boolean);
@@ -88,7 +97,13 @@ function land(c) {
   const commit = git(c.root, 'rev-parse', 'HEAD');
   git(c.root, 'worktree', 'remove', c.dir);
   git(c.root, 'branch', '-d', c.branch); // -d: refuses unless merged, which it now is
-  return { landed: c.branch, commit };
+  const recheck = !untouched || environment.length > 0;
+  return {
+    landed: c.branch, commit, recheck,
+    why: !untouched ? 'other work landed after this step branched, so the merged code was never tested as a whole'
+      : environment.length ? `the step changed ${environment.join(', ')}, so the main checkout's environment may differ from the worker's`
+      : 'nothing else landed and nothing about the environment changed: the merged code is what the worker tested',
+  };
 }
 
 function list(c) {

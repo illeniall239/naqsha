@@ -312,6 +312,9 @@ function screenHtml(p, sc, ask) {
     <h3>${esc(sc.id)} · ${txt(sc.name)} ${sc.mode ? `<span class="badge">${esc(sc.mode)}</span>` : ''} ${commentButton(cid, ask)}</h3>
     ${commentBox(cid, ask)}
     <p>${txt(sc.purpose)}${sc.data ? `<br><span class="muted">Data: ${txt(sc.data)}</span>` : ''}${sc.notes ? `<br><span class="muted">${txt(sc.notes)}</span>` : ''}</p>
+    ${arr(sc.needs).length ? `<details><summary class="muted">Where its data comes from (${arr(sc.needs).length})</summary>${table(sc.needs, [['Needs', x => txt(x.what)],
+      ['Source', x => `${x.status === 'contract' ? '<span class="badge s-open">contract, owed</span>' : x.status === 'planned' ? '<span class="badge s-doing">planned</span>' : x.status === 'exists' ? '<span class="badge s-done">exists</span>' : '<span class="empty">no source</span>'}<br>${txt(x.from)}`],
+      ['Owed', x => txt(x.owed)]])}</details>` : ''}
     <div class="frames-bar" role="group" aria-label="${esc(sc.name)}: state">${states.map(st => `<button type="button" data-screen="${esc(sc.id)}" data-state="${esc(st)}" aria-pressed="${st === cur}">${
       st === 'now' ? 'Now' : esc(st)}${st === 'now' || (sc.previews && sc.previews[st]) ? '' : ' (no preview)'}</button>`).join('')}</div>
     ${html ? frame(frameDoc(p, html, cur !== 'now'), `${sc.name}, ${cur === 'now' ? 'as it is now' : cur}`) : '<p class="empty">No preview for this state yet.</p>'}

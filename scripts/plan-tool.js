@@ -21,7 +21,8 @@
 //         "result": "412 passed, 3 failed", "known": ["auth > refresh keeps the session"] }] }
 //       the project's checks as they were before the build changed anything.
 //       Only before the first step is done, so it can't be moved to hide a failure.
-//   plan-tool.js cost <plan.js>           what planning, each step and each agent cost, from Claude Code's logs
+//   plan-tool.js cost <plan.js> [S#]      what planning, each step and each agent cost, from Claude Code's logs;
+//                                         with a step, one line for it (the full breakdown goes on the page)
 'use strict';
 
 const fs = require('fs');
@@ -142,7 +143,8 @@ function stepView(plan, id, planFile) {
 
   if (m.kind === 'design') {
     section('Screens this step builds (match the approved preview in each state)', list(plan.screens).filter(sc => list(step.screens).includes(sc.id))
-      .map(sc => `- ${sc.id} ${one(sc.name)} [${one(sc.mode)}]: ${one(sc.purpose)}; states: ${list(sc.states).join(', ')}; preview: plan.js screens[id=${sc.id}].previews`));
+      .flatMap(sc => [`- ${sc.id} ${one(sc.name)} [${one(sc.mode)}]: ${one(sc.purpose)}; states: ${list(sc.states).join(', ')}; preview: plan.js screens[id=${sc.id}].previews`,
+        ...list(sc.needs).map(n => `  needs ${one(n.what)}: ${n.status === 'contract' ? `contract ${one(n.from)}, faked behind its adapter (owed: ${one(n.owed)})` : `${one(n.status)}, ${one(n.from)}`}`)]));
     const t = plan.tokens || {};
     section('Design tokens (use these, never raw values)', [
       ...(m.approach ? [`Approach: ${m.approach}${m.approach === 'extend' ? ': match the existing system exactly' : m.approach === 'refine' ? ': keep the identity, raise the quality' : ': the new direction, shipped in pieces'}`] : []),
@@ -420,6 +422,14 @@ function costView(c) {
   ].join('\n');
 }
 
+// After each step, one line: the full report would pile up in the context.
+function stepCostLine(c, id) {
+  const b = c.steps[id];
+  const top = c.agents.find(a => a.where === id);
+  return `${id}: ${compact(b ? b.weight : 0)} weighted tokens${b && c.total ? ` (${Math.round(100 * b.weight / c.total)}% of ${compact(c.total)} so far)` : ''}` +
+    `${top ? `; costliest agent ${top.name}, ${compact(top.weight)}` : ''}. Full breakdown on the plan page.`;
+}
+
 function readPatch() {
   const raw = fs.readFileSync(0, 'utf8').trim();
   try {
@@ -445,7 +455,7 @@ function main(argv) {
   if (cmd === 'cost') {
     plan.cost = costOf(plan, planFile);
     writePlan(planFile, plan);
-    return console.log(costView(plan.cost));
+    return console.log(id ? stepCostLine(plan.cost, id) : costView(plan.cost));
   }
   if (cmd === 'update-step') updateStep(plan, id, readPatch());
   else if (cmd === 'checkpoint') checkpoint(plan, id, readPatch());

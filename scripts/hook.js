@@ -377,6 +377,14 @@ function checkDesignPlan(plan) {
     if (!MODES.includes(sc.mode)) missing.push(`a mode (${MODES.join(', ')})`);
     if (!states.includes('default')) missing.push('a default state');
     if (text(sc.data) && !['empty', 'loading', 'error'].every(x => states.includes(x))) missing.push('empty, loading and error states for the data it shows');
+    // A design doesn't build the server: every piece of data a screen needs comes
+    // from the code, a backend plan step, or an agreed contract that is owed.
+    if (text(sc.data)) {
+      const needs = list(sc.needs);
+      const sourced = n => n && text(n.what) && text(n.from) && ['exists', 'planned', 'contract'].includes(n.status) && (n.status !== 'contract' || text(n.owed));
+      if (!needs.length) missing.push('its data needs (needs: where each piece of data comes from)');
+      else if (!needs.every(sourced)) missing.push(`a source for every data need (exists, planned, or a contract with what's owed): ${needs.filter(n => !sourced(n)).map(n => one(n && n.what) || '(unnamed)').join(', ')}`);
+    }
     const unpreviewed = states.filter(x => !text(sc.previews && sc.previews[x]));
     if (unpreviewed.length) missing.push(`previews for ${unpreviewed.join(', ')}`);
     if (!built.has(sc.id)) missing.push('a step that builds it');

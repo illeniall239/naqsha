@@ -65,6 +65,8 @@ test('a finished step lands as a merge, and its worktree goes away', t => {
   r.inTree(wt, 'commit', '-qam', 'S1: uppercase two');
 
   const landed = r.json(r.crew('land', 'S1'));
+  assert.equal(landed.recheck, false, 'nothing else landed: the worker\'s results stand');
+  assert.match(landed.why, /the merged code is what the worker tested/);
   assert.equal(r.g('log', '-1', '--format=%s'), 'S1: First');
   assert.equal(landed.commit, r.g('rev-parse', 'HEAD'));
   assert.equal(fs.readFileSync(path.join(r.root, 'src', 'a.js'), 'utf8'), 'one\nTWO\nthree\n');
@@ -93,6 +95,35 @@ test('a conflict lands nothing and says what to do', t => {
 
   const listed = r.json(r.crew('list'));
   assert.deepEqual(listed.map(w => [w.step, w.ahead, w.uncommitted]), [['S2', 1, 0]]);
+});
+
+test('landing says when the checks must run again, and when the worker\'s results stand', t => {
+  const r = repo(t, [
+    { id: 'S1', title: 'First', status: 'todo', files: ['src/a.js'] },
+    { id: 'S2', title: 'Second', status: 'todo', files: ['src/b.js'] },
+    { id: 'S3', title: 'Third', status: 'todo', files: ['package-lock.json'] },
+  ]);
+  r.g('switch', '-q', '-c', 'build/export');
+  const a = r.json(r.crew('open', 'S1')).path;
+  const b = r.json(r.crew('open', 'S2')).path;
+  fs.writeFileSync(path.join(a, 'src', 'a.js'), 'one\nTWO\nthree\n');
+  r.inTree(a, 'commit', '-qam', 'S1');
+  fs.writeFileSync(path.join(b, 'src', 'b.js'), 'b\n');
+  r.inTree(b, 'add', '.');
+  r.inTree(b, 'commit', '-qm', 'S2');
+
+  assert.equal(r.json(r.crew('land', 'S1')).recheck, false, 'nothing else had landed');
+  const second = r.json(r.crew('land', 'S2'));
+  assert.equal(second.recheck, true, 'S2 branched before S1 landed, so the merged code was never tested together');
+  assert.match(second.why, /other work landed after this step branched/);
+
+  const c = r.json(r.crew('open', 'S3')).path;
+  fs.writeFileSync(path.join(c, 'package-lock.json'), '{}\n');
+  r.inTree(c, 'add', '.');
+  r.inTree(c, 'commit', '-qm', 'S3');
+  const third = r.json(r.crew('land', 'S3'));
+  assert.equal(third.recheck, true);
+  assert.match(third.why, /changed package-lock\.json/, 'an environment change is checked again even when nothing else landed');
 });
 
 test('unlanded work is never dropped without --force', t => {

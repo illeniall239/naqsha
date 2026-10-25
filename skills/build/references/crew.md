@@ -66,13 +66,20 @@ quietly.
 5. Land it: `C land <plan>/plan.js S#`.
    - **On a conflict** (exit 2), nothing was merged. Ask the worker to merge the build
      branch into its branch, resolve, rerun its checks and commit, then land again.
-6. On the build branch, after landing, run the project's whole test suite and the security
-   checks, judged against the baseline as the build skill describes. If the step changed anything users see, walk it in the running app
+6. On the build branch, after landing, check it, according to what `C land` reports:
+   - **`recheck: false`:** nothing else landed since the worker branched and the step
+     changed nothing about the environment, so the merged code is exactly what the worker
+     tested. Its check results stand: record them, and don't rerun the suites.
+   - **`recheck: true`:** other work landed in between, or the step changed a lockfile or
+     environment config. Run the project's whole test suite and the security checks,
+     judged against the baseline as the build skill describes.
+
+   Either way, if the step changed anything users see, walk it in the running app
    (`run-like-a-user.md`). You do this, one step at a time, never the workers: one app,
    one database, no collisions.
 7. Record it. Use `T update-step` with `notesAppend` for the worker's evidence (its red-run
    lines and check results), the review's verdict, the landing commit and your own checks.
-   Then set the status to `done` and run `T cost`, which counts the worker and reviewer by
+   Then set the status to `done` and run `T cost <plan>/plan.js S#`, which counts the worker and reviewer by
    the step named in their descriptions. Add the worker's verified learnings to
    `<plans>/LEARNINGS.md`. With `buildReview: "pause"`, report to the user, with the step's
    cost, and wait.
@@ -116,7 +123,10 @@ modules, and every check the step names. Don't run the app or an emulator; the c
 does that after landing.
 
 Keep your context small: build, test and lint output goes to a file, and you read the
-summary and the failures. If you pass about 60 tool calls and the step isn't done, stop at
+summary and the failures. Inside the test-first loop, run only the test you're working on
+and its module's tests (tdd.md shows how per runner); run the whole suite once, before you
+report done or hand off. Report the whole-suite result with the commit it ran on, since
+the coordinator may rely on it instead of rerunning. If you pass about 60 tool calls and the step isn't done, stop at
 the next green: commit, and report a handoff with what's done, the next action, and the
 files in progress. A fresh worker continues from your commits.
 

@@ -110,6 +110,22 @@ has `empty`, `loading` and `error`, plus `long` or `offline` where they can happ
 flows between them. A product bigger than about eight screens gets milestones (`later`),
 as in `/naqsha:plan`: design the first usable flow fully.
 
+**Check every screen's data against the backend.** A design covers the interface, not the
+server, so a screen can easily need data or an action nothing provides. For each screen
+that shows data, list its `needs` (what it reads and what it changes) and find where each
+comes from: the API in the code (`exists`, with the route and `file:line`), or a step of
+the backend plan (`planned`). Search the code; don't assume an endpoint exists because the
+screen needs it. When something has no source, bring it to the user as a decision:
+
+- **Plan the backend first** with `/naqsha:plan`, then come back to this screen.
+- **Build against a contract:** agree the request and response shape now, record it as
+  `contract` with what's `owed`, and the build fakes it behind one adapter until the
+  backend exists. It goes in `needsYou` so it isn't forgotten.
+- **Drop or defer** the part of the screen that needs it (`later`).
+
+Never fill a gap with data invented in the interface. Approval is refused while a screen's
+need has no source.
+
 ## 5. Direction
 
 - **Look at the best of the best.** Start from Awwwards (awwwards.com): Sites of the Day,

@@ -25,15 +25,31 @@ Each step starts from the tests the plan lists for it (`steps[].tests`).
    it pass. A test that passes at once is testing behavior that already exists, or is
    wrong; a test that errors (typo, bad import) hasn't tested anything yet.
 3. **Green.** Write the least code that makes it pass: no options, branches or cases no
-   test asks for. Run that test, then the tests of the module.
+   test asks for. Run that test, then the tests of the module: its own test files, not
+   the whole suite.
 4. **Refactor, on green only.** Clean up names and duplication and fix the module shape
    (`modularity.md`) with every test passing before and after. Behavior doesn't change
    here; a new behavior is a new red test.
 5. **Repeat** with the next behavior, letting what the last cycle taught you pick it. One
    test at a time, never a batch of tests up front (they end up testing the shape you
    imagined, not the behavior you need).
-6. **Close.** The outer test from 1 passes. Run the project's whole suite: a green file is
-   not a green suite.
+6. **Close.** The outer test from 1 passes. Run the project's whole suite, once: a green
+   file is not a green suite. Also run it before handing the step off.
+
+**Inside the loop, run only what you're working on.** A browser or end-to-end suite takes
+minutes, and rerunning all of it on every red and green is where a step's time goes. Name
+the test:
+
+- Playwright: `npx playwright test e2e/cart.spec.ts -g "applies a coupon once"`
+- Vitest / Jest: `npx vitest run src/cart -t "applies a coupon once"` / `npx jest src/cart -t "…"`
+- Node: `node --test --test-name-pattern="applies a coupon once" test/cart.test.js`
+- pytest: `pytest tests/test_cart.py::test_applies_coupon_once`
+- Go: `go test ./cart -run TestAppliesCouponOnce`
+- Gradle: `./gradlew test --tests 'app.cart.CouponTest.appliesOnce'`
+
+The outer acceptance test from 1 runs when the inner loop thinks it's done, not every
+cycle. Prefer a unit or component test at the agreed seam for each behavior, and keep the
+end-to-end suite for the acceptance and attack tests the plan names.
 
 **Code written before its test gets deleted,** not kept as a reference and not adapted.
 Write the test, watch it fail, and write the code again. Keeping it means you're testing

@@ -26,6 +26,11 @@ wins.
   tokens, set up once in the project's styling system (CSS custom properties, the Tailwind
   theme, the platform theme). A raw hex value or a one-off pixel size in a component is a
   defect.
+- **Data from where the design says.** Each screen's `needs` names its source. An existing
+  API is called through the module that owns it. A `contract` need is built against its
+  agreed shape behind that one module, with a fake in place of the backend and a contract
+  test pinning the shape, so swapping in the real backend touches one file. Never invent
+  data inside a component, and never call an endpoint the design doesn't list.
 - **Components before screens.** A control used on two screens is one component with its
   states (hover, focus, active, disabled, loading, error), built and tested once.
 - **The mode decides how the creativity serves, never whether there is any.**
