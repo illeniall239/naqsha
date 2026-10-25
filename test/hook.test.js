@@ -157,6 +157,19 @@ test('/naqsha:learn says where guides go and which plans exist, and changes noth
   assert.equal(p.cmd('plan').decision, undefined);
 });
 
+test('/naqsha:help says where the project stands, and changes nothing', () => {
+  const p = project();
+  const ctx = out => out.hookSpecificOutput.additionalContext;
+  assert.match(ctx(p.cmd('help')), /^Naqsha help: in this project nothing is being planned or built\. The plans folder is docs\/plans\/\. Plans and designs, newest first: none yet\. Reviews: 0\. Codebase map: not yet\./);
+  assert.equal(fs.existsSync(path.join(p.root, '.naqsha')), false, 'no state, no lock');
+
+  p.cmd('plan');
+  writePlan(p.root, 'login', { steps: [{ id: 'S1', status: 'done' }, { id: 'S2' }], cost: { total: 2400000 } });
+  assert.match(ctx(p.cmd('help')), /a plan or design is being drafted, so project files are locked.*login: plan, draft, 1\/2 steps done, cost so far 2\.4M weighted tokens/);
+  const viaMention = p.run({ hook_event_name: 'PreToolUse', tool_name: 'Skill', tool_input: { skill: 'naqsha:help' } });
+  assert.match(viaMention.hookSpecificOutput.additionalContext, /^Naqsha help:/);
+});
+
 test('/naqsha:review gets a folder of its own, earlier findings, and how stale the map is', () => {
   const p = project();
   const g = (...a) => execFileSync('git', ['-C', p.root, '-c', 'user.email=t@t', '-c', 'user.name=t', ...a], { encoding: 'utf8' });
@@ -666,6 +679,7 @@ test('approval unlocks the project and marks the plan', () => {
   const plan = require(HOOK).readPlan(path.join(p.root, 'docs', 'plans', 'login', 'plan.js'));
   assert.equal(plan.meta.status, 'approved');
   assert.ok(plan.meta.approvedAt);
+  assert.ok(Date.parse(plan.meta.draftedFrom) <= Date.parse(plan.meta.approvedAt), 'when drafting began, for measuring what planning cost');
 
   assert.equal(p.write('src/app.js'), null);
   assert.ok(denied(p.write('.naqsha/state.json')), 'state stays protected');

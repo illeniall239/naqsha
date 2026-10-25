@@ -316,7 +316,9 @@ Before adding any component, dependency or abstraction, stop at the first rung t
 5. **Is it a solved problem** (auth, crypto, payments, date math, parsing a complex format,
    search, queues), or is there prior art you marked `adopt`? Use the well-maintained
    standard library or service. Don't hand-roll it.
-6. Only then: write it, minimal and complete.
+6. **Can it be a line or two?** A few lines of plain code at the place that needs them
+   beat a new module, abstraction or dependency, as long as they stay clear and tested.
+7. Only then: write it, minimal and complete.
 
 Each new dependency gets an entry in `dependencies` with version, license, health and what
 it replaces. Name every rejected shortcut in `rejected` with why. The user should see what

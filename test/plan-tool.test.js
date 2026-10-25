@@ -254,6 +254,50 @@ test("a design step's view carries its screens and tokens, and UI work loads the
   assert.doesNotMatch(tool(['step', planFile(), 'S1']).stdout, /interface\.md/, 'backend steps do not');
 });
 
+test('cost is measured from the session logs: planning, each step and each agent', () => {
+  const logs = fs.mkdtempSync(path.join(os.tmpdir(), 'naqsha-logs-'));
+  const reply = (id, at, model, usage) => JSON.stringify({ type: 'assistant', timestamp: at, message: { id, model, usage } });
+  const u = (input, read, write, output) => ({ input_tokens: input, cache_read_input_tokens: read, cache_creation_input_tokens: write, output_tokens: output });
+  // Main session: a reply during planning (logged twice, as Claude Code does), one during S1, one before planning began.
+  fs.writeFileSync(path.join(logs, 'main.jsonl'), [
+    reply('m0', '2026-10-24T08:00:00Z', 'claude-opus-5-5', u(1000, 0, 0, 0)),
+    reply('m1', '2026-10-24T10:00:00Z', 'claude-opus-5-5', u(100, 1000, 100, 10)),
+    reply('m1', '2026-10-24T10:00:00Z', 'claude-opus-5-5', u(100, 1000, 100, 10)),
+    reply('m2', '2026-10-24T12:30:00Z', 'claude-opus-5-5', u(0, 10000, 0, 100)),
+    '{"type":"user","message":{"content":"hi"}}',
+  ].join('\n'));
+  // A research agent during planning, and S2's worker named in its description.
+  fs.mkdirSync(path.join(logs, 'main', 'subagents'), { recursive: true });
+  const agent = (name, description, lines) => {
+    fs.writeFileSync(path.join(logs, 'main', 'subagents', `${name}.jsonl`), lines.join('\n'));
+    fs.writeFileSync(path.join(logs, 'main', 'subagents', `${name}.meta.json`), JSON.stringify({ description }));
+  };
+  agent('agent-a', 'Hermes · research runtimes', [reply('a1', '2026-10-24T10:30:00Z', 'claude-sonnet-5-5', u(500, 0, 0, 100))]);
+  agent('agent-b', 'Iris · build S2', [reply('b1', '2026-10-24T12:40:00Z', 'claude-opus-5-5', u(0, 0, 2000, 200))]);
+
+  const file = planFile({ meta: { title: 'Export', slug: 'export', status: 'building', draftedFrom: '2026-10-24T09:00:00Z', approvedAt: '2026-10-24T11:00:00Z' } });
+  tool(['update-step', file, 'S1'], '{"status":"doing"}');
+  const plan = readPlan(file);
+  plan.steps[0].startedAt = '2026-10-24T12:00:00Z';
+  plan.steps[0].doneAt = '2026-10-24T13:00:00Z';
+  fs.writeFileSync(file, `window.NAQSHA = ${JSON.stringify(plan)};\n`);
+
+  const r = spawnSync('node', [TOOL, 'cost', file], { encoding: 'utf8', env: { ...process.env, NAQSHA_TRANSCRIPTS: logs } });
+  assert.equal(r.status, 0, r.stderr);
+  const c = readPlan(file).cost;
+  // m1 once: 100 + 1000*0.1 + 100*1.25 + 10*5 = 375; Hermes: 500 + 100*5 = 1000.
+  assert.equal(c.planning.weight, 1375, 'planning counts each reply once, and nothing from before drafting began');
+  assert.deepEqual(c.planning.byModel, { 'claude-opus-5-5': 375, 'claude-sonnet-5-5': 1000 });
+  assert.equal(c.steps.S1.weight, 1500, 'the main session during S1: 10000*0.1 + 100*5');
+  assert.equal(c.steps.S2.weight, 3500, 'a worker counts for the step its description names: 2000*1.25 + 200*5');
+  assert.equal(c.total, 6375);
+  assert.deepEqual(c.agents.map(a => `${a.name}:${a.where}`), ['Iris · build S2:S2', 'Hermes · research runtimes:planning']);
+  assert.match(r.stdout, /^# Cost: 6k weighted tokens/);
+  assert.match(r.stdout, /Planning: 1k \(22%\)/);
+  assert.match(r.stdout, /- Iris · build S2 \(S2, claude-opus-5-5\): 4k over 1 calls/);
+  assert.match(readPlan(file).steps[0].startedAt, /^2026/, 'starting a step records when');
+});
+
 test('status shows progress and the next step', () => {
   const file = planFile();
   tool(['update-step', file, 'S1'], '{"status":"done"}');

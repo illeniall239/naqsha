@@ -72,8 +72,10 @@ quietly.
    one database, no collisions.
 7. Record it. Use `T update-step` with `notesAppend` for the worker's evidence (its red-run
    lines and check results), the review's verdict, the landing commit and your own checks.
-   Then set the status to `done`. Add the worker's verified learnings to
-   `<plans>/LEARNINGS.md`. With `buildReview: "pause"`, report to the user and wait.
+   Then set the status to `done` and run `T cost`, which counts the worker and reviewer by
+   the step named in their descriptions. Add the worker's verified learnings to
+   `<plans>/LEARNINGS.md`. With `buildReview: "pause"`, report to the user, with the step's
+   cost, and wait.
 8. Back to 1 until `T ready` says all steps are done; then the build skill's finish.
 
 ## When something goes wrong

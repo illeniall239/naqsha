@@ -150,7 +150,7 @@ const table = (rows, cols) => {
     rows.map(r => `<tr>${cols.map(c => `<td>${c[1](r)}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
 };
 // An empty dependency list is an answer ("none"); elsewhere empty means unwritten.
-const present = (p, id) => id === 'later' || id === 'current' ? true : id === 'impact' ? isNa(p.context) || has(p.impact) || isNa(p.impact)
+const present = (p, id) => id === 'later' || id === 'current' || id === 'cost' ? true : id === 'impact' ? isNa(p.context) || has(p.impact) || isNa(p.impact)
   : ['dependencies', 'needsYou'].includes(id) ? Array.isArray(p[id]) || isNa(p[id]) : has(p[id]);
 // The failing tests a step starts from, in order.
 const stepTests = t => isNa(t) ? `<br><span class="muted">No test first: ${txt(t.na)}</span>`
@@ -469,8 +469,26 @@ const SECTIONS = [
     ['ID', x => esc(x.id)],
     ['Step', x => `<b>${txt(x.title)}</b>${x.detail ? `<br>${txt(x.detail)}` : ''}${(x.files || []).length ? `<br>${x.files.map(f => `<code>${esc(f)}</code>`).join(' ')}` : ''}${(x.screens || []).length ? `<br><span class="muted">Screens: ${x.screens.map(id => `<a href="#${esc(id)}">${esc(id)}</a>`).join(', ')}</span>` : ''}${stepTests(x.tests)}${x.notes ? `<br><span class="muted">${txt(x.notes)}</span>` : ''}`],
     ['Done when', x => txt(x.doneWhen) || '<span class="empty">missing</span>'],
-    ['Status', x => badge(x.status) + ((x.dependsOn || []).length ? `<br><span class="muted">after ${esc(x.dependsOn.join(', '))}</span>` : '')],
+    ['Status', x => badge(x.status) + ((x.dependsOn || []).length ? `<br><span class="muted">after ${esc(x.dependsOn.join(', '))}</span>` : '') +
+      (p.cost && p.cost.steps && p.cost.steps[x.id] ? `<br><a class="muted" href="#cost">cost ${esc((n => (n >= 1e6 ? `${(n / 1e6).toFixed(1)}M` : `${Math.round(n / 1e3)}k`))(p.cost.steps[x.id].weight))}</a>` : '')],
   ])],
+  // Measured from Claude Code's logs by `plan-tool.js cost`, after each step.
+  ['cost', 'What it cost', p => {
+    const c = p.cost;
+    if (!c || !c.total) return '<p class="na">Not measured yet. Claude measures it after each step, or ask for it any time.</p>';
+    const k = n => (n >= 1e6 ? `${(n / 1e6).toFixed(1)}M` : n >= 1e3 ? `${Math.round(n / 1e3)}k` : String(n || 0));
+    const pct = n => `${Math.round(100 * (n || 0) / c.total)}%`;
+    const rows = [['Planning', c.planning], ...Object.entries(c.steps || {}), ...(c.between && c.between.weight ? [['Between steps', c.between]] : [])];
+    return `<div class="stats">
+        <div class="stat"><span class="muted">Total</span><b>${k(c.total)}</b><span class="muted">weighted tokens</span></div>
+        ${Object.entries(c.byModel || {}).map(([m, v]) => `<div class="stat"><span class="muted">${esc(m)}</span><b>${k(v)}</b><span class="muted">${pct(v)}</span></div>`).join('')}
+      </div>
+      <h3>Where it went</h3>${table(rows.map(([name, b]) => ({ name, b })), [['Part', x => esc(x.name)], ['Cost', x => `${k(x.b.weight)} <span class="muted">(${pct(x.b.weight)})</span>`],
+        ['By model', x => esc(Object.entries(x.b.byModel || {}).map(([m, v]) => `${m} ${k(v)}`).join(', '))]])}
+      <h3>Agents, costliest first</h3>${table(c.agents, [['Agent', x => txt(x.name)], ['Part', x => esc(x.where)], ['Model', x => esc(x.model)], ['Cost', x => `${k(x.weight)} <span class="muted">over ${esc(x.calls)} calls</span>`]])}
+      <p class="muted">Weighted tokens count a cached read as ${esc(c.weights.cacheRead)}, a cache write as ${esc(c.weights.cacheWrite5m)} to ${esc(c.weights.cacheWrite1h)} and output as ${esc(c.weights.output)} fresh input tokens.
+        Sonnet and Haiku cost less per token than Opus, so compare within a model. Measured ${esc(String(c.at || '').slice(0, 16).replace('T', ' '))}.</p>`;
+  }],
   ['needsYou', 'Needs you', p => Array.isArray(p.needsYou) && !p.needsYou.length ? '<p class="na">Nothing. Claude can do all of it.</p>' :
     table(p.needsYou, [['What', x => txt(x.what)], ['When', x => esc(x.when)], ['Why', x => txt(x.why)]])],
   ['risks', 'Risks', p => table(p.risks, [['Risk', x => txt(x.risk)], ['Likelihood', x => esc(x.likelihood)], ['Impact', x => esc(x.impact)], ['Mitigation', x => txt(x.mitigation)]])],
@@ -492,7 +510,7 @@ const TABS = [
   ['research', 'Research', ['context', 'priorArt', 'research']],
   ['design', 'Design', ['decisions', 'architecture', 'impact', 'quality', 'dependencies', 'rejected']],
   ['security', 'Security', ['security']],
-  ['build', 'Build', ['testing', 'steps']],
+  ['build', 'Build', ['testing', 'steps', 'cost']],
   ['log', 'Change log', ['changelog']],
 ];
 // A design (meta.kind "design", from /naqsha:design) reads in its own tabs.
@@ -502,7 +520,7 @@ const DESIGN_TABS = [
   ['direction', 'Direction', ['current', 'direction', 'decisions', 'impact']],
   ['tokens', 'Tokens', ['tokens']],
   ['screens', 'Screens', ['screens']],
-  ['build', 'Build', ['testing', 'steps']],
+  ['build', 'Build', ['testing', 'steps', 'cost']],
   ['log', 'Change log', ['changelog']],
 ];
 const SECTION = Object.fromEntries(SECTIONS.map(x => [x[0], x]));

@@ -62,6 +62,7 @@ function onCommand(ctx) {
   if (name === 'build') return startBuild(ctx, args);
   if (name === 'learn') return context('UserPromptExpansion', learnContext(ctx));
   if (name === 'review') return context('UserPromptExpansion', reviewContext(ctx));
+  if (name === 'help') return context('UserPromptExpansion', helpContext(ctx));
 }
 
 // Where the codebase map is, and how far the code has moved since it was
@@ -110,19 +111,44 @@ function reviewContext(ctx) {
 // guides live and which plans there are, so Claude doesn't have to guess.
 function learnContext(ctx) {
   const plansDir = ctx.state ? ctx.plansDir : path.normalize(String(choosePlansDir(ctx.root).dir));
-  const base = path.join(ctx.root, plansDir);
-  const plans = safeReaddir(base).map(d => {
-    const plan = tryReadPlan(path.join(base, d, 'plan.js'));
-    if (!plan) return null;
-    const steps = Array.isArray(plan.steps) ? plan.steps : [];
-    return { d, status: plan.meta.status, steps: steps.length, done: steps.filter(s => s.status === 'done').length, at: fs.statSync(path.join(base, d, 'plan.js')).mtimeMs };
-  }).filter(Boolean).sort((a, b) => b.at - a.at);
+  const plans = plansIn(ctx, plansDir);
   const list = plans.length
     ? plans.map(p => `${p.d} (${p.status}, ${p.done}/${p.steps} steps done)`).join('; ')
     : 'none, so the guide comes from the code, its history and its docs alone';
   const map = mapNote(ctx, plansDir);
   return `Naqsha learn: the plans folder is ${plansDir}/. Plans, newest first: ${list}. ` +
     `A plan's guide goes in ${plansDir}/<slug>/learn/; a guide with no plan goes in ${plansDir}/learn/.${map ? ` ${map}` : ''}`;
+}
+
+// The plans and designs in the plans folder, newest first.
+function plansIn(ctx, plansDir) {
+  const base = path.join(ctx.root, plansDir);
+  return safeReaddir(base).map(d => {
+    const plan = tryReadPlan(path.join(base, d, 'plan.js'));
+    if (!plan) return null;
+    const steps = Array.isArray(plan.steps) ? plan.steps : [];
+    return {
+      d, kind: plan.meta.kind === 'design' ? 'design' : 'plan', status: plan.meta.status, title: plan.meta.title,
+      steps: steps.length, done: steps.filter(s => s.status === 'done').length, cost: plan.cost && plan.cost.total,
+      at: fs.statSync(path.join(base, d, 'plan.js')).mtimeMs,
+    };
+  }).filter(Boolean).sort((a, b) => b.at - a.at);
+}
+
+// /naqsha:help changes nothing: the commands are in the skill, and this says
+// where this project stands, so the help ends with what to type next.
+function helpContext(ctx) {
+  const s = ctx.state;
+  const plansDir = s ? ctx.plansDir : path.normalize(String(choosePlansDir(ctx.root).dir));
+  const plans = plansIn(ctx, plansDir);
+  const now = !s ? 'nothing is being planned or built'
+    : s.phase === 'drafting' ? 'a plan or design is being drafted, so project files are locked until the user runs /naqsha:approve'
+    : `${s.plan} is approved and being built (/naqsha:build resumes it)`;
+  const list = plans.map(p => `${p.d}: ${p.kind}, ${p.status}, ${p.done}/${p.steps} steps done${p.cost ? `, cost so far ${Math.round(p.cost / 1e5) / 10}M weighted tokens` : ''}`);
+  const reviews = safeReaddir(path.join(ctx.root, plansDir, 'reviews')).length;
+  return `Naqsha help: in this project ${now}. The plans folder is ${plansDir}/. ` +
+    `Plans and designs, newest first: ${list.join('; ') || 'none yet'}. Reviews: ${reviews}. ` +
+    `Codebase map: ${fs.existsSync(path.join(ctx.root, plansDir, CODEBASE_MAP)) ? 'yes' : 'not yet'}.`;
 }
 
 // A design is a plan of another kind: the same lock, approval and build,
@@ -234,6 +260,8 @@ function approve(ctx, slug) {
   const now = new Date().toISOString();
   plan.meta.status = 'approved';
   plan.meta.approvedAt = now;
+  // When drafting began, so the cost of planning can be measured later.
+  if (!plan.meta.draftedFrom && ctx.state.startedAt) plan.meta.draftedFrom = ctx.state.startedAt;
   writePlan(planFile, plan);
   clearPreSnapshots(ctx);
   writeState(ctx, { phase: 'approved', plansDir: ctx.plansDir, plan: rel, approvedAt: now });
@@ -481,6 +509,7 @@ function onPreTool(ctx) {
   // checked exactly as /naqsha:build would be.
   if (tool === 'Skill' && ti.skill === 'naqsha:learn') return context('PreToolUse', learnContext(ctx));
   if (tool === 'Skill' && ti.skill === 'naqsha:review') return context('PreToolUse', reviewContext(ctx));
+  if (tool === 'Skill' && ti.skill === 'naqsha:help') return context('PreToolUse', helpContext(ctx));
   if (tool === 'Skill' && ['naqsha:plan', 'naqsha:design', 'naqsha:build'].includes(ti.skill)) {
     const out = ti.skill === 'naqsha:build' ? startBuild(ctx, String(ti.args || '').trim().split(/\s+/)[0] || '')
       : startDrafting(ctx, ti.skill === 'naqsha:design' ? 'design' : 'plan');

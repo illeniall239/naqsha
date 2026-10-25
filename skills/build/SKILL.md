@@ -241,8 +241,10 @@ The build is long, and a full context makes every later step worse. So:
    (test-first) or rebutted with evidence, rounds until it passes, and anything still
    disputed after three rounds brought to the user. If it doesn't, your own review in 5 is
    the check. Either way, record which in the notes.
-7. Set the step to `done` (`T update-step`). Report it to the user in a few lines: what changed, the check
-   results, and what you did *not* verify or any risk they should know about. If there's
+7. Set the step to `done` (`T update-step`), then run `T cost <plan>/plan.js`, which measures
+   what planning, each step and each agent cost from Claude Code's logs and puts it on the
+   page. Report the step to the user in a few lines: what changed, the check results, what
+   it cost, and what you did *not* verify or any risk they should know about. If there's
    nothing to flag, say so. With
    `buildReview: "pause"`, wait for their go-ahead before the next step. Treat their review
    comments as decisions: apply them, and log any that change the plan.

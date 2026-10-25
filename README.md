@@ -277,6 +277,14 @@ every level. A reviewer reads only the step's working set and the references it 
 not the whole plan. Nothing loops unattended: an unanswered questionnaire waits for you
 instead of waking Claude every two hours.
 
+**What it actually cost** is measured, not guessed. After each step, `plan-tool.js cost`
+reads Claude Code's own session logs for the project and splits the usage into planning,
+each step and each agent (workers and reviewers count for the step named in their
+description), by model, in weighted tokens: a cached read counts a tenth of a fresh input
+token, a cache write a quarter more to double, and output five times. The Build tab shows
+the totals, where the cost went and the costliest agents, and each step shows its own cost;
+Claude reports it with the step. Ask for it any time.
+
 ## What a plan contains
 
 Summary and non-goals · requirements · what the existing codebase already has (with
@@ -327,6 +335,7 @@ calendar time goes.
 | `/naqsha:approve [folder]` | you only | Checks the plan is complete (prior art recorded; no open decisions; every step has its failing tests and a done-when check), marks it approved, and unlocks the project. |
 | `/naqsha:build [folder]` | you | Build, or resume building, the plan approved last. Name a folder to resume an earlier approved plan, such as one paused when you started a new plan. |
 | `/naqsha:learn [folder or topic]` | you | Learn what was built and why: a guide on its own page, then taught in chat. Changes no code. |
+| `/naqsha:help` | you | The commands, the flow, and where this project stands: plans and designs with their status and cost, and what to type next. Changes nothing. |
 | `/naqsha:review [area or path]` | you | Review an existing codebase against naqsha's standards: a map every later plan starts from, and ranked findings on their own page, each able to become a plan. Changes no code. |
 
 Claude can't run any of these itself. A typed command is the only way in. Send each one as a

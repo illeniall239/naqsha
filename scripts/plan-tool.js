@@ -21,11 +21,13 @@
 //         "result": "412 passed, 3 failed", "known": ["auth > refresh keeps the session"] }] }
 //       the project's checks as they were before the build changed anything.
 //       Only before the first step is done, so it can't be moved to hide a failure.
+//   plan-tool.js cost <plan.js>           what planning, each step and each agent cost, from Claude Code's logs
 'use strict';
 
 const fs = require('fs');
 const path = require('path');
 const { readPlan, writePlan } = require('./plan-file.js');
+const { costOf } = require('./cost.js');
 
 // Loaded for every step: security first, test-first, modular, the review
 // checklist, and the brief for the independent reviewer.
@@ -344,6 +346,9 @@ function updateStep(plan, id, patch) {
   if ('status' in patch) {
     if (!STEP_STATUS.has(patch.status)) throw new Error(`step status must be one of ${[...STEP_STATUS].join(', ')}`);
     step.status = patch.status;
+    // When it ran, so its cost can be told apart from the steps around it.
+    if (patch.status === 'doing' && !step.startedAt) step.startedAt = new Date().toISOString();
+    if (patch.status === 'done') step.doneAt = new Date().toISOString();
   }
   if (typeof patch.notes === 'string') step.notes = patch.notes;
   if (step.status === 'done') delete step.checkpoint;
@@ -400,6 +405,21 @@ function setMeta(plan, patch) {
   }
 }
 
+const compact = n => (n >= 1e6 ? `${(n / 1e6).toFixed(1)}M` : n >= 1e3 ? `${Math.round(n / 1e3)}k` : String(n));
+function costView(c) {
+  const share = n => (c.total ? ` (${Math.round(100 * n / c.total)}%)` : '');
+  const models = b => Object.entries(b.byModel).map(([k, v]) => `${k} ${compact(v)}`).join(', ');
+  return [
+    `# Cost: ${compact(c.total)} ${c.unit} (cached reads x${c.weights.cacheRead}, cache writes x${c.weights.cacheWrite5m} to x${c.weights.cacheWrite1h}, output x${c.weights.output})`,
+    `Planning: ${compact(c.planning.weight)}${share(c.planning.weight)}${c.planning.weight ? `: ${models(c.planning)}` : ''}`,
+    ...Object.entries(c.steps).map(([id, b]) => `${id}: ${compact(b.weight)}${share(b.weight)}: ${models(b)}`),
+    ...(c.between.weight ? [`Between steps: ${compact(c.between.weight)}${share(c.between.weight)}`] : []),
+    `By model: ${Object.entries(c.byModel).map(([k, v]) => `${k} ${compact(v)}${share(v)}`).join(', ') || 'nothing yet'}`,
+    ...(c.agents.length ? ['Agents, costliest first:', ...c.agents.slice(0, 8).map(a => `- ${a.name} (${a.where}, ${a.model}): ${compact(a.weight)} over ${a.calls} calls`)] : []),
+    ...(c.total ? [] : [`No usage found in ${c.logs}.`]),
+  ].join('\n');
+}
+
 function readPatch() {
   const raw = fs.readFileSync(0, 'utf8').trim();
   try {
@@ -413,8 +433,8 @@ function readPatch() {
 
 function main(argv) {
   const [cmd, file, id] = argv;
-  if (!file || !['step', 'status', 'ready', 'digest', 'update-step', 'set-meta', 'checkpoint', 'baseline'].includes(cmd)) {
-    throw new Error('usage: plan-tool.js step|status|ready|digest|update-step|set-meta|checkpoint|baseline <plan.js> [S#]');
+  if (!file || !['step', 'status', 'ready', 'digest', 'update-step', 'set-meta', 'checkpoint', 'baseline', 'cost'].includes(cmd)) {
+    throw new Error('usage: plan-tool.js step|status|ready|digest|update-step|set-meta|checkpoint|baseline|cost <plan.js> [S#]');
   }
   const planFile = path.resolve(file);
   const plan = readPlan(planFile);
@@ -422,6 +442,11 @@ function main(argv) {
   if (cmd === 'status') return console.log(statusView(plan));
   if (cmd === 'ready') return console.log(readyView(plan));
   if (cmd === 'digest') return console.log(digestView(plan, planFile));
+  if (cmd === 'cost') {
+    plan.cost = costOf(plan, planFile);
+    writePlan(planFile, plan);
+    return console.log(costView(plan.cost));
+  }
   if (cmd === 'update-step') updateStep(plan, id, readPatch());
   else if (cmd === 'checkpoint') checkpoint(plan, id, readPatch());
   else if (cmd === 'baseline') baseline(plan, readPatch());
