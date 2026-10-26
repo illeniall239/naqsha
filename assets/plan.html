@@ -380,7 +380,7 @@ const rows = (items, f, ids = true) => isNa(items) ? na(items) : !arr(items).len
 const kv = pairs => { const r = pairs.filter(([, v]) => v); return r.length ? `<dl class="kv">${r.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join('')}</dl>` : ''; };
 const kilo = n => (n >= 1e6 ? `${(n / 1e6).toFixed(1)}M` : n >= 1e3 ? `${Math.round(n / 1e3)}k` : String(n || 0));
 // An empty dependency list is an answer ("none"); elsewhere empty means unwritten.
-const present = (p, id) => id === 'later' || id === 'current' || id === 'cost' || id === 'video' ? true : id === 'impact' ? isNa(p.context) || has(p.impact) || isNa(p.impact)
+const present = (p, id) => id === 'later' || id === 'current' || id === 'cost' || id === 'video' || id === 'storylines' ? true : id === 'impact' ? isNa(p.context) || has(p.impact) || isNa(p.impact)
   : ['dependencies', 'needsYou'].includes(id) ? Array.isArray(p[id]) || isNa(p[id]) : has(p[id]);
 // The build's size in the work Claude does, as an honest stand-in for hours.
 // Mirrors plan-tool.js reviewFor, from what the plan states explicitly.
@@ -406,6 +406,7 @@ function indexIds(p) {
   if (!isNa(p.steps)) put(p.steps);
   put(p.screens);
   put(p.scenes, 'scene-');
+  put(p.storylines, 'sl-');
 }
 
 // ---- what the user is writing --------------------------------------------
@@ -460,14 +461,24 @@ function question(q, ask) {
       ${q.why ? `<p class="q-why">${txt(q.why)}</p>` : ''}${body}</div>`;
 }
 
+// A rendered clip from the demo's renders/ folder.
+const clip = f => f && /^renders\/[A-Za-z0-9][A-Za-z0-9._-]*\.(mp4|webm)$/.test(f) ? `<video src="${esc(f)}${KEY ? `?key=${encodeURIComponent(KEY)}` : ''}" controls loop muted playsinline preload="metadata" style="width:100%;margin-top:10px;border-radius:8px;background:#000"></video>` : '';
+// A demo's storyline: a different film, not another title on the same one.
+const storylineBody = s => `${s.device || s.form ? `<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">${s.device ? `<span class="tag">${esc(s.device)}</span>` : ''}${s.form ? `<span class="tag">${esc(s.form)}</span>` : ''}</div>` : ''}
+    ${s.sees ? `<p class="small">${txt(s.sees)}</p>` : ''}
+    ${kv([['First two seconds', s.first && txt(s.first)], ['Beats', s.beats && txt(s.beats)], ['Look', s.look && txt(s.look)], ['Sound', s.sound && txt(s.sound)]])}`;
+const storylineOf = id => id && plan ? arr(plan.storylines).find(s => s.id === id) : null;
+
 function optionCard(d, o, pick) {
   const rec = o.name === d.recommendation;
   const chosen = o.name === d.choice;
+  const sl = storylineOf(o.storyline);
   const inner = `<h5>${pick ? `<input type="radio" name="ans-${esc(d.id)}" data-id="${esc(d.id)}" data-f="choice" value="${esc(o.name)}">` : ''}<span>${txt(o.name)}</span>${
       chosen ? '<span class="pill st-done">chosen</span>' : rec ? '<span class="pill st-rec plain">recommended</span>' : ''}</h5>
-    <div class="pc"><div><span class="lbl">Pros</span>${marks(o.pros, 'yes')}</div><div><span class="lbl">Cons</span>${marks(o.cons, 'no')}</div></div>
+    ${sl ? storylineBody(sl) : ''}
+    ${!sl || arr(o.pros).length || arr(o.cons).length ? `<div class="pc"><div><span class="lbl">Pros</span>${marks(o.pros, 'yes')}</div><div><span class="lbl">Cons</span>${marks(o.cons, 'no')}</div></div>` : ''}
     ${o.preview ? frame(frameDoc(plan || {}, o.preview, !!(plan && plan.tokens)), `${o.name}, preview`) : ''}
-    ${o.video && /^renders\/[A-Za-z0-9][A-Za-z0-9._-]*\.(mp4|webm)$/.test(o.video) ? `<video src="${esc(o.video)}${KEY ? `?key=${encodeURIComponent(KEY)}` : ''}" controls loop muted playsinline preload="metadata" style="width:100%;margin-top:10px;border-radius:8px;background:#000"></video>` : ''}`;
+    ${clip(o.video || (sl && sl.clip))}`;
   const cls = `option${rec ? ' rec' : ''}${chosen ? ' chosen' : ''}`;
   return pick ? `<label class="${cls}">${inner}</label>` : `<div class="${cls}">${inner}</div>`;
 }
@@ -475,7 +486,7 @@ function optionCard(d, o, pick) {
 function decision(d, ask, idPrefix = '') {
   const pick = ask && d.status !== 'decided';
   const opts = arr(d.options);
-  const visual = opts.some(o => o.preview || o.video);
+  const visual = opts.some(o => o.preview || o.video || o.storyline);
   const grid = `${opts.some(o => o.preview) ? sizeBar() : ''}<div class="options${visual ? ' wide' : ''}">${opts.map(o => optionCard(d, o, pick)).join('')}</div>`;
   const decided = d.status === 'decided';
   const why = kv([['Why the recommendation', d.why && txt(d.why)], ['Serves', arr(d.drivers).length && refChips(d.drivers)],
@@ -794,16 +805,28 @@ const SECTIONS = [
       <p class="faint small" style="margin-top:12px">Weighted tokens count a cached read as ${esc(c.weights.cacheRead)}, a cache write as ${esc(c.weights.cacheWrite5m)} to ${esc(c.weights.cacheWrite1h)} and output as ${esc(c.weights.output)} fresh input tokens.
         Sonnet and Haiku cost less per token than Opus, so compare within a model. Measured ${esc(String(c.at || '').slice(0, 16).replace('T', ' '))}.</p>`;
   }],
-  // A demo (meta.kind "demo", from /naqsha:demo): the storyboard and the video.
+  // A demo (meta.kind "demo", from /naqsha:demo): its storylines, the storyboard and the video.
+  ['storylines', 'Storylines', p => {
+    const sls = arr(p.storylines);
+    if (!sls.length) return '<p class="na">Storylines come after the brief: three different films, each with a clip of how it opens.</p>';
+    const dec = arr(p.decisions).find(d => arr(d.options).some(o => o.storyline));
+    const chosen = dec && dec.status === 'decided' ? (arr(dec.options).find(o => o.name === dec.choice) || {}).storyline : null;
+    return `${dec && dec.status !== 'decided' ? `<p class="muted small" style="margin-bottom:12px">Watch each opening, then pick one in <a href="#${esc(dec.id)}">Questions</a>.</p>` : ''}
+      <div class="cards two">${sls.map(s => `<div class="card" id="sl-${esc(s.id)}">
+        <div class="card-h">${idChip(s.id)}<span class="title">${txt(s.name)}</span><span style="flex:1"></span>${s.id === chosen ? '<span class="pill st-done">chosen</span>' : s.recommended ? '<span class="pill st-rec plain">recommended</span>' : ''}</div>
+        ${storylineBody(s)}${clip(s.clip)}</div>`).join('')}</div>`;
+  }],
   ['scenes', 'Storyboard', p => {
     const st = p.story || {};
     let at = 0;
-    const scenes = arr(p.scenes).map(sc => { const r = { ...sc, from: at }; at += Number(sc.seconds) || 0; return r; });
+    // The composer writes each scene's real start (transitions can overlap scenes).
+    const scenes = arr(p.scenes).map(sc => { const from = typeof sc.at === 'number' ? sc.at : at; at = from + (Number(sc.seconds) || 0); return { ...sc, from }; });
     const mmss = t => `${Math.floor(t / 60)}:${String(Math.round(t % 60)).padStart(2, '0')}`;
     return `${st.hook ? `<div class="lede out"><span class="eyebrow">Hook</span><p>${txt(st.hook)}</p></div>` : ''}
       <p class="muted small" style="margin:14px 0">${scenes.length} scenes · ${mmss(at)}${p.meta && p.meta.length ? ` of a ${esc(p.meta.length)} s target` : ''}${p.meta && p.meta.formats ? ` · ${esc(arr(p.meta.formats).join(', '))}` : ''}</p>
       <div class="scenes">${scenes.map(x => `<div class="card scene" id="scene-${esc(x.id)}">
-        <div class="card-h">${idChip(x.id)}<span class="time">${esc(mmss(x.from))} · ${esc(x.seconds)} s</span><span style="flex:1"></span>${x.kind ? `<span class="tag">${esc(x.kind)}</span>` : ''}</div>
+        <div class="card-h">${idChip(x.id)}<span class="time">${esc(mmss(x.from))} · ${esc(x.seconds)} s</span></div>
+        <div class="time" style="margin-bottom:6px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">${(x.make && x.make.type) || x.kind ? `<span class="tag">${esc((x.make && x.make.type) || x.kind)}</span>` : ''}${x.transition ? `<span>enters by ${esc(typeof x.transition === 'string' ? x.transition : x.transition.type || 'cut')}</span>` : ''}</div>
         <div class="small">${txt(x.shows)}</div>
         ${x.caption ? `<div class="cap">“${txt(x.caption)}”</div>` : ''}
         ${x.notes ? `<div class="foot">${txt(x.notes)}</div>` : ''}</div>`).join('')}</div>`;
@@ -815,7 +838,7 @@ const SECTIONS = [
     const safe = f => /^renders\/[A-Za-z0-9][A-Za-z0-9._-]*$/.test(f || '') ? esc(f) + q : '';
     const cur = r.find(x => x.format === videoFormat) || r[0];
     let at = 0;
-    const chapters = arr(p.scenes).map(sc => { const c = { id: sc.id, caption: sc.caption || sc.shows, from: at }; at += Number(sc.seconds) || 0; return c; });
+    const chapters = arr(p.scenes).map(sc => { const from = typeof sc.at === 'number' ? sc.at : at; at = from + (Number(sc.seconds) || 0); return { id: sc.id, caption: sc.caption || sc.shows, from }; });
     return `<div class="frames-bar" role="group" aria-label="Format">${r.map(x => `<button type="button" data-format="${esc(x.format)}" aria-pressed="${x === cur}">${esc(x.format)}</button>`).join('')}</div>
       <video id="demo-video" controls preload="metadata" playsinline style="width:100%;max-height:70vh;background:#000;border-radius:10px"${p.poster && safe(p.poster) ? ` poster="${safe(p.poster)}"` : ''} src="${safe(cur.file)}">
         ${p.captions && /\.vtt$/.test(p.captions) && safe(p.captions) ? `<track kind="captions" src="${safe(p.captions)}" default>` : ''}</video>
@@ -872,8 +895,9 @@ let videoFormat = null;
 const DEMO_TABS = [
   ['overview', 'Overview', ['summary']],
   ['questions', 'Questions', []],
-  ['story', 'Story', ['scenes']],
-  ['style', 'Style', ['decisions']],
+  ['storylines', 'Storylines', ['storylines']],
+  ['story', 'Storyboard', ['scenes']],
+  ['style', 'Choices', ['decisions']],
   ['video', 'Video', ['video']],
   ['log', 'Change log', ['changelog']],
 ];

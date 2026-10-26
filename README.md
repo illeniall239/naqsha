@@ -2,7 +2,7 @@
 
 *Naqsha* (نقشہ) is Urdu for map, plan or blueprint.
 
-[![The naqsha demo](media/naqsha-demo.gif)](https://github.com/illeniall239/naqsha/releases/download/v0.11.0/naqsha-demo.mp4)
+[![The naqsha demo](media/naqsha-demo.gif)](https://github.com/illeniall239/naqsha/releases/download/v0.13.0/naqsha-demo.mp4)
 
 *The demo you are seeing was made with naqsha itself, using `/naqsha:demo`. Click it for the full video.*
 
@@ -31,7 +31,7 @@ It works for a new app or for a feature in an existing codebase.
 | `/naqsha:build` | Build the approved plan, or resume building it. |
 | `/naqsha:review [area]` | Review an existing codebase: a map of it, and ranked findings that can become plans. |
 | `/naqsha:learn [topic]` | Learn what was built and why, on a page and in chat. |
-| `/naqsha:demo <what it's for>` | Make a demo video of your app, recorded from the real app and rendered to MP4. |
+| `/naqsha:demo <what it's for>` | Make a demo video of your app: pick a storyline, Claude records the real app and directs the film. |
 | `/naqsha:help` | The commands, where your project stands, and what to type next. |
 
 Send each command as a message of its own. Plans are saved in `docs/plans/` so you can

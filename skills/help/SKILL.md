@@ -25,7 +25,7 @@ changes until you approve it, and then Claude builds it test-first and security-
 | `/naqsha:build` | Build the approved plan, a step at a time, with reviews and checks. Resumes where it stopped. |
 | `/naqsha:review` | Audit an existing codebase and map it. Changes no code. |
 | `/naqsha:learn` | Learn what was built and why, on its own page. Changes no code. |
-| `/naqsha:demo <what it's for>` | Make a demo video of the app: storyboard, template clips to pick from, the real app recorded, rendered with captions. Changes no code. |
+| `/naqsha:demo <what it's for>` | Make a directed demo video of the app: three storylines to pick from (each with a clip of how it opens), the real app recorded, motion graphics in the product's look with caused transitions and UI sound, rendered with captions. Changes no code. |
 | `/naqsha:help` | This. |
 
 **Good to know**

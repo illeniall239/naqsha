@@ -1,16 +1,17 @@
 ---
 name: demo
-description: Make a demo video of the app, from a storyboard the user approves on a local webpage: a screen-recorded walkthrough of the real app (Claude drives it, so zooms, cursor, clicks and keystrokes are exact), a motion-graphics launch video, or a hybrid of both, in the product's own look, rendered to MP4 with captions in 16:9, 9:16 and 1:1. Changes no project code. Run as /naqsha:demo <what the video is for>.
+description: Make a demo video of the app that's directed, not templated. The user picks from three storylines on a local webpage, each with a rendered clip of how it opens. Claude records the real app (zooms, cursor, clicks and keystrokes exact), builds the motion graphics in the product's own look with caused transitions, kinetic type and UI sound, reviews it like a motion director, and renders an MP4 with captions. Changes no project code. Run as /naqsha:demo <what the video is for>.
 argument-hint: "<what the video is for>"
 disable-model-invocation: true
 ---
 
 # Naqsha: demo
 
-The user decides what their demo says and how it looks; you storyboard it, show the options,
-record the real app, compose and render it. The deliverable is a video they've approved
-scene by scene, not a recording they have to fix. You change no project code: everything
-goes in the demo's folder.
+The user decides what their demo says and which film it is; you direct it. That means a
+storyline with a device and a form, a look taken from the product, a transition with a
+cause at every seam, the real app as the proof, and a review pass as a harsh motion director
+before they see it. The deliverable is a film they've approved scene by scene, not a
+slideshow of features. You change no project code: everything goes in the demo's folder.
 
 The request: $ARGUMENTS
 
@@ -22,28 +23,31 @@ send `/naqsha:demo <what it's for>` as a message of its own.
 
 - **Only what the app really does.** Every feature shown works in the build being
   recorded. No invented metrics, testimonials, customer logos or "coming soon" shown as
-  done. A concept shot is labeled as one on screen.
+  done. A rebuilt screen uses the product's real labels, taken from the code; a concept shot
+  is labeled as one on screen.
 - **Demo data only.** Record against a local or staging run with seeded, made-up data: no
   real customer records, real emails, credentials or production. Mask anything sensitive
   (`masks` in the shot); the masks follow the page frame by frame.
-- **Show options, never just describe them.** Every visual choice (the look, the title
-  card, a callout, the outro, the pacing) reaches the user as two to four rendered options
-  on the page, as `/naqsha:design` does. In chat, only say how many are waiting.
+- **Directed, not templated.** Read `${CLAUDE_SKILL_DIR}/references/direction.md` before
+  the storylines, and hold the film to it: a story with a spine, a look with a source,
+  varied entrances, 3 to 5 kinds of caused transition, none of its generated-film tells. The
+  composer's kit covers the common scenes; when the film needs something it doesn't do (a
+  morph, a rebuilt panel, a color flood, a cursor-driven sequence), write that scene by hand.
+- **Show options, never just describe them.** Every visual choice (the storyline, a scene
+  the user is unsure of, the end card) reaches the user as rendered clips on the page. In
+  chat, only say how many are waiting.
 - **Right the first time.** Never write a script, run it, fix the first error and run it
   again until it works. Use the tested pieces (`capture.mjs`, `compose.cjs`,
   `naqsha-demo.js`), check before running (`compose.cjs --env` and `--check`, a rehearsal
   for every shot), and when something does fail, find the cause, fix every place it
   applies, and say what it was.
-- **It gels with the product.** Motion graphics use the product's design: the approved
-  design's tokens, or the system in the code. The creative bar is the design skill's: the
-  level of an Awwwards Site of the Day, with clean, purposeful motion
-  (`${CLAUDE_PLUGIN_ROOT}/skills/build/references/interface.md`, "Motion"), never a stock
-  template.
-- **Captions by default, sound only by choice.** Burned-in captions and an `.srt`. A voice
-  is the user's choice: a local voice (offline, free), or a provider such as ElevenLabs or
-  OpenAI with their key, which sends the script to that provider, so only with their
-  explicit yes. Music only if the user provides it or it's licensed for this use, with the
-  license recorded.
+- **Captions by default; sound by choice, licensed.** Burned-in captions and an `.srt`,
+  since most feeds play muted. UI sounds come from the HyperFrames pack (Pixabay Content
+  License: free for commercial use). Music only from the user, or a track whose license
+  allows this use (CC0, CC BY with its credit, or bought), with the license recorded. A
+  voice is the user's choice: a local voice (offline, free), or a provider such as
+  ElevenLabs or OpenAI with their key, which sends the script to that provider, so only with
+  their explicit yes.
 
 ## 1. Set up
 
@@ -59,6 +63,9 @@ send `/naqsha:demo <what it's for>` as a message of its own.
   `node "${CLAUDE_PLUGIN_ROOT}/assets/demo/compose.cjs" --env` (Node 22 or later, FFmpeg),
   and Playwright in the project (or `npx playwright install chromium`). Say plainly what's
   missing.
+- HyperFrames ships its own craft skills (`npx hyperframes skills`), installed into the
+  user's AI tools. They go deeper than `direction.md` on motion and sound, but that install
+  is outside this project: offer it in a line, and run it only on the user's yes.
 
 ## 2. The brief
 
@@ -66,62 +73,63 @@ On the page, in phases, only what the user knows:
 
 - **What it's for and where it goes:** the landing page, a launch (Product Hunt, X,
   LinkedIn), YouTube, docs, a sales or investor deck. That sets the length (a social cut
-  15 to 30 s, a landing loop 20 to 40 s, a walkthrough 60 to 90 s), the formats, and
-  whether it must work muted (assume it must).
+  15 to 30 s, a landing loop 20 to 40 s, a walkthrough 60 to 90 s) and whether it must work
+  muted (assume it must).
 - **Who watches,** and the one thing they should remember and do afterwards.
 - **What it shows:** the moment the product clicks for a user, and the two or three
   features that matter most. Fewer is stronger.
-- **The kind:** a recorded walkthrough, a motion-graphics video, or a hybrid (the
-  default): motion graphics for the hook, the callouts and the end, the real app for the
-  proof. The storyboard decides per scene.
-- Brand and tone, narration (captions by default), music (none by default).
+- **References:** a film or a brand they like the feel of (its grammar, never its content).
+- **Sound:** UI sounds (on by default), music (theirs, a licensed track you find with them,
+  or none), narration (captions by default).
 
-Then learn the product yourself: its design (the hook names it), how it runs (the hook
-names `testing.runIt` or the codebase map), its flows (a plan's digest, if there is one),
-and screenshots of the screens you'll show.
+Then learn the product yourself: its design (the hook names it: tokens, fonts, the
+screens), how it runs (`testing.runIt` or the codebase map), its flows, the real numbers
+and labels you can show, and screenshots of the screens you'll use.
 
-## 3. The storyboard
+## 3. Three storylines
 
-Write `story` and `scenes`. The shape that works: a **hook** in the first two seconds (the
-outcome, not the logo; frame 0 is the thumbnail on social players, so it's never empty),
-the **problem** in a line, the **moment it clicks** shown in the real app, two or three
-**features** each as one scene, and the **call to action**. One idea per scene. Give each
-scene its caption (verbatim) and a `make` block saying what it is: a `title`, a
-`statement`, a `terminal`, a `recording` or an `end` card (`demo-format.md` has each).
-Captions need about 0.5 s plus 0.3 s a word on screen, at least 2 s.
+Write `storylines` (`direction.md` section 2): three films that differ in device, form and
+world, one of them bold, your recommendation first. Each gets a `hook`: its look and the
+scenes of its first five seconds or so, so the user watches how each film opens, not a
+description of it.
 
-The wording is a conversation, not a page: settle it with the user in chat.
+1. Record the shots the hooks need first (production steps 1 to 4), so every hook shows the
+   real product.
+2. For each storyline:
+   `node "${CLAUDE_PLUGIN_ROOT}/assets/demo/compose.cjs" <demo> --storyline <id>`, then
+   `npx hyperframes check` in `video/`, look at frame 0 and the middle
+   (`npx hyperframes snapshot --at 0,2.5 --describe false`), and render at `--quality draft`
+   to `renders/storyline-<id>.mp4` (its `clip`).
+3. Put a decision on the page whose options carry `storyline` (and nothing else to read:
+   the page shows each storyline's device, form, opening, beats, look, sound and clip). The
+   user watches and picks; a mix ("S1's opening with S3's ending") is one storyline.
 
-## 4. Templates: the look, chosen from real clips
+Picking a storyline picks its look and its sound: copy its `hook.look` to `look`, and its
+hook scenes become the start of `scenes`.
 
-A still can't show motion, so the look is chosen from **rendered 10 to 15 second clips**,
-never from descriptions or static previews. Each clip runs the same short script (the
-hook, one recorded moment, the end card) and differs only in look and motion.
+## 4. The storyboard
 
-1. Record the one shot the samples need first (production steps 1 to 4), so every
-   template shows the real product.
-2. Set `look` in `plan.js` (fonts downloaded into the demo folder; see `demo-format.md`).
-3. For two or three templates: `node "${CLAUDE_PLUGIN_ROOT}/assets/demo/compose.cjs" <demo>
-   --sample <template> --entrance <mask|snap|cut>`, then `npx hyperframes check` and a
-   render at `--quality looks` to `renders/template-<template>-<entrance>.mp4`. Templates:
-   `signal` (dark, heavy type, one accent), `paper` (light, serif, calm), `blueprint`
-   (navy grid, a line that draws). Pick the two or three that fit the product's design and
-   the brief, in its tokens' colors where the product has a design.
-4. Look at a frame from each clip yourself (frame 0 shows the hook; the recording fills
-   its window) before showing them.
-5. Put them on the page as a decision whose options carry `video`. The user watches and
-   picks. Production of the full film starts on their word.
+From the picked storyline, write `scenes` (`demo-format.md` has each type): beats from
+`direction.md` section 3, one idea per scene, each with its caption (verbatim; about 0.5 s
+plus 0.3 s a word on screen, at least 2 s), its `make`, and, from the second scene on, its
+`transition`: how it arrives, caused by something on screen. Worlds change through
+`ground`. Where the kit stops, a scene is `custom`: a hand-made scene in
+`scenes/<id>.html` (`production.md` has the contract). The wording is a conversation, not a
+page: settle it with the user in chat, then show the storyboard on the page.
 
 ## 5. Production
 
 Follow `${CLAUDE_SKILL_DIR}/references/production.md`; read it now. It is built to work the
 first time: check the tools, rehearse every shot, validate the whole storyboard with
-`compose.cjs --check` (it reports every problem at once), then compose, check, look and
-render. Record the renders in `plan.js`; the Video tab plays them.
+`compose.cjs --check` (it reports every problem at once, and notes the film's weak spots:
+too many hard cuts, one entrance everywhere, a default font, silence), then compose,
+check, review, render. Record the renders in `plan.js`; the Video tab plays them.
 
 ## 6. Review
 
-The user watches on the page and comments at a timestamp ("[0:12] the zoom is too fast").
-What they send arrives like page answers do. Fix what they asked, re-render only the
-formats it touches, and say in a line what changed. Running `/naqsha:demo` again with the
-same slug picks the storyboard up where it is.
+Before the user sees it, review the film yourself as `direction.md` section 10 says: the
+check, the review sheets, every beat frame described as a stranger would, P0 and P1 notes
+fixed. Then the user watches on the page and comments at a timestamp ("[0:12] the zoom is
+too fast"). What they send arrives like page answers do. Fix what they asked, re-render
+only what it touches, and say in a line what changed. Running `/naqsha:demo` again with the
+same slug picks the film up where it is.
