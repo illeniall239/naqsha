@@ -4,86 +4,150 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Learn</title>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400&display=swap">
 <style>
 :root {
-  --bg: #fbfbfa; --panel: #ffffff; --text: #1d1d1b; --muted: #6b6b66; --line: #e4e3df;
-  --accent: #2f5bd3; --on-accent: #ffffff; --warn: #8a5a00; --ok: #1f7a46; --bad: #b42318; --code: #f2f1ee; --tint: #eef2fc;
-}
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #161615; --panel: #1f1f1d; --text: #ecebe7; --muted: #a3a29c; --line: #34332f;
-    --accent: #8aa8ff; --on-accent: #10204d; --warn: #f2c46b; --ok: #6fcf97; --bad: #ff8a80; --code: #2a2a27; --tint: #232a3d;
-  }
+  --paper: #f6f4ee; --surface: #fffdf9; --sunken: #efece5; --ink: #1c1b18; --ink-2: #57534b; --ink-3: #8b877d;
+  --rule: #e4e0d6; --rule-2: #d3cdc0;
+  --accent: #2447c9; --accent-soft: #e8ecfa; --on-accent: #ffffff;
+  --ok: #1b7445; --ok-soft: #e2f0e6; --warn: #985600; --warn-soft: #fbefda; --bad: #b3241b; --bad-soft: #f9e4e1;
+  --grid: rgba(36, 71, 201, .07); --shadow: 0 1px 2px rgba(28, 27, 24, .05), 0 6px 20px rgba(28, 27, 24, .06);
+  --serif: "Newsreader", Georgia, "Times New Roman", serif;
+  --sans: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  color-scheme: light;
 }
 * { box-sizing: border-box; }
 [hidden] { display: none !important; }
-body { margin: 0; background: var(--bg); color: var(--text); font: 16px/1.65 system-ui, -apple-system, "Segoe UI", sans-serif; }
-main { max-width: 1100px; margin: 0 auto; padding: 24px 16px 80px; }
-header h1 { font-size: 1.7rem; margin: 0 0 4px; line-height: 1.25; }
-.meta { color: var(--muted); font-size: .9rem; display: flex; flex-wrap: wrap; gap: 4px 16px; }
-.intro { margin: 12px 0 0; max-width: 70ch; }
-.layout { display: grid; grid-template-columns: 250px 1fr; gap: 24px; margin-top: 22px; align-items: start; }
-.toc { position: sticky; top: 12px; display: grid; gap: 2px; }
-.toc .progress { font-size: .85rem; color: var(--muted); margin: 0 0 6px 10px; }
-.toc button { display: flex; gap: 8px; align-items: baseline; width: 100%; text-align: left; font: inherit; font-size: .92rem; padding: 6px 10px; border: 0; border-radius: 8px; background: none; color: var(--text); cursor: pointer; }
-.toc button:hover { background: var(--tint); }
-.toc button[aria-current=page] { background: var(--tint); font-weight: 600; }
-.toc .mark { flex: none; width: 1.3em; color: var(--muted); font-size: .85rem; }
-.toc .mark.read { color: var(--ok); }
-.toc hr { border: 0; border-top: 1px solid var(--line); margin: 8px 0; width: 100%; }
-article { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 22px 26px; min-width: 0; }
-article h2 { font-size: 1.4rem; margin: 0 0 4px; line-height: 1.3; }
-.summary { color: var(--muted); font-size: 1.02rem; margin: 0 0 16px; }
-article h3 { font-size: 1rem; margin: 22px 0 8px; }
-article p, article ul { max-width: 72ch; }
-a { color: var(--accent); }
-code { background: var(--code); padding: 1px 5px; border-radius: 4px; font-size: .88em; }
-ul { padding-left: 22px; }
-li { margin: 3px 0; }
-table { width: 100%; border-collapse: collapse; font-size: .92rem; }
-th, td { text-align: left; vertical-align: top; padding: 7px 8px; border-bottom: 1px solid var(--line); }
-th { color: var(--muted); font-weight: 600; font-size: .8rem; text-transform: uppercase; letter-spacing: .03em; }
-.scroll { overflow-x: auto; }
-.why li { list-style: none; margin-left: -22px; padding: 8px 12px; border-left: 3px solid var(--accent); background: var(--tint); border-radius: 0 8px 8px 0; margin-bottom: 6px; }
-.src { display: inline-block; margin-left: 6px; font-size: .75rem; font-weight: 600; padding: 0 7px; border-radius: 999px; border: 1px solid currentColor; color: var(--muted); white-space: nowrap; }
-.src.unknown { color: var(--warn); }
-.try li::marker { content: '→ '; color: var(--accent); }
-details.check { border: 1px solid var(--line); border-radius: 8px; padding: 8px 12px; margin: 8px 0; }
-details.check summary { cursor: pointer; font-weight: 600; }
-details.check[open] summary { margin-bottom: 6px; }
-.diagram { overflow-x: auto; margin: 12px 0; }
-pre { background: var(--code); padding: 10px; border-radius: 6px; overflow-x: auto; font-size: .85rem; }
-.nav { display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; margin-top: 26px; padding-top: 14px; border-top: 1px solid var(--line); }
-button.btn { font: inherit; font-size: .92rem; padding: 7px 14px; border-radius: 8px; border: 1px solid var(--line); background: var(--panel); color: var(--text); cursor: pointer; }
+body { margin: 0; background: var(--paper); color: var(--ink); font: 15px/1.6 var(--sans); -webkit-font-smoothing: antialiased; }
+a { color: var(--accent); text-underline-offset: 2px; }
+code { font: .84em var(--mono); background: var(--sunken); padding: 1px 5px; border-radius: 4px; overflow-wrap: anywhere; }
+pre { font: .82rem/1.55 var(--mono); background: var(--sunken); padding: 12px 14px; border-radius: 8px; overflow-x: auto; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
+.eyebrow { font: 500 .72rem/1.2 var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--ink-3); }
+.lbl { font: 600 .7rem var(--mono); letter-spacing: .07em; text-transform: uppercase; color: var(--ink-3); }
+.empty { color: var(--ink-2); font-style: italic; }
+
+/* ---- masthead ---- */
+.masthead { border-bottom: 1px solid var(--rule); background:
+  linear-gradient(var(--grid) 1px, transparent 1px) 0 0 / 24px 24px,
+  linear-gradient(90deg, var(--grid) 1px, transparent 1px) 0 0 / 24px 24px, var(--surface); }
+.masthead .in { max-width: 1240px; margin: 0 auto; padding: 30px 24px 26px; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 18px 48px; align-items: end; }
+.masthead h1 { font: 600 2.2rem/1.15 var(--serif); letter-spacing: -.01em; margin: 8px 0 12px; max-width: 34ch; text-wrap: balance; }
+.meta { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; color: var(--ink-2); font-size: .86rem; }
+.meta .sep { color: var(--rule-2); }
+.intro { font: 400 1.08rem/1.6 var(--serif); color: var(--ink-2); max-width: 72ch; margin-top: 14px; }
+.intro p { margin: 0 0 8px; }
+.progress-box { min-width: 240px; }
+.progress-box .nums { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 6px; }
+.progress-box .nums b { font: 600 1.5rem/1 var(--serif); }
+.segbar { display: flex; gap: 3px; height: 8px; }
+.segbar span { flex: 1; border-radius: 2px; background: var(--rule); }
+.segbar span.read { background: var(--ok); }
+
+/* ---- layout ---- */
+.shell { max-width: 1240px; margin: 0 auto; padding: 0 24px 100px; display: grid; grid-template-columns: 250px minmax(0, 1fr); gap: 52px; }
+.toc { position: sticky; top: 0; align-self: start; max-height: 100vh; overflow-y: auto; padding: 26px 0; display: grid; gap: 1px; }
+.toc .grp { margin: 14px 0 6px 10px; }
+.toc .grp:first-child { margin-top: 0; }
+.toc button { display: flex; gap: 10px; align-items: baseline; width: 100%; text-align: left; font: 500 .9rem/1.35 var(--sans); padding: 7px 10px; border: 0; border-radius: 7px; background: none; color: var(--ink-2); cursor: pointer; }
+.toc button:hover { background: var(--sunken); color: var(--ink); }
+.toc button[aria-current=page] { background: var(--surface); color: var(--ink); box-shadow: inset 0 0 0 1px var(--rule); }
+.toc .mark { flex: none; width: 1.7em; font: 500 .72rem var(--mono); color: var(--ink-3); }
+.toc .mark.read { color: var(--ok); font-weight: 600; }
+.content { padding-top: 34px; min-width: 0; }
+article { max-width: 760px; }
+
+/* ---- chapter ---- */
+.ch-h h2 { font: 600 2.1rem/1.15 var(--serif); letter-spacing: -.01em; margin: 8px 0 14px; text-wrap: balance; }
+.lede { font: italic 400 1.28rem/1.5 var(--serif); color: var(--ink); margin: 0 0 28px; padding-left: 16px; border-left: 3px solid var(--accent); }
+.prose { font: 400 1.1rem/1.7 var(--serif); }
+.prose p { margin: 0 0 16px; }
+.prose ul { margin: 0 0 16px; padding-left: 22px; }
+.prose li { margin: 6px 0; }
+.prose li::marker { color: var(--ink-3); }
+.prose code { font-size: .78em; }
+.block { margin-top: 38px; }
+.block > .lbl { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+.block > .lbl::after { content: ''; flex: 1; height: 1px; background: var(--rule); }
+figure.diagram { margin: 28px 0; background: var(--surface); border: 1px solid var(--rule); border-radius: 12px; padding: 18px; overflow-x: auto; }
+figure.diagram svg { max-width: 100%; height: auto; display: block; margin: 0 auto; }
+figure.diagram pre { background: none; padding: 0; margin: 0; }
+.why { display: grid; gap: 8px; }
+.why .item { background: var(--surface); border: 1px solid var(--rule); border-radius: 10px; padding: 12px 14px; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px 14px; align-items: start; }
+.why .item.unknown { border-style: dashed; }
+.src { display: inline-block; font: 500 .72rem/1.5 var(--mono); padding: 1px 7px; border-radius: 5px; background: var(--accent-soft); color: var(--accent); white-space: nowrap; text-decoration: none; max-width: 22em; overflow: hidden; text-overflow: ellipsis; }
+.src.unknown { background: var(--warn-soft); color: var(--warn); }
+.files { border-top: 1px solid var(--rule); }
+.files .f { display: grid; grid-template-columns: minmax(0, 15em) minmax(0, 1fr); gap: 4px 18px; padding: 10px 2px; border-bottom: 1px solid var(--rule); }
+.path { font: .8rem/1.5 var(--mono); color: var(--ink); overflow-wrap: anywhere; }
+.path .ln { color: var(--accent); }
+.tasks { list-style: none; padding: 0; margin: 0; counter-reset: t; display: grid; gap: 8px; }
+.tasks li { counter-increment: t; position: relative; padding: 12px 14px 12px 50px; background: var(--surface); border: 1px solid var(--rule); border-radius: 10px; }
+.tasks li::before { content: counter(t); position: absolute; left: 14px; top: 12px; width: 24px; height: 24px; border-radius: 50%; background: var(--accent-soft); color: var(--accent); font: 600 .75rem/24px var(--mono); text-align: center; }
+.cards-q { display: grid; gap: 8px; }
+details.check { background: var(--surface); border: 1px solid var(--rule); border-radius: 10px; }
+details.check > summary { list-style: none; cursor: pointer; padding: 13px 16px; display: flex; gap: 12px; align-items: baseline; font: 500 1.02rem/1.4 var(--serif); }
+details.check > summary::-webkit-details-marker { display: none; }
+details.check > summary .q { color: var(--accent); font: 600 .74rem var(--mono); }
+details.check > summary .reveal { margin-left: auto; font: 500 .78rem var(--sans); color: var(--accent); white-space: nowrap; }
+details.check[open] > summary .reveal { color: var(--ink-3); }
+details.check .a { padding: 0 16px 14px 16px; border-top: 1px dashed var(--rule); padding-top: 12px; font-size: 1rem; }
+details.check .a p { margin: 0 0 10px; }
+details.check .a p:last-child { margin: 0; }
+.ask { margin-top: 38px; padding: 16px; border-radius: 12px; background: var(--accent-soft); }
+.ask p { margin: 0; font-size: .9rem; }
+.ask .row { display: flex; gap: 10px; align-items: center; margin-top: 10px; flex-wrap: wrap; }
+.nav { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 44px; }
+.nav .go { display: block; text-align: left; font: inherit; padding: 14px 16px; border: 1px solid var(--rule); border-radius: 12px; background: var(--surface); color: var(--ink); cursor: pointer; }
+.nav .go:hover { border-color: var(--ink-3); }
+.nav .go.next { text-align: right; grid-column: 2; background: var(--ink); color: var(--paper); border-color: var(--ink); }
+.nav .go.next .lbl { color: inherit; opacity: .65; }
+.nav .go b { display: block; font: 600 1.05rem/1.35 var(--serif); margin-top: 3px; }
+.filter { display: block; width: 100%; font: .95rem var(--sans); color: var(--ink); background: var(--surface); border: 1px solid var(--rule-2); border-radius: 8px; padding: 9px 12px; margin-bottom: 14px; }
+.gloss { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 10px; }
+.gloss .g { background: var(--surface); border: 1px solid var(--rule); border-radius: 10px; padding: 12px 14px; }
+.gloss .g b { display: block; font: 600 1.02rem/1.3 var(--serif); margin-bottom: 4px; }
+.gloss .g span { font-size: .9rem; color: var(--ink-2); }
+button.btn { font: 500 .88rem var(--sans); padding: 7px 14px; border-radius: 8px; border: 1px solid var(--rule-2); background: var(--surface); color: var(--ink); cursor: pointer; }
 button.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); font-weight: 600; }
-button.btn:disabled { opacity: .5; cursor: default; }
-input[type=search], textarea { display: block; width: 100%; font: inherit; font-size: .95rem; color: var(--text); background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; }
-textarea { resize: vertical; margin-top: 6px; }
-.ask { margin-top: 22px; padding: 14px; border: 1px dashed var(--line); border-radius: 10px; }
-.ask p { margin: 0; font-size: .9rem; color: var(--muted); }
-.ask .row { display: flex; gap: 8px; align-items: center; margin-top: 8px; flex-wrap: wrap; }
-.status { font-size: .85rem; color: var(--muted); }
+textarea { display: block; width: 100%; font: .95rem var(--sans); color: var(--ink); background: var(--surface); border: 1px solid var(--rule-2); border-radius: 8px; padding: 8px 10px; resize: vertical; margin-top: 8px; }
+.status { font-size: .85rem; color: var(--ink-2); }
 .status.bad { color: var(--bad); }
-.empty { color: var(--muted); font-style: italic; }
-:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-footer { color: var(--muted); font-size: .8rem; margin-top: 24px; }
-@media (max-width: 760px) {
-  .layout { grid-template-columns: 1fr; }
-  .toc { position: static; display: flex; gap: 6px; overflow-x: auto; padding-bottom: 4px; }
-  .toc .progress, .toc hr { display: none; }
-  .toc button { width: auto; white-space: nowrap; border: 1px solid var(--line); border-radius: 999px; }
-  article { padding: 18px 16px; }
+footer { color: var(--ink-3); font: .78rem var(--mono); margin-top: 40px; }
+
+@media (max-width: 900px) {
+  .shell { grid-template-columns: minmax(0, 1fr); gap: 0; padding: 0 16px 80px; }
+  .toc { min-width: 0; }
+  .meta .sep { display: none; }
+  .toc { position: sticky; top: 0; z-index: 3; max-height: none; display: flex; gap: 4px; overflow-x: auto; margin: 0 -16px; padding: 8px 16px; background: var(--paper); border-bottom: 1px solid var(--rule); }
+  .toc .grp { display: none; }
+  .toc button { width: auto; white-space: nowrap; }
+  .masthead .in { grid-template-columns: 1fr; padding: 22px 16px 18px; }
+  .masthead h1 { font-size: 1.75rem; }
+  .progress-box { min-width: 0; }
+  .content { padding-top: 22px; }
+  .ch-h h2 { font-size: 1.65rem; }
+  .prose { font-size: 1.05rem; }
+}
+@media (max-width: 560px) {
+  .files .f { grid-template-columns: 1fr; }
+  .why .item { grid-template-columns: 1fr; }
+  .nav { grid-template-columns: 1fr; }
+  .nav .go.next { grid-column: 1; }
 }
 @media print {
-  .toc, .nav, .ask, footer { display: none; }
-  .layout { display: block; }
+  .toc, .nav, .ask, footer, .filter { display: none; }
+  .shell { display: block; }
   [data-view][hidden] { display: block !important; }
+  details.check > .a { display: block; }
   details.check { break-inside: avoid; }
 }
 </style>
 </head>
 <body>
-<main id="app"><p class="empty">Loading guide.js…</p></main>
+<div id="app"><p class="empty" style="padding:24px">Loading guide.js…</p></div>
 <script>
 'use strict';
 // The guide /naqsha:learn wrote: what was built, why, and where everything is.
@@ -110,13 +174,14 @@ const prose = s => String(s || '').split(/\n\s*\n/).map(b => b.trim()).filter(Bo
 const safeUrl = u => /^https?:\/\//i.test(u || '') ? esc(u) : null;
 // Where a "why" comes from: an answer, a decision, research, or nothing recorded.
 const KINDS = { SC: 'screen', Q: 'your answer', D: 'decision', N: 'quality scenario', T: 'threat', S: 'step', A: 'acceptance criterion', F: 'requirement' };
+const unknown = s => { const v = String(s || '').trim(); return !v || /^not recorded$/i.test(v); };
 function source(s) {
   const v = String(s || '').trim();
-  if (!v || /^not recorded$/i.test(v)) return '<span class="src unknown" title="No reason was recorded for this">reason not recorded</span>';
+  if (unknown(v)) return '<span class="src unknown" title="No reason was recorded for this">reason not recorded</span>';
   const link = safeUrl(v);
-  if (link) return `<a class="src" href="${link}" target="_blank" rel="noopener noreferrer">source</a>`;
+  if (link) return `<a class="src" href="${link}" target="_blank" rel="noopener noreferrer" title="${link}">${esc(v.replace(/^https?:\/\/(www\.)?/, '').split('/')[0])} ↗</a>`;
   const id = /^(SC|[QDNTSAF])\d+$/.exec(v);
-  return `<span class="src" title="${id ? esc(KINDS[id[1]]) : ''}">${esc(v)}</span>`;
+  return `<span class="src" title="${id ? esc(KINDS[id[1]]) : esc(v)}">${esc(v)}</span>`;
 }
 
 // ---- reading progress (this browser only) ----------------------------------
@@ -143,70 +208,74 @@ function views(g) {
   ];
 }
 
-function chapterHtml(c) {
-  return `<h2>${txt(c.title)}</h2>
-    ${c.summary ? `<p class="summary">${txt(c.summary)}</p>` : ''}
-    ${prose(c.body)}
-    ${c.diagram ? `<div class="diagram" data-mermaid="${esc(c.diagram)}"><pre>${esc(c.diagram)}</pre></div>` : ''}
-    ${arr(c.why).length ? `<h3>Why it's this way</h3><ul class="why">${c.why.map(w => `<li>${txt(w.text)}${source(w.source)}</li>`).join('')}</ul>` : ''}
-    ${arr(c.where).length ? `<h3>Where it lives</h3><div class="scroll"><table><thead><tr><th>File</th><th>What's there</th></tr></thead><tbody>${
-      c.where.map(w => `<tr><td><code>${esc(w.path)}${w.line ? `:${esc(w.line)}` : ''}</code></td><td>${txt(w.what)}</td></tr>`).join('')}</tbody></table></div>` : ''}
-    ${arr(c.try).length ? `<h3>Try it yourself</h3><ul class="try">${c.try.map(t => `<li>${txt(t)}</li>`).join('')}</ul>` : ''}
-    ${arr(c.check).length ? `<h3>Check yourself</h3>${c.check.map(q => `<details class="check"><summary>${txt(q.q)}</summary>${prose(q.a)}</details>`).join('')}` : ''}`;
+function chapterHtml(c, n, total) {
+  return `<header class="ch-h"><span class="eyebrow">Chapter ${n} of ${total}</span><h2>${txt(c.title)}</h2></header>
+    ${c.summary ? `<p class="lede">${txt(c.summary)}</p>` : ''}
+    <div class="prose">${prose(c.body)}</div>
+    ${c.diagram ? `<figure class="diagram" data-mermaid="${esc(c.diagram)}"><pre>${esc(c.diagram)}</pre></figure>` : ''}
+    ${arr(c.why).length ? `<section class="block"><div class="lbl">Why it’s this way</div><div class="why">${c.why.map(w =>
+      `<div class="item${unknown(w.source) ? ' unknown' : ''}"><span>${txt(w.text)}</span>${source(w.source)}</div>`).join('')}</div></section>` : ''}
+    ${arr(c.where).length ? `<section class="block"><div class="lbl">Where it lives</div><div class="files">${c.where.map(w =>
+      `<div class="f"><span class="path">${esc(w.path)}${w.line ? `<span class="ln">:${esc(w.line)}</span>` : ''}</span><span>${txt(w.what)}</span></div>`).join('')}</div></section>` : ''}
+    ${arr(c.try).length ? `<section class="block"><div class="lbl">Try it yourself</div><ol class="tasks">${c.try.map(t => `<li>${txt(t)}</li>`).join('')}</ol></section>` : ''}
+    ${arr(c.check).length ? `<section class="block"><div class="lbl">Check yourself</div><div class="cards-q">${c.check.map((q, i) =>
+      `<details class="check"><summary><span class="q">Q${i + 1}</span><span>${txt(q.q)}</span><span class="reveal">Show answer</span></summary><div class="a">${prose(q.a)}</div></details>`).join('')}</div></section>` : ''}`;
 }
 
-const filterTable = (id, rows, cols, label) => `<input type="search" data-filter="${id}" placeholder="Filter ${label}" aria-label="Filter ${label}">
-  <div class="scroll"><table data-rows="${id}"><thead><tr>${cols.map(c => `<th>${c[0]}</th>`).join('')}</tr></thead><tbody>${
-  rows.map(r => `<tr>${cols.map(c => `<td>${c[1](r)}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
+const filterBox = (id, label) => `<input type="search" class="filter" data-filter="${id}" placeholder="Filter ${label}" aria-label="Filter ${label}">`;
 
 function viewHtml(g, v, all) {
   const i = all.indexOf(v);
+  const chapters = all.filter(x => x.chapter).length;
   let body;
-  if (v.chapter) body = chapterHtml(v.chapter);
-  else if (v.id === 'map') body = `<h2>Where everything is</h2><p class="summary">Every folder and file that matters, and what it's for.</p>${
-    filterTable('map', arr(g.map), [['Path', r => `<code>${esc(r.path)}</code>`], ['What it is', r => txt(r.what)]], 'files')}`;
-  else body = `<h2>Glossary</h2><p class="summary">The words this project uses, in plain language.</p>${
-    filterTable('glossary', arr(g.glossary), [['Term', r => `<b>${txt(r.term)}</b>`], ['Meaning', r => txt(r.meaning)]], 'terms')}`;
+  if (v.chapter) body = chapterHtml(v.chapter, v.n, chapters);
+  else if (v.id === 'map') body = `<header class="ch-h"><span class="eyebrow">Reference</span><h2>Where everything is</h2></header>
+    <p class="lede">Every folder and file that matters, and what it’s for.</p>${filterBox('map', 'files')}
+    <div class="files" data-rows="map">${arr(g.map).map(r => `<div class="f"><span class="path">${esc(r.path)}</span><span>${txt(r.what)}</span></div>`).join('')}</div>`;
+  else body = `<header class="ch-h"><span class="eyebrow">Reference</span><h2>Glossary</h2></header>
+    <p class="lede">The words this project uses, in plain language.</p>${filterBox('glossary', 'terms')}
+    <div class="gloss" data-rows="glossary">${arr(g.glossary).map(r => `<div class="g"><b>${txt(r.term)}</b><span>${txt(r.meaning)}</span></div>`).join('')}</div>`;
   const prev = all[i - 1];
   const next = all[i + 1];
   return `<article data-view="${esc(v.id)}"${v === view ? '' : ' hidden'}>${body}
     ${LIVE && v.chapter ? `<div class="ask"><p>Something unclear? Ask Claude about this chapter; the answer comes in your terminal.</p>
       <textarea data-ask="${esc(v.id)}" rows="2" aria-label="Your question about this chapter"></textarea>
-      <div class="row"><button type="button" class="btn" data-action="ask" data-chapter="${esc(v.id)}">Ask</button>
+      <div class="row"><button type="button" class="btn primary" data-action="ask" data-chapter="${esc(v.id)}">Ask Claude</button>
       <span class="status${status.bad ? ' bad' : ''}" data-status="${esc(v.id)}"></span></div></div>` : ''}
-    <div class="nav">${prev ? `<button type="button" class="btn" data-go="${esc(prev.id)}">← ${txt(prev.title)}</button>` : '<span></span>'}
-      ${next ? `<button type="button" class="btn primary" data-go="${esc(next.id)}" data-read="${esc(v.id)}">Next: ${txt(next.title)} →</button>`
-        : `<button type="button" class="btn primary" data-read="${esc(v.id)}">Mark as read</button>`}</div></article>`;
+    <div class="nav">${prev ? `<button type="button" class="go" data-go="${esc(prev.id)}"><span class="lbl">← Previous</span><b>${txt(prev.title)}</b></button>` : '<span></span>'}
+      ${next ? `<button type="button" class="go next" data-go="${esc(next.id)}" data-read="${esc(v.id)}"><span class="lbl">Next →</span><b>${txt(next.title)}</b></button>`
+        : `<button type="button" class="go next" data-read="${esc(v.id)}"><span class="lbl">Finished</span><b>Mark as read</b></button>`}</div></article>`;
 }
 
 function render(g) {
   const m = g.meta || {};
   document.title = `Learn · ${m.title || 'project'}`;
   const all = views(g);
-  if (!all.length) { app.innerHTML = '<p class="empty">The guide has no chapters yet.</p>'; return; }
+  if (!all.length) { app.innerHTML = '<p class="empty" style="padding:24px">The guide has no chapters yet.</p>'; return; }
   view = all.find(v => v.id === (view && view.id ? view.id : view)) || all[0];
   const chapters = all.filter(v => v.chapter);
   const done = chapters.filter(v => read.has(v.id)).length;
+  const meta = [m.scope && txt(m.scope), m.audience && `Written for: ${txt(m.audience)}`,
+    m.commit && `Code as of <code>${esc(String(m.commit).slice(0, 10))}</code>`, m.generated && `Written ${esc(m.generated)}`].filter(Boolean);
   app.innerHTML = `
-    <header>
-      <h1>Learn: ${txt(m.title || 'this project')}</h1>
-      <div class="meta">
-        ${m.scope ? `<span>${txt(m.scope)}</span>` : ''}
-        ${m.audience ? `<span>Written for: ${txt(m.audience)}</span>` : ''}
-        ${m.commit ? `<span>Code as of <code>${esc(String(m.commit).slice(0, 10))}</code></span>` : ''}
-        ${m.generated ? `<span>Written ${esc(m.generated)}</span>` : ''}
-      </div>
+    <header class="masthead"><div class="in"><div>
+      <span class="eyebrow">naqsha · learn</span>
+      <h1>${txt(m.title || 'This project')}</h1>
+      <div class="meta">${meta.map((x, i) => `${i ? '<span class="sep">/</span>' : ''}<span>${x}</span>`).join('')}</div>
       ${g.intro ? `<div class="intro">${prose(g.intro)}</div>` : ''}
-    </header>
-    <div class="layout">
-      <nav class="toc" aria-label="Chapters">
-        <p class="progress">${done} of ${chapters.length} chapters read</p>
-        ${all.map((v, i) => `${!v.chapter && all[i - 1] && all[i - 1].chapter ? '<hr>' : ''}<button type="button" data-go="${esc(v.id)}"${v === view ? ' aria-current="page"' : ''}>
-          <span class="mark${read.has(v.id) ? ' read' : ''}">${v.chapter ? (read.has(v.id) ? '✓' : v.n) : '·'}</span><span>${txt(v.title)}</span></button>`).join('')}
-      </nav>
-      <div>${all.map(v => viewHtml(g, v, all)).join('')}</div>
     </div>
-    <footer>Rendered from guide.js · run /naqsha:learn again after the code changes</footer>`;
+    <div class="progress-box"><div class="nums"><span class="eyebrow">Reading</span><span><b id="done">${done}</b> <span style="color:var(--ink-2)">/ ${chapters.length} chapters</span></span></div>
+      <div class="segbar">${chapters.map(v => `<span data-seg="${esc(v.id)}" class="${read.has(v.id) ? 'read' : ''}" title="${esc(v.title)}"></span>`).join('')}</div></div>
+    </div></header>
+    <div class="shell">
+      <nav class="toc" aria-label="Chapters">
+        <span class="grp lbl">Chapters</span>
+        ${all.map((v, i) => `${!v.chapter && all[i - 1] && all[i - 1].chapter ? '<span class="grp lbl">Reference</span>' : ''}<button type="button" data-go="${esc(v.id)}"${v === view ? ' aria-current="page"' : ''}>
+          <span class="mark${read.has(v.id) ? ' read' : ''}">${v.chapter ? (read.has(v.id) ? '✓' : String(v.n).padStart(2, '0')) : '—'}</span><span>${txt(v.title)}</span></button>`).join('')}
+      </nav>
+      <main class="content">${all.map(v => viewHtml(g, v, all)).join('')}
+        <footer>Rendered from guide.js · run /naqsha:learn again after the code changes</footer></main>
+    </div>`;
   drawDiagrams();
 }
 
@@ -221,22 +290,23 @@ function go(id) {
     if (b.dataset.go === id) b.setAttribute('aria-current', 'page');
     else b.removeAttribute('aria-current');
   }
-  app.querySelector('.layout').scrollIntoView({ block: 'start' });
+  app.querySelector('.shell').scrollIntoView({ block: 'start' });
   drawDiagrams();
 }
 
 function markRead(id) {
   read.add(id);
   saveProgress();
-  const all = views(guide);
-  const chapters = all.filter(v => v.chapter);
+  const chapters = views(guide).filter(v => v.chapter);
   for (const b of app.querySelectorAll('.toc button')) {
     if (b.dataset.go !== id) continue;
     const mark = b.querySelector('.mark');
     mark.classList.add('read');
     if (chapters.some(v => v.id === id)) mark.textContent = '✓';
   }
-  app.querySelector('.toc .progress').textContent = `${chapters.filter(v => read.has(v.id)).length} of ${chapters.length} chapters read`;
+  const seg = app.querySelector(`[data-seg="${CSS.escape(id)}"]`);
+  if (seg) seg.classList.add('read');
+  app.querySelector('#done').textContent = chapters.filter(v => read.has(v.id)).length;
 }
 
 async function ask(id) {
@@ -273,13 +343,14 @@ app.addEventListener('input', e => {
   const f = e.target.dataset.filter;
   if (!f) return;
   const q = e.target.value.trim().toLowerCase();
-  for (const row of app.querySelectorAll(`table[data-rows="${CSS.escape(f)}"] tbody tr`)) row.hidden = q !== '' && !row.textContent.toLowerCase().includes(q);
+  for (const row of app.querySelectorAll(`[data-rows="${CSS.escape(f)}"] > *`)) row.hidden = q !== '' && !row.textContent.toLowerCase().includes(q);
 });
 
 // Fetched once, as soon as the guide has a diagram anywhere.
 let mermaidLoad = null;
 const loadMermaid = () => mermaidLoad || (mermaidLoad = import('https://cdn.jsdelivr.net/npm/mermaid@11.4.1/dist/mermaid.esm.min.mjs').then(m => {
-  m.default.initialize({ startOnLoad: false, securityLevel: 'strict', theme: matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'default' });
+  m.default.initialize({ startOnLoad: false, securityLevel: 'strict', theme: 'base', fontFamily: 'IBM Plex Sans, system-ui, sans-serif',
+    themeVariables: { background: '#fffdf9', primaryColor: '#e8ecfa', primaryBorderColor: '#2447c9', primaryTextColor: '#1c1b18', lineColor: '#8b877d', secondaryColor: '#efece5', tertiaryColor: '#fffdf9', fontSize: '14px' } });
   return m.default;
 }));
 async function drawDiagrams() {
@@ -308,6 +379,8 @@ function load() {
     last = now;
     guide = g;
     if (first) loadProgress();
+    // Don't redraw under someone typing a question; the next poll catches up.
+    if (document.activeElement && document.activeElement.matches('textarea, input')) { last = ''; return; }
     const y = scrollY;
     render(g);
     scrollTo(0, y);

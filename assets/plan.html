@@ -4,122 +4,329 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Plan</title>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&display=swap">
 <style>
 :root {
-  --bg: #fbfbfa; --panel: #ffffff; --text: #1d1d1b; --muted: #6b6b66; --line: #e4e3df;
-  --accent: #2f5bd3; --on-accent: #ffffff; --warn-bg: #fff6e0; --warn: #8a5a00; --ok: #1f7a46; --bad: #b42318; --code: #f2f1ee;
-}
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #161615; --panel: #1f1f1d; --text: #ecebe7; --muted: #a3a29c; --line: #34332f;
-    --accent: #8aa8ff; --on-accent: #10204d; --warn-bg: #3a2d10; --warn: #f2c46b; --ok: #6fcf97; --bad: #ff8a80; --code: #2a2a27;
-  }
+  --paper: #f6f4ee; --surface: #fffdf9; --sunken: #efece5; --ink: #1c1b18; --ink-2: #57534b; --ink-3: #8b877d;
+  --rule: #e4e0d6; --rule-2: #d3cdc0;
+  --accent: #2447c9; --accent-soft: #e8ecfa; --on-accent: #ffffff;
+  --ok: #1b7445; --ok-soft: #e2f0e6; --warn: #985600; --warn-soft: #fbefda; --bad: #b3241b; --bad-soft: #f9e4e1;
+  --grid: rgba(36, 71, 201, .07); --shadow: 0 1px 2px rgba(28, 27, 24, .05), 0 6px 20px rgba(28, 27, 24, .06);
+  --serif: "Newsreader", Georgia, "Times New Roman", serif;
+  --sans: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  color-scheme: light;
 }
 * { box-sizing: border-box; }
 [hidden] { display: none !important; }
-body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.55 system-ui, -apple-system, "Segoe UI", sans-serif; }
-main { max-width: 980px; margin: 0 auto; padding: 24px 16px 80px; }
-header h1 { font-size: 1.7rem; margin: 0 0 6px; line-height: 1.25; }
-.meta { color: var(--muted); font-size: .9rem; display: flex; flex-wrap: wrap; gap: 6px 16px; }
-.tabs { display: flex; gap: 2px; margin: 18px 0 4px; border-bottom: 1px solid var(--line); overflow-x: auto; scrollbar-width: thin; }
-.tabs [role=tab] { border: 0; border-bottom: 2px solid transparent; border-radius: 0; background: none; padding: 8px 12px; white-space: nowrap; color: var(--muted); font-size: .92rem; }
-.tabs [role=tab]:hover { color: var(--text); }
-.tabs [role=tab][aria-selected=true] { color: var(--text); border-bottom-color: var(--accent); font-weight: 600; }
-.tabs [role=tab].todo::after { content: ''; display: inline-block; width: 6px; height: 6px; margin-left: 6px; border-radius: 50%; background: var(--warn); vertical-align: middle; }
-.count-badge { display: inline-block; min-width: 1.5em; margin-left: 4px; padding: 0 6px; border-radius: 999px; background: var(--warn-bg); color: var(--warn); font-size: .75rem; font-weight: 700; text-align: center; }
+html { scroll-padding-top: 16px; }
+body { margin: 0; background: var(--paper); color: var(--ink); font: 15px/1.6 var(--sans); -webkit-font-smoothing: antialiased; }
+a { color: var(--accent); text-decoration-thickness: 1px; text-underline-offset: 2px; }
+p { margin: 0 0 10px; }
+p:last-child { margin-bottom: 0; }
+code { font: .86em var(--mono); background: var(--sunken); padding: 1px 5px; border-radius: 4px; overflow-wrap: anywhere; }
+pre { font: .82rem/1.55 var(--mono); background: var(--sunken); padding: 12px 14px; border-radius: 8px; overflow-x: auto; margin: 0; }
+ul, ol { margin: 0; padding-left: 20px; }
+li { margin: 3px 0; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
+.muted { color: var(--ink-2); }
+.faint { color: var(--ink-3); }
+.small { font-size: .85rem; }
+.na { color: var(--ink-2); font-style: italic; }
+.empty { color: var(--warn); font-style: italic; }
+
+/* ---- masthead ---- */
+.masthead { border-bottom: 1px solid var(--rule); background:
+  linear-gradient(var(--grid) 1px, transparent 1px) 0 0 / 24px 24px,
+  linear-gradient(90deg, var(--grid) 1px, transparent 1px) 0 0 / 24px 24px, var(--surface); }
+.masthead .in { max-width: 1280px; margin: 0 auto; padding: 28px 24px 22px; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 16px 40px; align-items: end; }
+.eyebrow { font: 500 .72rem/1.2 var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--ink-3); }
+.masthead h1 { font: 600 2.15rem/1.15 var(--serif); letter-spacing: -.01em; margin: 8px 0 12px; max-width: 42ch; text-wrap: balance; }
+.meta { display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: center; color: var(--ink-2); font-size: .86rem; }
+.meta .sep { color: var(--rule-2); }
+.progress-box { min-width: 260px; }
+.progress-box .nums { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 6px; }
+.progress-box .nums b { font: 600 1.5rem/1 var(--serif); }
+.segbar { display: flex; gap: 3px; height: 8px; }
+.segbar .seg { flex: 1; border-radius: 2px; background: var(--rule); }
+.seg.st-done { background: var(--ok); }
+.seg.st-doing { background: var(--accent); }
+.seg.st-blocked { background: var(--bad); }
+
+/* ---- shell ---- */
+.shell { max-width: 1280px; margin: 0 auto; padding: 0 24px 120px; display: grid; grid-template-columns: 210px minmax(0, 1fr); gap: 48px; }
+.rail { position: sticky; top: 0; align-self: start; max-height: 100vh; overflow-y: auto; padding: 24px 0; }
+.rail [role=tablist] { display: grid; gap: 1px; }
+.rail [role=tab] { display: flex; align-items: center; gap: 8px; width: 100%; text-align: left; font: 500 .92rem/1.3 var(--sans); padding: 8px 10px; border: 0; border-radius: 7px; background: none; color: var(--ink-2); cursor: pointer; }
+.rail [role=tab]:hover { background: var(--sunken); color: var(--ink); }
+.rail [role=tab][aria-selected=true] { background: var(--surface); color: var(--ink); box-shadow: inset 0 0 0 1px var(--rule); }
+.rail [role=tab] .n { font: 500 .7rem var(--mono); color: var(--ink-3); width: 1.6em; }
+.rail [role=tab].todo .n::after { content: ''; display: inline-block; width: 5px; height: 5px; margin-left: 3px; border-radius: 50%; background: var(--warn); vertical-align: middle; }
+.count-badge { margin-left: auto; min-width: 1.6em; padding: 1px 6px; border-radius: 999px; background: var(--warn); color: var(--surface); font: 600 .72rem/1.4 var(--sans); text-align: center; }
 .count-badge:empty { display: none; }
-.phases { list-style: none; padding: 0; margin: 14px 0; display: flex; flex-wrap: wrap; gap: 6px; }
-.phase { display: inline-flex; gap: 8px; align-items: center; border-radius: 999px; padding: 4px 12px 4px 5px; }
-.phase .num { display: inline-grid; place-items: center; width: 1.6em; height: 1.6em; border-radius: 50%; background: var(--line); font-size: .8rem; font-weight: 700; }
-.phase.current { border-color: var(--accent); }
+.sub { list-style: none; margin: 2px 0 8px; padding: 0 0 0 28px; border-left: 0; }
+.sub li { margin: 0; }
+.sub a { display: block; padding: 3px 8px; font-size: .84rem; color: var(--ink-3); text-decoration: none; border-left: 1px solid var(--rule); }
+.sub a:hover { color: var(--ink); border-left-color: var(--ink-3); }
+.content { padding-top: 28px; min-width: 0; max-width: 940px; }
+
+/* ---- sections ---- */
+.sec { padding: 4px 0 34px; margin-bottom: 30px; border-bottom: 1px solid var(--rule); scroll-margin-top: 16px; }
+.sec:last-child { border-bottom: 0; }
+.sec-h { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; margin-bottom: 16px; }
+.sec-h h2 { font: 600 1.55rem/1.2 var(--serif); margin: 0; letter-spacing: -.005em; }
+.sec-h .count { font: 500 .78rem var(--mono); color: var(--ink-3); margin-left: 8px; }
+h3 { font: 600 .74rem/1.3 var(--mono); letter-spacing: .07em; text-transform: uppercase; color: var(--ink-3); margin: 26px 0 10px; }
+h3:first-child { margin-top: 0; }
+.prose { max-width: 70ch; }
+
+/* ---- building blocks ---- */
+.card { background: var(--surface); border: 1px solid var(--rule); border-radius: 10px; padding: 14px 16px; min-width: 0; }
+.cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(270px, 1fr)); gap: 12px; align-items: start; }
+.cards.two { grid-template-columns: repeat(auto-fill, minmax(360px, 1fr)); }
+.card-h { display: flex; flex-wrap: wrap; gap: 6px 8px; align-items: center; margin-bottom: 8px; }
+.card-h .title { font-weight: 600; flex: 1 1 auto; min-width: 0; }
+.card .foot { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 10px; padding-top: 10px; border-top: 1px dashed var(--rule); font-size: .84rem; color: var(--ink-2); }
+.rows { border-top: 1px solid var(--rule); }
+.row { display: grid; grid-template-columns: 64px minmax(0, 1fr) auto; gap: 4px 14px; padding: 10px 2px; border-bottom: 1px solid var(--rule); align-items: baseline; }
+.row.noid { grid-template-columns: minmax(0, 1fr) auto; }
+.row .sub2 { grid-column: 2 / -1; font-size: .85rem; color: var(--ink-2); }
+.row.noid .sub2 { grid-column: 1 / -1; }
+.id { display: inline-block; font: 500 .74rem/1.5 var(--mono); padding: 0 6px; border-radius: 5px; background: var(--accent-soft); color: var(--accent); text-decoration: none; white-space: nowrap; }
+a.ref { font: 500 .8em/1 var(--mono); padding: 1px 4px; border-radius: 4px; background: var(--accent-soft); color: var(--accent); text-decoration: none; white-space: nowrap; }
+a.ref:hover, a.id:hover { background: var(--accent); color: var(--on-accent); }
+.tag { display: inline-block; font: 500 .74rem/1.55 var(--sans); padding: 0 7px; border-radius: 5px; background: var(--sunken); color: var(--ink-2); max-width: 100%; overflow-wrap: anywhere; }
+.pill { display: inline-flex; align-items: center; gap: 5px; font: 600 .72rem/1.6 var(--sans); padding: 0 8px; border-radius: 999px; white-space: nowrap; background: var(--sunken); color: var(--ink-2); }
+.pill::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+.pill.plain::before { display: none; }
+.st-draft, .st-open, .st-todo { background: var(--warn-soft); color: var(--warn); }
+.st-approved, .st-decided, .st-done, .st-answered, .st-adopt, .st-exists { background: var(--ok-soft); color: var(--ok); }
+.st-building, .st-doing, .st-learn-from, .st-planned, .st-new, .st-rec { background: var(--accent-soft); color: var(--accent); }
+.st-blocked, .st-avoid, .st-accepted { background: var(--bad-soft); color: var(--bad); }
+.st-todo.pill { background: var(--sunken); color: var(--ink-2); }
+.lv-high { background: var(--bad-soft); color: var(--bad); }
+.lv-medium { background: var(--warn-soft); color: var(--warn); }
+.lv-low { background: var(--sunken); color: var(--ink-2); }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip { display: inline-block; padding: 3px 10px; border: 1px solid var(--rule); border-radius: 999px; background: var(--surface); font-size: .86rem; }
+.file { font: .8rem var(--mono); padding: 2px 7px; border-radius: 5px; background: var(--sunken); color: var(--ink-2); overflow-wrap: anywhere; }
+.kv { display: grid; grid-template-columns: 9.5em minmax(0, 1fr); gap: 8px 16px; margin: 0; }
+.kv dt { font-size: .84rem; color: var(--ink-3); padding-top: 1px; }
+.kv dd { margin: 0; min-width: 0; }
+.card .kv { grid-template-columns: 1fr; gap: 0; }
+.card .kv dt { font: 600 .66rem var(--mono); letter-spacing: .06em; text-transform: uppercase; margin-top: 8px; }
+.card .kv dt:first-child { margin-top: 0; }
+.marks { list-style: none; padding: 0; }
+.marks li { position: relative; padding-left: 22px; margin: 6px 0; }
+.marks li::before { position: absolute; left: 0; top: 0; font-weight: 600; }
+.marks.yes li::before { content: '✓'; color: var(--ok); }
+.marks.no li::before { content: '✕'; color: var(--bad); }
+.marks.to li::before { content: '→'; color: var(--accent); }
+.marks.dot li::before { content: '•'; color: var(--ink-3); left: 4px; }
+.lede-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.lede { padding: 18px 20px; border-radius: 10px; background: var(--surface); border: 1px solid var(--rule); }
+.lede.out { background: var(--accent-soft); border-color: transparent; }
+.lede p { font: 400 1.18rem/1.5 var(--serif); margin-top: 6px; }
+.split { display: grid; grid-template-columns: 1fr 1fr; gap: 14px 28px; }
+.callout { border-radius: 10px; padding: 16px 18px; margin-bottom: 26px; display: flex; gap: 16px; align-items: center; justify-content: space-between; flex-wrap: wrap; }
+.callout.warn { background: var(--warn-soft); }
+.callout.bad { background: var(--bad-soft); display: block; }
+.callout.info { background: var(--accent-soft); display: block; }
+.callout h2 { font: 600 1.2rem/1.3 var(--serif); margin: 0 0 4px; }
+.callout.warn h2 { color: var(--warn); }
+.callout.bad h2 { color: var(--bad); }
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 1px; background: var(--rule); border: 1px solid var(--rule); border-radius: 10px; overflow: hidden; }
+.stat { background: var(--surface); padding: 14px 16px; }
+.stat .k { font-size: .8rem; color: var(--ink-3); }
+.stat b { display: block; font: 600 1.6rem/1.2 var(--serif); margin: 2px 0; }
+.stat .s { font-size: .8rem; color: var(--ink-2); }
+.hbar { height: 6px; background: var(--sunken); border-radius: 3px; overflow: hidden; margin-top: 6px; }
+.hbar i { display: block; height: 100%; background: var(--accent); border-radius: 3px; }
+.measure { margin-top: 10px; padding: 8px 10px; border-left: 3px solid var(--accent); background: var(--accent-soft); border-radius: 0 6px 6px 0; font-size: .9rem; }
+.measure .eyebrow { display: block; margin-bottom: 2px; color: var(--accent); }
+.term { background: #16171b; color: #e6e5df; border-radius: 10px; padding: 14px 16px; font: .82rem/1.6 var(--mono); }
+.term .k { color: #8b8a84; display: inline-block; min-width: 8.5em; }
+.term div { display: flex; gap: 8px; padding: 3px 0; }
+.term div + div { border-top: 1px solid #26272c; }
+.term code { background: none; padding: 0; color: #e6e5df; font-size: 1em; }
+.term .note { font-family: var(--sans); color: #b9b7af; }
+.diagram { overflow-x: auto; background: var(--surface); border: 1px solid var(--rule); border-radius: 10px; padding: 16px; margin: 0 0 14px; }
+.diagram svg { max-width: 100%; height: auto; display: block; margin: 0 auto; }
+.diagram pre { background: none; padding: 0; }
+.figcap { font-size: .84rem; color: var(--ink-2); margin: 0 0 6px; display: flex; gap: 8px; align-items: baseline; }
+.scroll { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-size: .9rem; }
+th, td { text-align: left; vertical-align: top; padding: 8px 10px; border-bottom: 1px solid var(--rule); }
+th { font: 600 .7rem var(--mono); letter-spacing: .06em; text-transform: uppercase; color: var(--ink-3); }
+
+/* ---- risks ---- */
+.risk-wrap { display: grid; grid-template-columns: 230px minmax(0, 1fr); gap: 22px; align-items: start; }
+.matrix { display: grid; grid-template-columns: auto repeat(3, 1fr); gap: 3px; font-size: .72rem; }
+.matrix .ax { color: var(--ink-3); font-family: var(--mono); display: flex; align-items: center; justify-content: center; text-transform: uppercase; letter-spacing: .04em; }
+.matrix .ax.y { justify-content: flex-end; padding-right: 6px; }
+.matrix .cell { aspect-ratio: 1; border-radius: 6px; display: grid; place-items: center; font: 600 1rem var(--serif); color: var(--ink-3); background: var(--sunken); }
+.matrix .cell.h1 { background: color-mix(in srgb, var(--ok) 16%, var(--surface)); }
+.matrix .cell.h2 { background: color-mix(in srgb, var(--warn) 22%, var(--surface)); }
+.matrix .cell.h3 { background: color-mix(in srgb, var(--bad) 26%, var(--surface)); }
+.matrix .cell.has { color: var(--ink); }
+.matrix .cap { grid-column: 2 / -1; text-align: center; color: var(--ink-3); font-family: var(--mono); text-transform: uppercase; letter-spacing: .04em; margin-top: 2px; }
+.risk { border-left: 3px solid var(--rule-2); padding: 10px 14px; background: var(--surface); border-radius: 0 8px 8px 0; margin-bottom: 8px; }
+.risk.h3 { border-left-color: var(--bad); }
+.risk.h2 { border-left-color: var(--warn); }
+.risk .r { font-weight: 500; }
+.risk .m { font-size: .88rem; color: var(--ink-2); margin-top: 4px; }
+
+/* ---- steps ---- */
+.legend { display: flex; flex-wrap: wrap; gap: 14px; font-size: .84rem; color: var(--ink-2); margin: 10px 0 18px; }
+.legend i { display: inline-block; width: 9px; height: 9px; border-radius: 2px; margin-right: 6px; background: var(--rule); vertical-align: -1px; }
+.legend .st-done i { background: var(--ok); } .legend .st-doing i { background: var(--accent); } .legend .st-blocked i { background: var(--bad); }
+.legend span { background: none; color: inherit; }
+.timeline { list-style: none; padding: 0; margin: 0; position: relative; }
+.timeline::before { content: ''; position: absolute; left: 9px; top: 12px; bottom: 12px; width: 2px; background: var(--rule); }
+.tl { position: relative; padding-left: 34px; margin: 0 0 10px; }
+.tl .dot { position: absolute; left: 3px; top: 17px; width: 14px; height: 14px; border-radius: 50%; background: var(--paper); border: 2px solid var(--rule-2); }
+.tl.st-done .dot { background: var(--ok); border-color: var(--ok); }
+.tl.st-doing .dot { background: var(--surface); border-color: var(--accent); box-shadow: 0 0 0 4px var(--accent-soft); }
+.tl.st-blocked .dot { background: var(--bad); border-color: var(--bad); }
+.tl, .tl.st-done, .tl.st-doing, .tl.st-blocked, .tl.st-todo { background: none; color: inherit; }
+details.step { background: var(--surface); border: 1px solid var(--rule); border-radius: 10px; }
+.tl.st-doing details.step { border-color: var(--accent); box-shadow: var(--shadow); }
+details.step > summary { list-style: none; cursor: pointer; padding: 12px 16px; }
+details.step > summary::-webkit-details-marker { display: none; }
+.step-h { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; }
+.step-h .t { font-weight: 600; flex: 1 1 260px; min-width: 0; }
+.step-h .chev { margin-left: auto; color: var(--ink-3); transition: transform .15s; font-size: .8rem; }
+details[open] > summary .chev { transform: rotate(90deg); }
+.done-when { font-size: .88rem; color: var(--ink-2); margin: 6px 0 0; }
+.lbl { font: 600 .68rem var(--mono); letter-spacing: .06em; text-transform: uppercase; color: var(--ink-3); margin-right: 6px; }
+.step-b { padding: 4px 16px 16px; border-top: 1px solid var(--rule); }
+.step-b > * { margin-top: 12px; }
+.tests { counter-reset: t; list-style: none; padding: 0; margin: 4px 0 0; }
+.tests li { counter-increment: t; position: relative; padding: 6px 0 6px 30px; border-bottom: 1px dashed var(--rule); font-size: .9rem; }
+.tests li:last-child { border-bottom: 0; }
+.tests li::before { content: counter(t); position: absolute; left: 0; top: 7px; width: 20px; height: 20px; border-radius: 50%; background: var(--bad-soft); color: var(--bad); font: 600 .7rem/20px var(--mono); text-align: center; }
+.evidence { font: .8rem/1.6 var(--mono); color: var(--ink-2); background: var(--sunken); border-radius: 8px; padding: 10px 12px; max-height: 260px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; }
+
+/* ---- changelog ---- */
+.log { list-style: none; padding: 0; margin: 0; }
+.log li { display: grid; grid-template-columns: 7.5em minmax(0, 1fr) auto; gap: 12px; padding: 9px 0; border-bottom: 1px solid var(--rule); align-items: baseline; margin: 0; }
+.log .d { font: .8rem var(--mono); color: var(--ink-3); }
+
+/* ---- questions ---- */
+.phases { list-style: none; padding: 0; margin: 0 0 18px; display: flex; flex-wrap: wrap; gap: 6px; }
+.phases li { margin: 0; }
+.phase { display: inline-flex; gap: 8px; align-items: center; font: 500 .88rem var(--sans); padding: 6px 12px 6px 6px; border-radius: 999px; border: 1px solid var(--rule); background: var(--surface); color: var(--ink-2); cursor: pointer; }
+.phase .num { display: inline-grid; place-items: center; width: 1.65em; height: 1.65em; border-radius: 50%; background: var(--sunken); font: 600 .75rem var(--mono); }
+.phase .k { font: .75rem var(--mono); color: var(--ink-3); }
+.phase.current { border-color: var(--accent); color: var(--ink); }
 .phase.current .num { background: var(--accent); color: var(--on-accent); }
 .phase.complete .num { background: var(--ok); color: var(--on-accent); }
-.phase-nav { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 18px; padding-top: 12px; border-top: 1px solid var(--line); }
-details.answered { margin-top: 16px; border-top: 1px solid var(--line); padding-top: 10px; }
-details.answered summary { cursor: pointer; color: var(--muted); }
-section { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 16px 18px; margin: 14px 0; scroll-margin-top: 12px; }
-section > h2 { font-size: 1.15rem; margin: 0 0 10px; display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
-h3 { font-size: .95rem; margin: 14px 0 6px; }
-h3:first-child { margin-top: 0; }
-a { color: var(--accent); }
-code { background: var(--code); padding: 1px 5px; border-radius: 4px; font-size: .88em; }
-pre { background: var(--code); padding: 10px; border-radius: 6px; overflow-x: auto; font-size: .85rem; }
-ul { margin: 4px 0; padding-left: 20px; }
-li { margin: 2px 0; }
-table { width: 100%; border-collapse: collapse; font-size: .9rem; }
-th, td { text-align: left; vertical-align: top; padding: 6px 8px; border-bottom: 1px solid var(--line); }
-th { color: var(--muted); font-weight: 600; font-size: .8rem; text-transform: uppercase; letter-spacing: .03em; }
-.scroll { overflow-x: auto; }
-.badge { display: inline-block; font-size: .75rem; font-weight: 600; padding: 1px 8px; border-radius: 999px; border: 1px solid currentColor; white-space: nowrap; }
-.s-draft, .s-open, .s-todo { color: var(--warn); }
-.s-approved, .s-decided, .s-done { color: var(--ok); }
-.s-building, .s-doing { color: var(--accent); }
-.s-blocked, .v-avoid { color: var(--bad); }
-.v-adopt { color: var(--ok); }
-.v-learn-from { color: var(--accent); }
-.na, .muted { color: var(--muted); }
-.empty { color: var(--warn); font-style: italic; }
-.waiting { background: var(--warn-bg); border-color: var(--warn); }
-.waiting h2 { color: var(--warn); }
-.decision { border-top: 1px solid var(--line); padding-top: 12px; margin-top: 12px; }
-.decision:first-of-type { border-top: 0; margin-top: 0; padding-top: 0; }
-.options { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 10px; margin: 8px 0; }
-.option { border: 1px solid var(--line); border-radius: 8px; padding: 10px; }
-.option.rec { border-color: var(--accent); }
-.option.chosen { border-color: var(--ok); border-width: 2px; }
-.option h4 { margin: 0 0 4px; font-size: .92rem; }
-.pc { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: .85rem; }
-.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
-.stat { border: 1px solid var(--line); border-radius: 8px; padding: 10px; }
-.stat b { display: block; font-size: 1.3rem; }
-.bar { height: 6px; background: var(--line); border-radius: 3px; overflow: hidden; margin-top: 6px; }
-.bar i { display: block; height: 100%; background: var(--ok); }
-.diagram { overflow-x: auto; }
-ol.tests { margin: 2px 0; padding-left: 20px; font-size: .88rem; }
-footer { color: var(--muted); font-size: .8rem; margin-top: 24px; }
-button { font: inherit; font-size: .9rem; padding: 6px 12px; border-radius: 6px; border: 1px solid var(--line); background: var(--panel); color: var(--text); cursor: pointer; }
-button.primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); font-weight: 600; }
-button:disabled { opacity: .5; cursor: default; }
-button.link { border: 0; background: none; color: var(--accent); padding: 0 2px; font-size: .85rem; font-weight: 400; }
-input[type=text], textarea { display: block; width: 100%; font: inherit; font-size: .92rem; color: var(--text); background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; margin-top: 6px; }
-textarea { resize: vertical; }
-:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-.q { border-top: 1px solid var(--line); padding-top: 12px; margin-top: 12px; }
-.q:first-of-type { border-top: 0; margin-top: 0; padding-top: 0; }
-.choices { display: grid; gap: 6px; margin: 8px 0 0; }
-.choice { display: flex; gap: 8px; align-items: baseline; border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; cursor: pointer; }
-.choice.rec { border-color: var(--accent); }
-label.option { display: block; cursor: pointer; }
-.choice:has(input:checked), label.option:has(input:checked) { border-color: var(--ok); box-shadow: 0 0 0 1px var(--ok); }
-.sent { color: var(--ok); font-size: .85rem; }
-.sendbar { position: sticky; bottom: 8px; z-index: 1; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; background: var(--panel); border: 1px solid var(--accent); border-radius: 10px; padding: 10px 12px; margin-top: 14px; box-shadow: 0 4px 18px rgba(0, 0, 0, .15); }
-.sendbar input { flex: 1 1 220px; margin: 0; }
-.sendbar .count { font-size: .9rem; }
-.status { flex-basis: 100%; font-size: .85rem; color: var(--muted); }
-.status:empty { display: none; }
-.status.bad { color: var(--bad); }
-.frames-bar { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 8px 0; }
-.frames-bar button[aria-pressed=true] { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
-.screen { border-top: 1px solid var(--line); padding-top: 14px; margin-top: 14px; scroll-margin-top: 12px; }
-.screen h3 { display: flex; flex-wrap: wrap; gap: 8px; align-items: baseline; }
-.frame { overflow: hidden; border: 1px solid var(--line); border-radius: 8px; background: #fff; margin: 8px auto 0; max-width: 100%; }
-.frame iframe { border: 0; display: block; transform-origin: 0 0; }
+.q-card { background: var(--surface); border: 1px solid var(--rule); border-radius: 12px; padding: 18px 20px; margin-bottom: 14px; scroll-margin-top: 16px; }
+.q-h { display: flex; gap: 10px; align-items: flex-start; }
+.q-h h4 { font: 600 1.12rem/1.35 var(--serif); margin: 0; flex: 1; }
+.q-why { color: var(--ink-2); font-size: .9rem; margin: 6px 0 0; }
+.choices { display: grid; gap: 6px; margin: 14px 0 0; }
+.choice { display: flex; gap: 10px; align-items: baseline; border: 1px solid var(--rule); border-radius: 8px; padding: 9px 12px; cursor: pointer; background: var(--paper); }
+.choice:hover, label.option:hover { border-color: var(--rule-2); }
+.choice.rec, .option.rec { border-color: color-mix(in srgb, var(--accent) 45%, var(--rule)); }
+.choice:has(input:checked), label.option:has(input:checked) { border-color: var(--ok); box-shadow: 0 0 0 1px var(--ok); background: var(--ok-soft); }
+input[type=radio], input[type=checkbox] { accent-color: var(--ok); }
+.answer { margin-top: 12px; padding: 10px 12px; border-radius: 8px; background: var(--ok-soft); }
+.answer .lbl { color: var(--ok); }
+.options { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 10px; margin: 14px 0 0; }
 .options.wide { grid-template-columns: minmax(0, 1fr); }
 .options > * { min-width: 0; }
-.swatches { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
-.swatch .chip { height: 56px; border-radius: 6px; border: 1px solid var(--line); }
-.swatch small { display: block; color: var(--muted); }
+.option { border: 1px solid var(--rule); border-radius: 10px; padding: 12px 14px; background: var(--paper); }
+.option.chosen { border-color: var(--ok); box-shadow: 0 0 0 1px var(--ok); background: var(--surface); }
+label.option { display: block; cursor: pointer; }
+.option h5 { margin: 0 0 8px; font: 600 .95rem/1.35 var(--sans); display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
+.pc { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: .86rem; }
+.pc .lbl { display: block; margin-bottom: 2px; }
+.pc .marks li { margin: 3px 0; }
+.dec { background: var(--surface); border: 1px solid var(--rule); border-radius: 12px; padding: 18px 20px; margin-bottom: 14px; scroll-margin-top: 16px; }
+.dec .kv { margin-top: 14px; font-size: .92rem; }
+.dec { padding: 16px 20px; }
+.dec .chosen-line { margin-top: 10px; }
+.chosen-line { margin-top: 12px; padding: 10px 12px; border-radius: 8px; background: var(--ok-soft); }
+.chosen-line b { color: var(--ok); }
+details.more { margin-top: 12px; }
+details.more > summary { cursor: pointer; color: var(--accent); font-size: .88rem; }
+details.answered { margin-top: 18px; }
+details.answered > summary { cursor: pointer; color: var(--ink-2); font-size: .9rem; margin-bottom: 12px; }
+.phase-nav { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 18px; }
+.sent { color: var(--ok); font-size: .85rem; margin-top: 8px; }
+.sent:empty { display: none; }
+
+/* ---- controls ---- */
+button { font: 500 .88rem var(--sans); padding: 7px 14px; border-radius: 8px; border: 1px solid var(--rule-2); background: var(--surface); color: var(--ink); cursor: pointer; }
+button:hover { border-color: var(--ink-3); }
+button.primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); font-weight: 600; }
+button.primary:hover { filter: brightness(1.08); }
+button:disabled { opacity: .45; cursor: default; filter: none; }
+button.link { border: 0; background: none; color: var(--accent); padding: 0 2px; font-size: .84rem; font-weight: 500; }
+input[type=text], textarea { display: block; width: 100%; font: .92rem var(--sans); color: var(--ink); background: var(--surface); border: 1px solid var(--rule-2); border-radius: 8px; padding: 8px 10px; margin-top: 8px; }
+textarea { resize: vertical; }
+.sendbar { position: sticky; bottom: 14px; z-index: 5; display: flex; flex-wrap: wrap; gap: 10px; align-items: center; background: var(--surface); border: 1px solid var(--rule-2); border-radius: 12px; padding: 10px 12px; margin-top: 18px; box-shadow: 0 10px 34px rgba(0, 0, 0, .14); }
+.sendbar input { flex: 1 1 220px; margin: 0; }
+.sendbar .count { font-size: .88rem; font-weight: 500; }
+.status { flex-basis: 100%; font-size: .85rem; color: var(--ink-2); }
+.status:empty { display: none; }
+.status.bad { color: var(--bad); }
+footer { color: var(--ink-3); font-size: .78rem; font-family: var(--mono); margin-top: 30px; }
+
+/* ---- design and demo ---- */
+.frames-bar { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 10px 0; }
+.frames-bar button { padding: 4px 10px; font-size: .8rem; }
+.frames-bar button[aria-pressed=true] { background: var(--ink); border-color: var(--ink); color: var(--paper); }
+.screen { border-top: 1px solid var(--rule); padding-top: 18px; margin-top: 18px; scroll-margin-top: 16px; }
+.screen h4 { display: flex; flex-wrap: wrap; gap: 8px; align-items: baseline; font: 600 1.1rem var(--serif); margin: 0 0 6px; }
+.frame { overflow: hidden; border: 1px solid var(--rule); border-radius: 10px; background: #fff; margin: 8px auto 0; max-width: 100%; box-shadow: var(--shadow); }
+.frame iframe { border: 0; display: block; transform-origin: 0 0; }
+.swatches { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; }
+.swatch .chipc { height: 64px; border-radius: 8px; border: 1px solid var(--rule); margin-bottom: 6px; }
+.swatch small { display: block; color: var(--ink-2); }
 .swatch small.low { color: var(--bad); font-weight: 600; }
-@media (max-width: 560px) { .pc { grid-template-columns: 1fr; } }
+.scenes { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; }
+.scene .time { font: .75rem var(--mono); color: var(--ink-3); }
+.scene .cap { font: italic 400 1rem/1.4 var(--serif); margin-top: 8px; }
+
+@media (max-width: 900px) {
+  .shell { grid-template-columns: minmax(0, 1fr); gap: 0; padding: 0 16px 120px; }
+  .rail { min-width: 0; }
+  .meta .sep { display: none; }
+  .rail { position: sticky; top: 0; z-index: 4; max-height: none; padding: 8px 0; margin: 0 -16px; padding-left: 16px; background: var(--paper); border-bottom: 1px solid var(--rule); overflow-x: auto; }
+  .rail [role=tablist] { display: flex; gap: 4px; }
+  .rail [role=tab] { width: auto; white-space: nowrap; }
+  .rail [role=tab] .n, .sub { display: none; }
+  .masthead .in { grid-template-columns: 1fr; padding: 22px 16px 18px; }
+  .masthead h1 { font-size: 1.7rem; }
+  .progress-box { min-width: 0; }
+  .content { padding-top: 20px; }
+  .lede-grid, .split, .risk-wrap { grid-template-columns: 1fr; }
+  .matrix { max-width: 260px; }
+}
+@media (max-width: 560px) {
+  .pc { grid-template-columns: 1fr; }
+  .kv { grid-template-columns: 1fr; gap: 2px; }
+  .kv dd { margin-bottom: 8px; }
+  .row { grid-template-columns: 52px minmax(0, 1fr); }
+  .row > :nth-child(3) { grid-column: 2; }
+  .log li { grid-template-columns: 1fr auto; }
+  .log .d { grid-column: 1 / -1; }
+  .cards.two { grid-template-columns: 1fr; }
+}
 @media print {
-  .tabs, .phases, .phase-nav, footer, .sendbar, button { display: none; }
+  .rail, .phases, .phase-nav, footer, .sendbar, button { display: none; }
+  .shell { display: block; }
   [role=tabpanel][hidden], [data-phase-panel][hidden] { display: block !important; }
-  section { break-inside: avoid; }
+  details.step:not([open]) > .step-b { display: block; }
+  .card, .q-card, .dec, details.step { break-inside: avoid; }
 }
 </style>
 </head>
 <body>
-<main id="app"><p class="muted">Loading plan.js…</p></main>
+<div id="app"><p class="muted" style="padding:24px">Loading plan.js…</p></div>
 <script>
 'use strict';
 const app = document.getElementById('app');
@@ -135,29 +342,46 @@ const LIVE = /^https?:$/.test(location.protocol) && !!KEY;
 const asking = p => LIVE && ((p.meta || {}).status === 'draft' || (p.meta || {}).kind === 'demo');
 
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+// Ids the plan defines (Q4, D1, S3...), each with the element it links to.
+// Filled on every render, so text that names one becomes a link to it.
+let IDS = new Map();
+const refs = h => h.replace(/\b(SC\d+|[QDFNTSA]\d+)\b/g, m => IDS.has(m) ? `<a class="ref" href="#${IDS.get(m)}">${m}</a>` : m);
 // Plain text with `code` spans and line breaks; everything else stays escaped.
-const txt = s => esc(s).replace(/`([^`]+)`/g, '<code>$1</code>').replace(/\n/g, '<br>');
+const txt0 = s => esc(s).replace(/`([^`]+)`/g, '<code>$1</code>').replace(/\n/g, '<br>');
+const txt = s => refs(txt0(s));
+// Longer text: paragraphs on blank lines.
+const para = s => String(s ?? '').split(/\n\s*\n/).map(b => b.trim()).filter(Boolean).map(b => `<p>${txt(b)}</p>`).join('');
 const isNa = v => v && typeof v === 'object' && !Array.isArray(v) && typeof v.na === 'string';
 const has = v => isNa(v) || (Array.isArray(v) ? v.length > 0 : v && typeof v === 'object' ? Object.keys(v).length > 0 : !!v);
 const na = v => `<p class="na">Not applicable: ${txt(v.na)}</p>`;
 const empty = '<p class="empty">Not written yet.</p>';
-const badge = s => s ? `<span class="badge s-${esc(s)}">${esc(s)}</span>` : '';
+const cap = s => String(s ?? '').replace(/^./, c => c.toUpperCase());
+const pill = (s, label) => s ? `<span class="pill st-${esc(String(s).replace(/\s+/g, '-'))}">${esc(cap(label || s))}</span>` : '';
+const lv = s => { const v = String(s || '').toLowerCase(); return v.includes('high') ? 3 : v.includes('low') ? 1 : 2; };
+const lvName = n => ['', 'low', 'medium', 'high'][n];
 const url = u => /^https?:\/\//i.test(u || '') ? esc(u) : null;
-const list = (items, f = txt) => isNa(items) ? na(items) : Array.isArray(items) && items.length ? `<ul>${items.map(i => `<li>${f(i)}</li>`).join('')}</ul>` : empty;
-const ref = r => r ? ` <code>${esc(r)}</code>` : '';
+const arr = x => (Array.isArray(x) ? x : []);
+const marks = (items, kind = 'dot', f = txt) => isNa(items) ? na(items) : arr(items).length ? `<ul class="marks ${kind}">${items.map(i => `<li>${f(i)}</li>`).join('')}</ul>` : empty;
+const list = (items, f = txt) => marks(items, 'dot', f);
+const idChip = (id, anchor) => id ? (anchor ? `<a class="id" href="#${esc(anchor)}">${esc(id)}</a>` : `<span class="id">${esc(id)}</span>`) : '';
+const refChips = ids => arr(ids).map(i => IDS.has(i) ? `<a class="id" href="#${esc(IDS.get(i))}">${esc(i)}</a>` : `<span class="id">${esc(i)}</span>`).join(' ');
+const ref = r => r ? `<span class="file">${esc(r)}</span>` : '';
+const files = fs => arr(fs).length ? `<div class="chips">${fs.map(f => `<span class="file">${esc(f)}</span>`).join('')}</div>` : '';
 const table = (rows, cols) => {
   if (isNa(rows)) return na(rows);
   if (!Array.isArray(rows) || !rows.length) return empty;
   return `<div class="scroll"><table><thead><tr>${cols.map(c => `<th>${esc(c[0])}</th>`).join('')}</tr></thead><tbody>${
     rows.map(r => `<tr>${cols.map(c => `<td>${c[1](r)}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
 };
+// Rows of [id, main, side, below]; for lists of short, id'd items.
+const rows = (items, f, ids = true) => isNa(items) ? na(items) : !arr(items).length ? empty
+  : `<div class="rows">${items.map(i => { const [id, main, side, below, anchor] = f(i); return `<div class="row${ids ? '' : ' noid'}"${anchor ? ` id="${esc(anchor)}"` : ''}>${
+    ids ? `<span>${idChip(id)}</span>` : ''}<div>${main}</div><div>${side || ''}</div>${below ? `<div class="sub2">${below}</div>` : ''}</div>`; }).join('')}</div>`;
+const kv = pairs => { const r = pairs.filter(([, v]) => v); return r.length ? `<dl class="kv">${r.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join('')}</dl>` : ''; };
+const kilo = n => (n >= 1e6 ? `${(n / 1e6).toFixed(1)}M` : n >= 1e3 ? `${Math.round(n / 1e3)}k` : String(n || 0));
 // An empty dependency list is an answer ("none"); elsewhere empty means unwritten.
 const present = (p, id) => id === 'later' || id === 'current' || id === 'cost' || id === 'video' ? true : id === 'impact' ? isNa(p.context) || has(p.impact) || isNa(p.impact)
   : ['dependencies', 'needsYou'].includes(id) ? Array.isArray(p[id]) || isNa(p[id]) : has(p[id]);
-// The failing tests a step starts from, in order.
-const stepTests = t => isNa(t) ? `<br><span class="muted">No test first: ${txt(t.na)}</span>`
-  : Array.isArray(t) && t.length ? `<br><b>Tests first</b><ol class="tests">${t.map(x => `<li>${txt(x.test)}${x.kind ? ` <span class="muted">· ${esc(x.kind)}</span>` : ''}</li>`).join('')}</ol>`
-  : '<br><span class="empty">No tests listed</span>';
 // The build's size in the work Claude does, as an honest stand-in for hours.
 // Mirrors plan-tool.js reviewFor, from what the plan states explicitly.
 function buildSize(p) {
@@ -170,6 +394,18 @@ function buildSize(p) {
     (effort === 'standard' && (std(s, 'data-and-apis') || std(s, 'reliability') || hot.some(h => h.provedBy === s.id)))).length;
   const runs = 2 + (effort === 'light' ? 0 : steps.filter(s => std(s, 'run-like-a-user')).length);
   return { steps: steps.length, reviewed, runs, effort };
+}
+function indexIds(p) {
+  IDS = new Map();
+  const put = (xs, pre = '') => { for (const x of arr(xs)) if (x && x.id) IDS.set(String(x.id), pre + x.id); };
+  put(p.questions);
+  put(p.decisions, 'dec-');
+  if (p.requirements && !isNa(p.requirements)) { put(p.requirements.functional, 'req-'); put(p.requirements.nonFunctional, 'req-'); }
+  if (p.security && !isNa(p.security)) put(p.security.threats, 'thr-');
+  if (p.testing && !isNa(p.testing)) put(p.testing.acceptance, 'acc-');
+  if (!isNa(p.steps)) put(p.steps);
+  put(p.screens);
+  put(p.scenes, 'scene-');
 }
 
 // ---- what the user is writing --------------------------------------------
@@ -201,7 +437,7 @@ const answerText = a => !a ? '' : typeof a === 'string' ? a
 
 const choice = (id, value, multiple, rec) => `<label class="choice${rec ? ' rec' : ''}">
     <input type="${multiple ? 'checkbox' : 'radio'}" name="ans-${esc(id)}" data-id="${esc(id)}" data-f="choice" value="${esc(value)}">
-    <span>${txt(value)}${rec ? ' <span class="badge s-building">recommended</span>' : ''}</span></label>`;
+    <span>${txt(value)}${rec ? ' <span class="pill st-rec plain">recommended</span>' : ''}</span></label>`;
 const ownAnswer = (id, label) => `<input type="text" data-id="${esc(id)}" data-f="text" placeholder="${label}" aria-label="${esc(id)}: ${label}">`;
 const noteBox = id => `<textarea data-id="${esc(id)}" data-f="note" rows="2" placeholder="Notes for Claude (optional)" aria-label="${esc(id)}: notes"></textarea>`;
 const sentLine = id => draft.sent[id] ? `<p class="sent" data-sent="${esc(id)}"></p>` : '';
@@ -210,42 +446,45 @@ function question(q, ask) {
   const opts = Array.isArray(q.options) ? q.options : [];
   let body = '';
   if (q.status === 'answered') {
-    body = `<p><b>Answer:</b> ${txt(answerText(q.answer))}</p>`;
+    body = `<div class="answer"><span class="lbl">Your answer</span>${txt(answerText(q.answer))}</div>`;
   } else if (ask && opts.length) {
     body = `<div class="choices">${opts.map(o => choice(q.id, o, q.multiple, o === q.recommendation)).join('')}</div>
       ${ownAnswer(q.id, 'Something else')}${noteBox(q.id)}${sentLine(q.id)}`;
   } else if (ask) {
     body = `<textarea data-id="${esc(q.id)}" data-f="text" rows="3" placeholder="Your answer" aria-label="${esc(q.id)}: your answer"></textarea>${sentLine(q.id)}`;
   } else if (opts.length) {
-    body = list(opts, o => txt(o) + (o === q.recommendation ? ' <span class="muted">(recommended)</span>' : ''));
+    body = `<div class="choices">${opts.map(o => `<div class="choice${o === q.recommendation ? ' rec' : ''}"><span>${txt(o)}${o === q.recommendation ? ' <span class="pill st-rec plain">recommended</span>' : ''}</span></div>`).join('')}</div>`;
   }
-  return `<div class="q" id="${esc(q.id)}">
-      <h3>${esc(q.id)} · ${txt(q.question)} ${badge(q.status || 'open')}</h3>
-      ${q.why ? `<p class="muted">${txt(q.why)}</p>` : ''}${body}</div>`;
+  return `<div class="q-card" id="${esc(q.id)}">
+      <div class="q-h">${idChip(q.id)}<h4>${txt(q.question)}</h4>${pill(q.status || 'open')}</div>
+      ${q.why ? `<p class="q-why">${txt(q.why)}</p>` : ''}${body}</div>`;
+}
+
+function optionCard(d, o, pick) {
+  const rec = o.name === d.recommendation;
+  const chosen = o.name === d.choice;
+  const inner = `<h5>${pick ? `<input type="radio" name="ans-${esc(d.id)}" data-id="${esc(d.id)}" data-f="choice" value="${esc(o.name)}">` : ''}<span>${txt(o.name)}</span>${
+      chosen ? '<span class="pill st-done">chosen</span>' : rec ? '<span class="pill st-rec plain">recommended</span>' : ''}</h5>
+    <div class="pc"><div><span class="lbl">Pros</span>${marks(o.pros, 'yes')}</div><div><span class="lbl">Cons</span>${marks(o.cons, 'no')}</div></div>
+    ${o.preview ? frame(frameDoc(plan || {}, o.preview, !!(plan && plan.tokens)), `${o.name}, preview`) : ''}
+    ${o.video && /^renders\/[A-Za-z0-9][A-Za-z0-9._-]*\.(mp4|webm)$/.test(o.video) ? `<video src="${esc(o.video)}${KEY ? `?key=${encodeURIComponent(KEY)}` : ''}" controls loop muted playsinline preload="metadata" style="width:100%;margin-top:10px;border-radius:8px;background:#000"></video>` : ''}`;
+  const cls = `option${rec ? ' rec' : ''}${chosen ? ' chosen' : ''}`;
+  return pick ? `<label class="${cls}">${inner}</label>` : `<div class="${cls}">${inner}</div>`;
 }
 
 function decision(d, ask, idPrefix = '') {
   const pick = ask && d.status !== 'decided';
-  const card = o => {
-    const rec = o.name === d.recommendation;
-    const inner = `<h4>${pick ? `<input type="radio" name="ans-${esc(d.id)}" data-id="${esc(d.id)}" data-f="choice" value="${esc(o.name)}"> ` : ''}${txt(o.name)}${
-      o.name === d.choice ? ' ✓ chosen' : rec ? ' · recommended' : ''}</h4>
-      <div class="pc"><div><b>Pros</b>${list(o.pros)}</div><div><b>Cons</b>${list(o.cons)}</div></div>
-      ${o.preview ? frame(frameDoc(plan || {}, o.preview, !!(plan && plan.tokens)), `${o.name}, preview`) : ''}
-      ${o.video && /^renders\/[A-Za-z0-9][A-Za-z0-9._-]*\.(mp4|webm)$/.test(o.video) ? `<video src="${esc(o.video)}${KEY ? `?key=${encodeURIComponent(KEY)}` : ''}" controls loop muted playsinline preload="metadata" style="width:100%;margin-top:8px;border-radius:8px;background:#000"></video>` : ''}`;
-    const cls = `option${rec ? ' rec' : ''}${o.name === d.choice ? ' chosen' : ''}`;
-    return pick ? `<label class="${cls}">${inner}</label>` : `<div class="${cls}">${inner}</div>`;
-  };
-  return `<div class="decision" id="${esc(idPrefix + d.id)}">
-      <h3>${esc(d.id)} · ${txt(d.question)} ${badge(d.status)}</h3>
-      ${(d.options || []).some(o => o.preview) ? sizeBar() : ''}
-      <div class="options${(d.options || []).some(o => o.preview || o.video) ? ' wide' : ''}">${(d.options || []).map(card).join('')}</div>
-      ${d.why ? `<p><b>Why the recommendation:</b> ${txt(d.why)}</p>` : ''}
-      ${(d.drivers || []).length ? `<p><b>Serves:</b> ${d.drivers.map(id => `<code>${esc(id)}</code>`).join(' ')}</p>` : ''}
-      ${d.consequences ? `<p><b>Consequences:</b> ${txt(d.consequences)}</p>` : ''}
-      ${d.confirmation ? `<p><b>How we'll know it was right:</b> ${txt(d.confirmation)}</p>` : ''}
+  const opts = arr(d.options);
+  const visual = opts.some(o => o.preview || o.video);
+  const grid = `${opts.some(o => o.preview) ? sizeBar() : ''}<div class="options${visual ? ' wide' : ''}">${opts.map(o => optionCard(d, o, pick)).join('')}</div>`;
+  const decided = d.status === 'decided';
+  const why = kv([['Why the recommendation', d.why && txt(d.why)], ['Serves', arr(d.drivers).length && refChips(d.drivers)],
+    ['Consequences', d.consequences && txt(d.consequences)], ['How we’ll know', d.confirmation && txt(d.confirmation)]]);
+  return `<div class="dec" id="${esc(idPrefix + d.id)}">
+      <div class="q-h">${idChip(d.id)}<h4>${txt(d.question)}</h4>${pill(d.status)}</div>
+      ${decided ? `<div class="chosen-line"><b>Chose ${txt(d.choice)}</b> <span class="muted small">· ${esc(d.decidedBy)}</span>${d.note ? `<div class="small">${txt(d.note)}</div>` : ''}</div>
+        <details class="more"${visual ? ' open' : ''}><summary>Why, and the ${opts.length} options compared</summary>${why}${grid}</details>` : grid + why}
       ${pick ? ownAnswer(d.id, 'Something else (instead of the options above)') + noteBox(d.id) + sentLine(d.id) : ''}
-      ${d.status === 'decided' ? `<p><b>Decided:</b> ${txt(d.choice)} <span class="muted">(${esc(d.decidedBy)})</span>${d.note ? ` · ${txt(d.note)}` : ''}</p>` : ''}
     </div>`;
 }
 
@@ -259,7 +498,6 @@ let frameDark = false;
 const frameState = {};
 const slugOf = s => String(s ?? '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
 const cssValue = v => String(v ?? '').replace(/[<>{};"]/g, '');
-const arr = x => (Array.isArray(x) ? x : []);
 function tokenCss(p, dark) {
   const t = p.tokens || {};
   const colors = new Map(arr(t.color).map(c => [slugOf(c.name), c.value]));
@@ -320,16 +558,44 @@ function screenHtml(p, sc, ask) {
   const cid = 'screen' + String(sc.id || '').replace(/[^A-Za-z0-9]/g, '');
   const html = cur === 'now' ? sc.current : sc.previews && sc.previews[cur];
   return `<div class="screen" id="${esc(sc.id)}">
-    <h3>${esc(sc.id)} · ${txt(sc.name)} ${sc.mode ? `<span class="badge">${esc(sc.mode)}</span>` : ''} ${commentButton(cid, ask)}</h3>
+    <h4>${idChip(sc.id)} ${txt(sc.name)} ${sc.mode ? `<span class="tag">${esc(sc.mode)}</span>` : ''} ${commentButton(cid, ask)}</h4>
     ${commentBox(cid, ask)}
-    <p>${txt(sc.purpose)}${sc.data ? `<br><span class="muted">Data: ${txt(sc.data)}</span>` : ''}${sc.notes ? `<br><span class="muted">${txt(sc.notes)}</span>` : ''}</p>
-    ${arr(sc.needs).length ? `<details><summary class="muted">Where its data comes from (${arr(sc.needs).length})</summary>${table(sc.needs, [['Needs', x => txt(x.what)],
-      ['Source', x => `${x.status === 'contract' ? '<span class="badge s-open">contract, owed</span>' : x.status === 'planned' ? '<span class="badge s-doing">planned</span>' : x.status === 'exists' ? '<span class="badge s-done">exists</span>' : '<span class="empty">no source</span>'}<br>${txt(x.from)}`],
+    <p>${txt(sc.purpose)}${sc.data ? `<br><span class="muted small">Data: ${txt(sc.data)}</span>` : ''}${sc.notes ? `<br><span class="muted small">${txt(sc.notes)}</span>` : ''}</p>
+    ${arr(sc.needs).length ? `<details class="more"><summary>Where its data comes from (${arr(sc.needs).length})</summary>${table(sc.needs, [['Needs', x => txt(x.what)],
+      ['Source', x => `${x.status === 'contract' ? pill('open', 'contract, owed') : x.status === 'planned' ? pill('planned') : x.status === 'exists' ? pill('exists') : '<span class="empty">no source</span>'}<br>${txt(x.from)}`],
       ['Owed', x => txt(x.owed)]])}</details>` : ''}
     <div class="frames-bar" role="group" aria-label="${esc(sc.name)}: state">${states.map(st => `<button type="button" data-screen="${esc(sc.id)}" data-state="${esc(st)}" aria-pressed="${st === cur}">${
       st === 'now' ? 'Now' : esc(st)}${st === 'now' || (sc.previews && sc.previews[st]) ? '' : ' (no preview)'}</button>`).join('')}</div>
     ${html ? frame(frameDoc(p, html, cur !== 'now'), `${sc.name}, ${cur === 'now' ? 'as it is now' : cur}`) : '<p class="empty">No preview for this state yet.</p>'}
   </div>`;
+}
+
+// ---- steps ------------------------------------------------------------------
+
+// Which steps the viewer opened or closed; otherwise the step in progress is open.
+const stepOpen = {};
+const STEP_STATES = ['done', 'doing', 'todo', 'blocked'];
+function stepHtml(p, x) {
+  const st = STEP_STATES.includes(x.status) ? x.status : 'todo';
+  const open = stepOpen[x.id] ?? st === 'doing';
+  const cost = p.cost && p.cost.steps && p.cost.steps[x.id];
+  const tests = isNa(x.tests) ? `<p class="muted small"><span class="lbl">No test first</span>${txt(x.tests.na)}</p>`
+    : arr(x.tests).length ? `<div><span class="lbl">Tests first, in order</span><ol class="tests">${x.tests.map(t => `<li>${txt(t.test)}${t.kind ? ` <span class="tag">${esc(t.kind)}</span>` : ''}</li>`).join('')}</ol></div>`
+    : '<p class="empty">No tests listed</p>';
+  return `<li class="tl st-${st}" id="${esc(x.id)}"><span class="dot"></span>
+    <details class="step" data-step="${esc(x.id)}"${open ? ' open' : ''}>
+      <summary><div class="step-h">${idChip(x.id)}<span class="t">${txt(x.title)}</span>${pill(st)}
+        ${arr(x.dependsOn).length ? `<span class="faint small">after ${esc(x.dependsOn.join(', '))}</span>` : ''}
+        ${cost ? `<span class="faint small">${esc(kilo(cost.weight))} tokens</span>` : ''}<span class="chev">▶</span></div>
+        <p class="done-when"><span class="lbl">Done when</span>${txt(x.doneWhen) || '<span class="empty">missing</span>'}</p></summary>
+      <div class="step-b">
+        ${x.detail ? `<div class="prose">${para(x.detail)}</div>` : ''}
+        ${arr(x.files).length ? `<div><span class="lbl">Files</span>${files(x.files)}</div>` : ''}
+        ${arr(x.screens).length ? `<div><span class="lbl">Screens</span>${refChips(x.screens)}</div>` : ''}
+        ${tests}
+        ${arr(x.standards).length ? `<div><span class="lbl">Standards</span>${x.standards.map(s => `<span class="tag">${esc(s)}</span>`).join(' ')}</div>` : ''}
+        ${x.notes ? `<div><span class="lbl">Build notes</span><div class="evidence">${esc(x.notes)}</div></div>` : ''}
+      </div></details></li>`;
 }
 
 // ---- sections ------------------------------------------------------------
@@ -338,120 +604,146 @@ const SECTIONS = [
   ['summary', 'Summary', p => {
     const s = p.summary;
     if (isNa(s)) return na(s);
-    return `${s.problem ? `<h3>Problem</h3><p>${txt(s.problem)}</p>` : ''}
-      ${s.outcome ? `<h3>Outcome</h3><p>${txt(s.outcome)}</p>` : ''}
-      <h3>Users</h3>${list(s.users)}<h3>Goals</h3>${list(s.goals)}<h3>Non-goals</h3>${list(s.nonGoals)}`;
+    return `${s.problem || s.outcome ? `<div class="lede-grid">
+        ${s.problem ? `<div class="lede"><span class="eyebrow">The problem</span><p>${txt(s.problem)}</p></div>` : ''}
+        ${s.outcome ? `<div class="lede out"><span class="eyebrow">The outcome</span><p>${txt(s.outcome)}</p></div>` : ''}</div>` : ''}
+      <h3>Who it’s for</h3>${marks(s.users, 'to')}
+      <div class="split"><div><h3>Goals</h3>${marks(s.goals, 'yes')}</div><div><h3>Not doing</h3>${marks(s.nonGoals, 'no')}</div></div>`;
   }],
   ['requirements', 'Requirements', p => {
     const r = p.requirements;
     if (isNa(r)) return na(r);
-    return `<h3>Functional</h3>${table(r.functional, [['ID', x => esc(x.id)], ['Requirement', x => txt(x.text)], ['Source', x => esc(x.source)]])}
-      <h3>Quality scenarios</h3>${table(r.nonFunctional, [
-        ['ID', x => esc(x.id)],
-        ['Scenario', x => txt(x.text) + (x.characteristic ? `<br><span class="muted">${esc(x.characteristic)}</span>` : '')],
-        ['Measure', x => txt(x.measure || x.target)],
-        ['Priority', x => esc(x.priority)],
-        ['Source', x => x.source ? esc(x.source) : '<span class="empty">none</span>'],
-        ['Checked by', x => esc((x.verifiedBy || []).join(', ')) || '<span class="empty">nothing</span>']])}
-      <h3>Constraints</h3>${list(r.constraints)}`;
+    return `<h3>What it must do</h3>${rows(r.functional, x => [x.id, txt(x.text), x.source ? `<span class="tag">${esc(x.source)}</span>` : '', '', 'req-' + x.id])}
+      <h3>How well it must do it</h3>${isNa(r.nonFunctional) ? na(r.nonFunctional) : !arr(r.nonFunctional).length ? empty : `<div class="cards two">${r.nonFunctional.map(x => `
+        <div class="card" id="req-${esc(x.id)}">
+          <div class="card-h">${idChip(x.id)}<span class="eyebrow" style="flex:1">${esc(x.characteristic || '')}</span>${x.priority ? `<span class="pill plain ${x.priority === 'must' ? 'lv-high' : x.priority === 'should' ? 'lv-medium' : 'lv-low'}">${esc(x.priority)}</span>` : ''}</div>
+          <div>${txt(x.text)}</div>
+          <div class="measure"><span class="eyebrow">Measure</span>${txt(x.measure || x.target)}</div>
+          <div class="foot"><span>Source ${x.source ? `<span class="tag">${esc(x.source)}</span>` : '<span class="empty">none</span>'}</span>
+            <span>Checked by ${arr(x.verifiedBy).length ? refChips(x.verifiedBy) : '<span class="empty">nothing</span>'}</span></div>
+        </div>`).join('')}</div>`}
+      <h3>Constraints</h3>${marks(r.constraints, 'dot')}`;
   }],
   ['context', 'Existing codebase', p => {
     const c = p.context;
     if (isNa(c)) return na(c);
-    return `<h3>Stack</h3>${list(c.stack)}
-      <h3>Conventions to follow</h3>${list(c.conventions, x => txt(x.text) + ref(x.ref))}
-      <h3>Reused, not rebuilt</h3>${list(c.reuse, x => txt(x.what) + ref(x.ref))}
-      <h3>Architecture as it is</h3>${list(c.architecture, x => txt(x.text) + ref(x.ref))}
-      <h3>Files this touches</h3>${table(c.touches, [['Path', x => `<code>${esc(x.path)}</code>`], ['Why', x => txt(x.why)]])}`;
+    return `<h3>Stack</h3>${isNa(c.stack) ? na(c.stack) : arr(c.stack).length ? `<div class="chips">${c.stack.map(s => `<span class="chip">${txt(s)}</span>`).join('')}</div>` : empty}
+      <h3>Architecture as it is</h3>${rows(c.architecture, x => ['', txt(x.text), '', ref(x.ref)], false)}
+      <h3>Conventions to follow</h3>${rows(c.conventions, x => ['', txt(x.text), '', ref(x.ref)], false)}
+      <h3>Reused, not rebuilt</h3>${rows(c.reuse, x => ['', txt(x.what), '', ref(x.ref)], false)}
+      <h3>Files this touches</h3>${rows(c.touches, x => ['', `<span class="file">${esc(x.path)}</span>`, '', txt(x.why)], false)}`;
   }],
-  ['priorArt', 'Prior art', p => isNa(p.priorArt) ? na(p.priorArt) : !has(p.priorArt) ? empty : p.priorArt.map(a => `
-      <h3>${url(a.url) ? `<a href="${url(a.url)}" target="_blank" rel="noopener noreferrer">${txt(a.name)}</a>` : txt(a.name)}
-        <span class="muted">· ${esc(a.kind)}</span> ${a.verdict ? `<span class="badge v-${esc(String(a.verdict).replace(/\s+/g, '-'))}">${esc(a.verdict)}</span>` : ''}</h3>
-      ${a.howItWorks ? `<p><b>How it works:</b> ${txt(a.howItWorks)}</p>` : ''}
-      ${a.evidence ? `<p><b>Does it hold up:</b> ${txt(a.evidence)}</p>` : ''}
-      ${a.why ? `<p><b>Verdict:</b> ${txt(a.why)}</p>` : ''}
-      ${has(a.takeaways) ? `<b>What we take from it</b>${list(a.takeaways)}` : ''}`).join('')],
-  ['research', 'Research', p => isNa(p.research) ? na(p.research) : !has(p.research) ? empty : p.research.map(r => `
-      <h3>${txt(r.topic)}</h3><p>${txt(r.finding)}</p>
-      ${list(r.sources, s => (url(s.url) ? `<a href="${url(s.url)}" target="_blank" rel="noopener noreferrer">${txt(s.title || s.url)}</a>` : txt(s.title)) + (s.accessed ? ` <span class="muted">(${esc(s.accessed)})</span>` : ''))}`).join('')],
+  // Adopted first, then learned from, then avoided; the verdict and takeaways lead.
+  ['priorArt', 'Prior art', p => isNa(p.priorArt) ? na(p.priorArt) : !has(p.priorArt) ? empty : `<div class="cards two">${[...p.priorArt]
+    .sort((a, b) => ['adopt', 'learn from', 'avoid'].indexOf(String(a.verdict)) - ['adopt', 'learn from', 'avoid'].indexOf(String(b.verdict))).map(a => `
+      <div class="card">
+        <div class="card-h"><span class="title">${url(a.url) ? `<a href="${url(a.url)}" target="_blank" rel="noopener noreferrer">${txt0(a.name)}</a>` : txt(a.name)}</span>
+          ${a.verdict ? pill(String(a.verdict).replace(/\s+/g, '-'), a.verdict) : ''}</div>
+        ${a.why ? `<p>${txt(a.why)}</p>` : ''}
+        ${has(a.takeaways) ? `<div style="margin-top:10px"><span class="lbl">What we take</span>${marks(a.takeaways, 'to')}</div>` : ''}
+        ${a.howItWorks || a.evidence ? `<details class="more"><summary>How it works, and does it hold up</summary><div style="margin-top:8px">${kv([['How it works', a.howItWorks && txt(a.howItWorks)], ['Does it hold up', a.evidence && txt(a.evidence)]])}</div></details>` : ''}
+        ${a.kind ? `<div class="foot"><span class="tag">${esc(a.kind)}</span></div>` : ''}
+      </div>`).join('')}</div>`],
+  ['research', 'Research', p => isNa(p.research) ? na(p.research) : !has(p.research) ? empty : `<div class="cards two">${p.research.map(r => `
+      <div class="card"><div class="card-h"><span class="title">${txt(r.topic)}</span></div>
+        <div class="prose">${para(r.finding)}</div>
+        ${arr(r.sources).length ? `<div class="foot" style="display:block"><ol class="small">${r.sources.map(s => `<li>${url(s.url) ? `<a href="${url(s.url)}" target="_blank" rel="noopener noreferrer">${txt0(s.title || s.url)}</a>` : txt(s.title)}${s.accessed ? ` <span class="faint">· ${esc(s.accessed)}</span>` : ''}</li>`).join('')}</ol></div>` : ''}
+      </div>`).join('')}</div>`],
   // Read-only here; open decisions are answered in the Questions tab.
   ['decisions', 'Decisions', p => isNa(p.decisions) ? na(p.decisions) : !has(p.decisions) ? empty : p.decisions.map(d => decision(d, false, 'dec-') +
-    (d.status !== 'decided' ? `<p><a href="#${esc(d.id)}">Answer this in Questions →</a></p>` : '')).join('')],
+    (d.status !== 'decided' ? `<p style="margin:-6px 0 16px"><a href="#${esc(d.id)}">Answer this in Questions →</a></p>` : '')).join('')],
   ['architecture', 'Architecture', p => {
     const a = p.architecture;
     if (isNa(a)) return na(a);
-    return `${a.overview ? `<p>${txt(a.overview)}</p>` : empty}
-      ${a.style ? `<p><b>Style:</b> ${a.style.existing ? `${txt(a.style.existing)} <span class="muted">(already there)</span>` : `decided in <a href="#dec-${esc(a.style.decision)}">${esc(a.style.decision)}</a>`}</p>` : ''}
-      ${has(a.estimates) ? `<h3>Estimates</h3>${table(a.estimates, [['What', x => txt(x.what)], ['Value', x => txt(x.value)], ['Arithmetic', x => txt(x.math)]])}` : ''}
-      ${has(a.hotPaths) ? `<h3>Hot paths</h3>${table(a.hotPaths, [['Flow', x => txt(x.flow)], ['Size', x => txt(x.size)], ['Budget', x => txt(x.budget)], ['Approach', x => txt(x.approach)], ['Proved by', x => esc(x.provedBy)]])}` : ''}
-      ${(Array.isArray(a.diagrams) ? a.diagrams : []).map(g => `<h3>${txt(g.title || g.view)}${g.view ? ` <span class="muted">· ${esc(g.view)} view</span>` : ''}</h3>
-        <div class="diagram" data-mermaid="${esc(g.mermaid)}"><pre>${esc(g.mermaid)}</pre></div>`).join('')}
-      ${a.diagram ? `<div class="diagram" data-mermaid="${esc(a.diagram)}"><pre>${esc(a.diagram)}</pre></div>` : ''}
-      <h3>Modules</h3>${table(a.components, [
-        ['Module', x => txt(x.name) + (x.new ? ' <span class="badge s-doing">new</span>' : '') + (x.location ? `<br><code>${esc(x.location)}</code>` : '')],
-        ['Responsibility', x => txt(x.responsibility)],
-        ['Interface', x => txt(x.interface)],
-        ['Hides', x => txt(x.hides)],
-        ['Uses', x => esc((x.uses || []).join(', '))]])}
-      <h3>Data model</h3>${table(a.dataModel, [['Entity', x => `<code>${esc(x.entity)}</code>`], ['Fields', x => txt(x.fields)], ['Notes', x => txt(x.notes)]])}
-      <h3>Interfaces</h3>${table(a.interfaces, [['Name', x => `<code>${esc(x.name)}</code>`], ['Contract', x => txt(x.contract)], ['Notes', x => txt(x.notes)]])}`;
+    const diagrams = [...arr(a.diagrams), ...(a.diagram ? [{ mermaid: a.diagram }] : [])];
+    return `${a.overview ? `<div class="prose">${para(a.overview)}</div>` : empty}
+      ${a.style ? `<p class="small" style="margin-top:12px"><span class="lbl">Style</span>${a.style.existing ? `${txt(a.style.existing)} <span class="faint">(already there)</span>` : `decided in <a class="ref" href="#dec-${esc(a.style.decision)}">${esc(a.style.decision)}</a>`}</p>` : ''}
+      ${diagrams.length ? `<h3>Diagrams</h3>${diagrams.map(g => `${g.title || g.view ? `<p class="figcap"><b>${txt(g.title || g.view)}</b>${g.view ? `<span class="tag">${esc(g.view)} view</span>` : ''}</p>` : ''}
+        <div class="diagram" data-mermaid="${esc(g.mermaid)}"><pre>${esc(g.mermaid)}</pre></div>`).join('')}` : ''}
+      ${has(a.estimates) ? `<h3>Estimates</h3><div class="cards">${a.estimates.map(x => `<div class="card"><span class="faint small">${txt(x.what)}</span>
+        <div style="font:600 1.3rem/1.3 var(--serif);margin:2px 0 6px">${txt(x.value)}</div><div class="small muted">${txt(x.math)}</div></div>`).join('')}</div>` : ''}
+      ${has(a.hotPaths) ? `<h3>Hot paths</h3><div class="cards two">${a.hotPaths.map(x => `<div class="card"><div class="card-h"><span class="title">${txt(x.flow)}</span>${x.provedBy ? refChips([x.provedBy]) : ''}</div>
+        ${kv([['Size', txt(x.size)], ['Budget', txt(x.budget)], ['Approach', txt(x.approach)]])}</div>`).join('')}</div>` : ''}
+      <h3>Modules</h3>${isNa(a.components) ? na(a.components) : !arr(a.components).length ? empty : `<div class="cards two">${a.components.map(x => `
+        <div class="card"><div class="card-h"><span class="title">${txt(x.name)}</span>${x.new ? pill('new') : ''}</div>
+          ${x.location ? `<p><span class="file">${esc(x.location)}</span></p>` : ''}
+          <p>${txt(x.responsibility)}</p>
+          ${x.interface ? `<pre style="white-space:pre-wrap">${esc(x.interface)}</pre>` : ''}
+          ${x.hides || arr(x.uses).length ? `<div class="foot" style="display:block">${x.hides ? `<div><span class="lbl">Hides</span>${txt(x.hides)}</div>` : ''}${arr(x.uses).length ? `<div style="margin-top:4px"><span class="lbl">Uses</span>${x.uses.map(u => `<span class="tag">${esc(u)}</span>`).join(' ')}</div>` : ''}</div>` : ''}
+        </div>`).join('')}</div>`}
+      <h3>Data model</h3>${isNa(a.dataModel) ? na(a.dataModel) : !arr(a.dataModel).length ? empty : `<div class="cards">${a.dataModel.map(x => `
+        <div class="card"><div class="card-h"><span class="title" style="font-family:var(--mono);font-size:.9rem">${esc(x.entity)}</span></div>
+          <ul class="marks dot small" style="font-family:var(--mono);font-size:.8rem">${String(x.fields || '').split(/,\s*(?![^()]*\))/).filter(Boolean).map(f => `<li>${esc(f.trim())}</li>`).join('')}</ul>
+          ${x.notes ? `<div class="foot">${txt(x.notes)}</div>` : ''}</div>`).join('')}</div>`}
+      <h3>Interfaces</h3>${rows(a.interfaces, x => ['', `<code>${esc(x.name)}</code> <span style="margin-left:6px">${txt(x.contract)}</span>`, '', x.notes ? txt(x.notes) : ''], false)}`;
   }],
   ['security', 'Security', p => {
     const s = p.security;
     if (isNa(s)) return na(s);
-    return `<h3>What we protect</h3>${list(s.assets)}<h3>Trust boundaries</h3>${list(s.boundaries)}
-      <h3>Threats and mitigations</h3>${table(s.threats, [['ID', x => esc(x.id)], ['Threat', x => txt(x.threat) + `<br><span class="muted">${esc(x.category)}</span>`], ['Mitigation', x => txt(x.mitigation) + (x.ref ? `<br><span class="muted">${txt(x.ref)}</span>` : '')], ['Built in', x => x.acceptedBy === 'user'
-        ? `<span class="badge s-blocked">risk accepted by you</span><br>${txt(x.acceptedReason)}` : esc(x.step)]])}`;
+    const chips = xs => isNa(xs) ? na(xs) : arr(xs).length ? `<div class="chips">${xs.map(x => `<span class="chip">${txt(x)}</span>`).join('')}</div>` : empty;
+    return `<div class="split"><div><h3>What we protect</h3>${chips(s.assets)}</div><div><h3>Trust boundaries</h3>${chips(s.boundaries)}</div></div>
+      <h3>Threats and mitigations</h3>${isNa(s.threats) ? na(s.threats) : !arr(s.threats).length ? empty : `<div class="cards two">${s.threats.map(x => `
+        <div class="card" id="thr-${esc(x.id)}">
+          <div class="card-h">${idChip(x.id)}<span class="tag">${esc(x.category)}</span><span style="flex:1"></span>${x.acceptedBy === 'user' ? pill('accepted', 'risk accepted by you') : x.step ? `<span class="small faint">built in</span> ${refChips([x.step])}` : ''}</div>
+          <p style="font-weight:500">${txt(x.threat)}</p>
+          ${x.acceptedBy === 'user' ? `<p class="small"><span class="lbl">Your reason</span>${txt(x.acceptedReason)}</p>` : `<p class="small muted"><span class="lbl">Mitigation</span>${txt(x.mitigation)}</p>`}
+          ${x.ref ? `<div class="foot">${txt(x.ref)}</div>` : ''}
+        </div>`).join('')}</div>`}`;
   }],
   ['quality', 'Reliability and quality', p => {
     const q = p.quality;
     if (isNa(q)) return na(q);
     const names = { errors: 'Error handling', observability: 'Observability', performance: 'Performance', operations: 'Deploy and operations', cost: 'Cost', accessibility: 'Accessibility', migration: 'Data migration and rollback' };
-    return `<h3>Failure modes</h3>${table(q.failureModes, [['Dependency', x => txt(x.dependency)], ['Failure', x => txt(x.failure)], ['What users see', x => txt(x.effect)], ['Handling', x => txt(x.handling)]])}
-      <h3>Service level objectives</h3>${table(q.slos, [['Indicator', x => txt(x.sli)], ['Target', x => txt(x.target)], ['From', x => esc(x.from)]])}
-      ${Object.entries(names).map(([k, n]) => `<h3>${n}</h3>${list(q[k])}`).join('')}`;
+    return `<h3>When things fail</h3>${isNa(q.failureModes) ? na(q.failureModes) : !arr(q.failureModes).length ? empty : `<div class="cards two">${q.failureModes.map(x => `
+        <div class="card"><div class="card-h"><span class="title">${txt(x.dependency)}</span></div>
+          ${kv([['Failure', txt(x.failure)], ['Users see', txt(x.effect)], ['Handling', txt(x.handling)]])}</div>`).join('')}</div>`}
+      ${has(q.slos) ? `<h3>Service level objectives</h3>${isNa(q.slos) ? na(q.slos) : `<div class="cards">${q.slos.map(x => `<div class="card"><div style="font:600 1.15rem/1.3 var(--serif)">${txt(x.target)}</div>
+        <p class="small muted" style="margin-top:4px">${txt(x.sli)}</p>${x.from ? `<div class="foot">from ${refChips([x.from])}</div>` : ''}</div>`).join('')}</div>`}` : ''}
+      <div class="cards two" style="margin-top:26px">${Object.entries(names).map(([k, n]) => `<div class="card"><div class="card-h"><span class="title">${n}</span></div>${marks(q[k], 'dot')}</div>`).join('')}</div>`;
   }],
   ['impact', 'What relies on what changes', p => isNa(p.context) ? '<p class="na">A new app: nothing existing to break.</p>' : isNa(p.impact) ? na(p.impact) : p.impact.map(i => `
-      <h3>${txt(i.change)}${i.kind ? ` <span class="muted">· ${esc(i.kind)}</span>` : ''}</h3>
-      ${table(i.users, [['Used at', x => `<code>${esc(x.where)}</code>`], ['How', x => txt(x.what)], ['Handled', x => x.step ? `updated in ${esc(x.step)}` : `unchanged: ${txt(x.ok)}`]])}
-      <p><b>Outside this repo:</b> ${txt(i.outside)}</p>
-      <p class="muted">Found with: ${txt(i.searched)}</p>`).join('')],
+      <div class="card" style="margin-bottom:12px"><div class="card-h"><span class="title">${txt(i.change)}</span>${i.kind ? `<span class="tag">${esc(i.kind)}</span>` : ''}</div>
+        ${rows(i.users, x => ['', `<span class="file">${esc(x.where)}</span> ${txt(x.what)}`, x.step ? `<span class="small">updated in</span> ${refChips([x.step])}` : pill('done', 'unchanged'), x.step ? '' : txt(x.ok)], false)}
+        <p class="small" style="margin-top:10px"><span class="lbl">Outside this repo</span>${txt(i.outside)}</p>
+        <div class="foot">Found with: ${txt(i.searched)}</div></div>`).join('')],
   ['dependencies', 'New dependencies', p => isNa(p.dependencies) ? na(p.dependencies) : Array.isArray(p.dependencies) && !p.dependencies.length ? '<p class="na">None. Everything uses what the project already has.</p>' :
-    table(p.dependencies, [['Package', x => `<code>${esc(x.name)}@${esc(x.version)}</code>`], ['Why', x => txt(x.why) + (x.insteadOf ? `<br><span class="muted">instead of ${txt(x.insteadOf)}</span>` : '') + (x.overlap ? `<br><span class="muted">already in the project: ${txt(x.overlap)}</span>` : '')], ['License', x => esc(x.license)], ['Health', x => txt(x.health)]])],
+    `<div class="cards two">${arr(p.dependencies).map(x => `<div class="card"><div class="card-h"><span class="title" style="font-family:var(--mono);font-size:.9rem">${esc(x.name)}@${esc(x.version)}</span>${x.from ? `<span class="tag">from ${esc(x.from)}</span>` : ''}${x.license ? `<span class="tag">${esc(x.license)}</span>` : ''}</div>
+      <p>${txt(x.why)}</p>${kv([['Instead of', x.insteadOf && txt(x.insteadOf)], ['Already there', x.overlap && txt(x.overlap)]])}${x.health ? `<div class="foot">${txt(x.health)}</div>` : ''}</div>`).join('')}</div>`],
   ['testing', 'Testing', p => {
     const t = p.testing;
     if (isNa(t)) return na(t);
-    return `<h3>Strategy</h3>${list(t.strategy)}
-      <h3>Where tests go</h3>${table(t.seams, [['Seam', x => txt(x.seam)], ['Catches', x => txt(x.catches)], ['Misses', x => txt(x.misses)]])}
-      <h3>Acceptance criteria</h3>${table(t.acceptance, [['ID', x => esc(x.id)], ['Criterion', x => txt(x.text)]])}
-      <h3>Running it like a user</h3>${isNa(t.runIt) ? na(t.runIt) : t.runIt ? table([t.runIt].flatMap(r =>
-        [['Test data', r.data], ['Start', r.start], ['Ready when', r.ready], ['Driven by', r.drive], ['Stop', r.stop], ['Notes', r.notes]]
-          .filter(([, v]) => v).map(([k, v]) => ({ k, v }))), [['', x => esc(x.k)], ['', x => /^(Driven by|Notes)$/.test(x.k) ? txt(x.v) : `<code>${esc(x.v)}</code>`]]) : empty}
-      ${p.meta && p.meta.kind === 'design' ? `<h3>Interface checks the build runs</h3>${table(t.uiChecks, [['Check', x => txt(x.check)], ['Command', x => `<code>${esc(x.command)}</code>`]])}`
-        : `<h3>Security checks the build runs</h3>${table(t.securityChecks, [['Check', x => txt(x.check)], ['Command', x => `<code>${esc(x.command)}</code>`], ['When', x => txt(x.when)]])}`}
-      ${p.baseline ? `<h3>Before the build <span class="muted">· ${esc(String(p.baseline.at || '').slice(0, 10))}${p.baseline.commit ? ` at ${esc(p.baseline.commit)}` : ''}</span></h3>
-        <p class="muted">What already failed before any step ran. Steps are held to adding nothing to it.</p>
-        ${table(p.baseline.checks, [['Check', x => txt(x.check) + (x.command ? `<br><code>${esc(x.command)}</code>` : '')], ['Result', x => txt(x.result)],
-          ['Already failing', x => Array.isArray(x.known) && x.known.length ? list(x.known) : '<span class="muted">nothing</span>']])}` : ''}`;
+    const r = t.runIt;
+    return `<h3>Strategy</h3>${marks(t.strategy, 'dot')}
+      <h3>Where tests go</h3>${isNa(t.seams) ? na(t.seams) : !arr(t.seams).length ? empty : `<div class="cards two">${t.seams.map(x => `<div class="card"><div class="card-h"><span class="title">${txt(x.seam)}</span></div>
+        <ul class="marks yes small"><li>${txt(x.catches)}</li></ul><ul class="marks no small"><li>${txt(x.misses)}</li></ul></div>`).join('')}</div>`}
+      <h3>Acceptance criteria</h3>${rows(t.acceptance, x => [x.id, txt(x.text), '', '', 'acc-' + x.id])}
+      <h3>Running it like a user</h3>${isNa(r) ? na(r) : r ? `<div class="term">${[['test data', r.data], ['start', r.start], ['ready when', r.ready], ['driven by', r.drive], ['stop', r.stop]]
+          .filter(([, v]) => v).map(([k, v]) => `<div><span class="k">${k}</span><code>${esc(v)}</code></div>`).join('')}${r.notes ? `<div><span class="k">notes</span><span class="note">${txt(r.notes)}</span></div>` : ''}</div>` : empty}
+      ${p.meta && p.meta.kind === 'design' ? `<h3>Interface checks the build runs</h3>${rows(t.uiChecks, x => ['', txt(x.check), '', `<code>${esc(x.command)}</code>`], false)}`
+        : `<h3>Security checks every step runs</h3>${rows(t.securityChecks, x => ['', txt(x.check), x.when ? `<span class="tag">${esc(x.when)}</span>` : '', `<code>${esc(x.command)}</code>`], false)}`}
+      ${p.baseline ? `<h3>Before the build · ${esc(String(p.baseline.at || '').slice(0, 10))}${p.baseline.commit ? ` at ${esc(p.baseline.commit)}` : ''}</h3>
+        <p class="muted small">What already failed before any step ran. Steps are held to adding nothing to it.</p>
+        ${rows(p.baseline.checks, x => ['', txt(x.check) + (x.command ? ` <code>${esc(x.command)}</code>` : ''), txt(x.result),
+          Array.isArray(x.known) && x.known.length ? `Already failing: ${x.known.map(k => txt(k)).join('; ')}` : ''], false)}` : ''}`;
   }],
   ['direction', 'Direction', p => {
     const d = p.direction || {};
-    return `${d.brief ? `<p>${txt(d.brief)}</p>` : ''}${d.scene ? `<p><b>Where it's used:</b> ${txt(d.scene)}</p>` : ''}
-      <h3>Principles</h3>${list(d.principles)}
+    return `${d.brief ? `<div class="lede out"><span class="eyebrow">Brief</span><p>${txt(d.brief)}</p></div>` : ''}${d.scene ? `<p style="margin-top:14px"><span class="lbl">Where it’s used</span>${txt(d.scene)}</p>` : ''}
+      <h3>Principles</h3>${marks(d.principles, 'to')}
       ${d.signature ? `<h3>Signature</h3><p>${txt(d.signature)}</p>` : ''}
-      <h3>References</h3>${table(d.references, [['Product', x => url(x.url) ? `<a href="${url(x.url)}" target="_blank" rel="noopener noreferrer">${txt(x.name)}</a>` : txt(x.name)], ['What we take from it', x => txt(x.take)]])}
-      <h3>Defaults caught and replaced</h3>${table(d.defaultsAvoided, [['The default', x => txt(x.default)], ['Instead', x => txt(x.instead)]])}`;
+      <h3>References</h3>${rows(d.references, x => ['', url(x.url) ? `<a href="${url(x.url)}" target="_blank" rel="noopener noreferrer">${txt0(x.name)}</a>` : txt(x.name), '', txt(x.take)], false)}
+      <h3>Defaults caught and replaced</h3>${rows(d.defaultsAvoided, x => ['', `<s class="muted">${txt(x.default)}</s>`, '', `→ ${txt(x.instead)}`], false)}`;
   }],
   ['current', 'The system as it is', p => {
     if (!p.context || isNa(p.context)) return '<p class="na">A new product: no existing interface to keep.</p>';
     const c = p.current || {};
     const names = { extend: 'Extend: new screens inside the existing system, matching it exactly', refine: 'Refine: the same identity, visibly better', redesign: 'Redesign: a new direction, shipped in pieces' };
-    return `<p><b>Approach:</b> ${p.meta && names[p.meta.approach] ? esc(names[p.meta.approach]) : '<span class="empty">not chosen</span>'}</p>
-      ${c.system ? `<p><b>Where it lives:</b> ${txt(c.system)}</p>` : ''}
-      <h3>Tokens in use</h3>${table(c.tokens, [['Name', x => `<code>${esc(x.name)}</code>`], ['Value', x => esc(x.value)], ['Where', x => `<code>${esc(x.where)}</code>`]])}
-      <h3>Components</h3>${table(c.components, [['Component', x => txt(x.name)], ['Where', x => `<code>${esc(x.where)}</code>`], ['States', x => txt(x.states)]])}
-      ${c.fonts || c.icons || c.motion ? `<p>${[c.fonts && `<b>Fonts:</b> ${txt(c.fonts)}`, c.icons && `<b>Icons:</b> ${txt(c.icons)}`, c.motion && `<b>Motion:</b> ${txt(c.motion)}`].filter(Boolean).join(' · ')}</p>` : ''}
-      <h3>Design debt</h3>${list(c.debt)}`;
+    return `<p><span class="lbl">Approach</span>${p.meta && names[p.meta.approach] ? esc(names[p.meta.approach]) : '<span class="empty">not chosen</span>'}</p>
+      ${c.system ? `<p><span class="lbl">Where it lives</span>${txt(c.system)}</p>` : ''}
+      <h3>Tokens in use</h3>${table(c.tokens, [['Name', x => `<code>${esc(x.name)}</code>`], ['Value', x => esc(x.value)], ['Where', x => `<span class="file">${esc(x.where)}</span>`]])}
+      <h3>Components</h3>${table(c.components, [['Component', x => txt(x.name)], ['Where', x => `<span class="file">${esc(x.where)}</span>`], ['States', x => txt(x.states)]])}
+      ${c.fonts || c.icons || c.motion ? `<p style="margin-top:12px">${[c.fonts && `<span class="lbl">Fonts</span>${txt(c.fonts)}`, c.icons && `<span class="lbl">Icons</span>${txt(c.icons)}`, c.motion && `<span class="lbl">Motion</span>${txt(c.motion)}`].filter(Boolean).join(' · ')}</p>` : ''}
+      <h3>Design debt</h3>${marks(c.debt, 'no')}`;
   }],
   ['tokens', 'Tokens', p => {
     const t = p.tokens || {};
@@ -462,7 +754,7 @@ const SECTIONS = [
       arr(type.scale).map(x => `<p style="margin:12px 0 0;font:var(--weight-${slugOf(x.name)}) var(--size-${slugOf(x.name)})/var(--leading-${slugOf(x.name)}) var(--font-body,system-ui)">${esc(x.name)} · ${esc(x.size)}/${esc(x.lineHeight)} · Every screen in every state, before any code.</p>`).join('');
     return `<h3>Color</h3><div class="swatches">${colors.map(c => {
         const ratio = bg && c.value !== bg ? contrast(c.value, bg) : null;
-        return `<div class="swatch"><div class="chip" style="background:${esc(cssValue(c.value))}"></div><b>${esc(c.name)}</b> <code>${esc(c.value)}</code><small>${txt(c.role)}</small>${
+        return `<div class="swatch"><div class="chipc" style="background:${esc(cssValue(c.value))}"></div><b>${esc(c.name)}</b> <code>${esc(c.value)}</code><small>${txt(c.role)}</small>${
           ratio ? `<small class="${ratio < 4.5 && /text/i.test(c.role) ? 'low' : ''}">${ratio.toFixed(2)}:1 on bg${ratio < 4.5 && /text/i.test(c.role) ? ': too low for text (4.5:1)' : ''}</small>` : ''}</div>`;
       }).join('') || empty}</div>
       ${arr(t.dark).length ? `<h3>Dark theme overrides</h3>${list(t.dark, c => `<code>${esc(c.name)}</code> ${esc(c.value)}`)}` : ''}
@@ -478,40 +770,43 @@ const SECTIONS = [
     return `${sizeBar(dark)}
       ${screens.map(sc => screenHtml(p, sc, ask)).join('')}`;
   }],
-  ['steps', 'Implementation steps', p => !has(p.steps) || isNa(p.steps) ? empty : table(p.steps, [
-    ['ID', x => esc(x.id)],
-    ['Step', x => `<b>${txt(x.title)}</b>${x.detail ? `<br>${txt(x.detail)}` : ''}${(x.files || []).length ? `<br>${x.files.map(f => `<code>${esc(f)}</code>`).join(' ')}` : ''}${(x.screens || []).length ? `<br><span class="muted">Screens: ${x.screens.map(id => `<a href="#${esc(id)}">${esc(id)}</a>`).join(', ')}</span>` : ''}${stepTests(x.tests)}${x.notes ? `<br><span class="muted">${txt(x.notes)}</span>` : ''}`],
-    ['Done when', x => txt(x.doneWhen) || '<span class="empty">missing</span>'],
-    ['Status', x => badge(x.status) + ((x.dependsOn || []).length ? `<br><span class="muted">after ${esc(x.dependsOn.join(', '))}</span>` : '') +
-      (p.cost && p.cost.steps && p.cost.steps[x.id] ? `<br><a class="muted" href="#cost">cost ${esc((n => (n >= 1e6 ? `${(n / 1e6).toFixed(1)}M` : `${Math.round(n / 1e3)}k`))(p.cost.steps[x.id].weight))}</a>` : '')],
-  ])],
+  ['steps', 'Implementation steps', p => {
+    if (!has(p.steps) || isNa(p.steps)) return empty;
+    const n = st => p.steps.filter(s => (STEP_STATES.includes(s.status) ? s.status : 'todo') === st).length;
+    return `<div class="legend">${STEP_STATES.filter(n).map(st => `<span class="st-${st}"><i></i>${n(st)} ${st === 'todo' ? 'to do' : st}</span>`).join('')}
+        <span style="margin-left:auto"><button type="button" class="link" data-steps="open">Open all</button> · <button type="button" class="link" data-steps="close">Close all</button></span></div>
+      <ol class="timeline">${p.steps.map(x => stepHtml(p, x)).join('')}</ol>`;
+  }],
   // Measured from Claude Code's logs by `plan-tool.js cost`, after each step.
   ['cost', 'What it cost', p => {
     const c = p.cost;
     if (!c || !c.total) return '<p class="na">Not measured yet. Claude measures it after each step, or ask for it any time.</p>';
-    const k = n => (n >= 1e6 ? `${(n / 1e6).toFixed(1)}M` : n >= 1e3 ? `${Math.round(n / 1e3)}k` : String(n || 0));
     const pct = n => `${Math.round(100 * (n || 0) / c.total)}%`;
-    const rows = [['Planning', c.planning], ...Object.entries(c.steps || {}), ...(c.between && c.between.weight ? [['Between steps', c.between]] : [])];
+    const parts = [['Planning', c.planning], ...Object.entries(c.steps || {}), ...(c.between && c.between.weight ? [['Between steps', c.between]] : [])].filter(([, b]) => b);
+    const max = Math.max(1, ...parts.map(([, b]) => b.weight || 0));
     return `<div class="stats">
-        <div class="stat"><span class="muted">Total</span><b>${k(c.total)}</b><span class="muted">weighted tokens</span></div>
-        ${Object.entries(c.byModel || {}).map(([m, v]) => `<div class="stat"><span class="muted">${esc(m)}</span><b>${k(v)}</b><span class="muted">${pct(v)}</span></div>`).join('')}
+        <div class="stat"><span class="k">Total</span><b>${kilo(c.total)}</b><span class="s">weighted tokens</span></div>
+        ${Object.entries(c.byModel || {}).map(([m, v]) => `<div class="stat"><span class="k">${esc(m)}</span><b>${kilo(v)}</b><span class="s">${pct(v)}</span></div>`).join('')}
       </div>
-      <h3>Where it went</h3>${table(rows.map(([name, b]) => ({ name, b })), [['Part', x => esc(x.name)], ['Cost', x => `${k(x.b.weight)} <span class="muted">(${pct(x.b.weight)})</span>`],
-        ['By model', x => esc(Object.entries(x.b.byModel || {}).map(([m, v]) => `${m} ${k(v)}`).join(', '))]])}
-      <h3>Agents, costliest first</h3>${table(c.agents, [['Agent', x => txt(x.name)], ['Part', x => esc(x.where)], ['Model', x => esc(x.model)], ['Cost', x => `${k(x.weight)} <span class="muted">over ${esc(x.calls)} calls</span>`]])}
-      <p class="muted">Weighted tokens count a cached read as ${esc(c.weights.cacheRead)}, a cache write as ${esc(c.weights.cacheWrite5m)} to ${esc(c.weights.cacheWrite1h)} and output as ${esc(c.weights.output)} fresh input tokens.
+      <h3>Where it went</h3>${rows(parts, ([name, b]) => ['', `<b>${esc(name)}</b><div class="hbar"><i style="width:${(100 * (b.weight || 0) / max).toFixed(1)}%"></i></div>`,
+        `${kilo(b.weight)} <span class="faint">${pct(b.weight)}</span>`, esc(Object.entries(b.byModel || {}).map(([m, v]) => `${m} ${kilo(v)}`).join(', '))], false)}
+      <h3>Agents, costliest first</h3>${rows(c.agents, x => ['', txt(x.name), `${kilo(x.weight)} <span class="faint">· ${esc(x.calls)} calls</span>`, `${esc(x.where)} · ${esc(x.model)}`], false)}
+      <p class="faint small" style="margin-top:12px">Weighted tokens count a cached read as ${esc(c.weights.cacheRead)}, a cache write as ${esc(c.weights.cacheWrite5m)} to ${esc(c.weights.cacheWrite1h)} and output as ${esc(c.weights.output)} fresh input tokens.
         Sonnet and Haiku cost less per token than Opus, so compare within a model. Measured ${esc(String(c.at || '').slice(0, 16).replace('T', ' '))}.</p>`;
   }],
   // A demo (meta.kind "demo", from /naqsha:demo): the storyboard and the video.
   ['scenes', 'Storyboard', p => {
     const st = p.story || {};
     let at = 0;
-    const rows = arr(p.scenes).map(sc => { const r = { ...sc, from: at }; at += Number(sc.seconds) || 0; return r; });
+    const scenes = arr(p.scenes).map(sc => { const r = { ...sc, from: at }; at += Number(sc.seconds) || 0; return r; });
     const mmss = t => `${Math.floor(t / 60)}:${String(Math.round(t % 60)).padStart(2, '0')}`;
-    return `${st.hook ? `<p><b>Hook:</b> ${txt(st.hook)}</p>` : ''}
-      <p class="muted">${rows.length} scenes · ${mmss(at)}${p.meta && p.meta.length ? ` of a ${esc(p.meta.length)} s target` : ''}${p.meta && p.meta.formats ? ` · ${esc(arr(p.meta.formats).join(', '))}` : ''}</p>
-      ${table(rows, [['', x => `<b>${esc(x.id)}</b><br><span class="muted">${esc(mmss(x.from))}</span>`], ['Kind', x => `<span class="badge">${esc(x.kind)}</span><br><span class="muted">${esc(x.seconds)} s</span>`],
-        ['On screen', x => txt(x.shows) + (x.notes ? `<br><span class="muted">${txt(x.notes)}</span>` : '')], ['Caption', x => x.caption ? `“${txt(x.caption)}”` : '<span class="muted">none</span>']])}`;
+    return `${st.hook ? `<div class="lede out"><span class="eyebrow">Hook</span><p>${txt(st.hook)}</p></div>` : ''}
+      <p class="muted small" style="margin:14px 0">${scenes.length} scenes · ${mmss(at)}${p.meta && p.meta.length ? ` of a ${esc(p.meta.length)} s target` : ''}${p.meta && p.meta.formats ? ` · ${esc(arr(p.meta.formats).join(', '))}` : ''}</p>
+      <div class="scenes">${scenes.map(x => `<div class="card scene" id="scene-${esc(x.id)}">
+        <div class="card-h">${idChip(x.id)}<span class="time">${esc(mmss(x.from))} · ${esc(x.seconds)} s</span><span style="flex:1"></span>${x.kind ? `<span class="tag">${esc(x.kind)}</span>` : ''}</div>
+        <div class="small">${txt(x.shows)}</div>
+        ${x.caption ? `<div class="cap">“${txt(x.caption)}”</div>` : ''}
+        ${x.notes ? `<div class="foot">${txt(x.notes)}</div>` : ''}</div>`).join('')}</div>`;
   }],
   ['video', 'Video', p => {
     const r = arr(p.renders);
@@ -522,21 +817,39 @@ const SECTIONS = [
     let at = 0;
     const chapters = arr(p.scenes).map(sc => { const c = { id: sc.id, caption: sc.caption || sc.shows, from: at }; at += Number(sc.seconds) || 0; return c; });
     return `<div class="frames-bar" role="group" aria-label="Format">${r.map(x => `<button type="button" data-format="${esc(x.format)}" aria-pressed="${x === cur}">${esc(x.format)}</button>`).join('')}</div>
-      <video id="demo-video" controls preload="metadata" playsinline style="width:100%;max-height:70vh;background:#000;border-radius:8px"${p.poster && safe(p.poster) ? ` poster="${safe(p.poster)}"` : ''} src="${safe(cur.file)}">
+      <video id="demo-video" controls preload="metadata" playsinline style="width:100%;max-height:70vh;background:#000;border-radius:10px"${p.poster && safe(p.poster) ? ` poster="${safe(p.poster)}"` : ''} src="${safe(cur.file)}">
         ${p.captions && /\.vtt$/.test(p.captions) && safe(p.captions) ? `<track kind="captions" src="${safe(p.captions)}" default>` : ''}</video>
-      <p class="muted">${esc(cur.format)} · ${esc(cur.seconds)} s · <a href="${safe(cur.file)}" download>Download</a>${p.captions && safe(p.captions) ? ` · <a href="${safe(p.captions)}" download>Captions</a>` : ''}</p>
-      ${asking(p) || LIVE ? '<p><button type="button" data-action="stamp">Comment at this moment</button> <span class="muted">pauses the video and adds its time to your comment on this section</span></p>' : ''}
-      ${chapters.length ? `<h3>Scenes</h3><ul>${chapters.map(c => `<li><button type="button" class="link" data-seek="${c.from}">${esc(c.id)} · ${Math.floor(c.from / 60)}:${String(Math.round(c.from % 60)).padStart(2, '0')}</button> ${txt(c.caption)}</li>`).join('')}</ul>` : ''}
-      ${arr(p.qa).length ? `<h3>Checks</h3>${table(p.qa, [['Check', x => txt(x.check)], ['Result', x => txt(x.result)]])}` : ''}`;
+      <p class="muted small" style="margin-top:8px">${esc(cur.format)} · ${esc(cur.seconds)} s · <a href="${safe(cur.file)}" download>Download</a>${p.captions && safe(p.captions) ? ` · <a href="${safe(p.captions)}" download>Captions</a>` : ''}</p>
+      ${asking(p) || LIVE ? '<p><button type="button" data-action="stamp">Comment at this moment</button> <span class="muted small">pauses the video and adds its time to your comment on this section</span></p>' : ''}
+      ${chapters.length ? `<h3>Scenes</h3>${rows(chapters, c => [c.id, `<button type="button" class="link" data-seek="${c.from}">${Math.floor(c.from / 60)}:${String(Math.round(c.from % 60)).padStart(2, '0')}</button> ${txt(c.caption)}`, ''])}` : ''}
+      ${arr(p.qa).length ? `<h3>Checks</h3>${rows(p.qa, x => ['', txt(x.check), '', txt(x.result)], false)}` : ''}`;
   }],
   ['needsYou', 'Needs you', p => Array.isArray(p.needsYou) && !p.needsYou.length ? '<p class="na">Nothing. Claude can do all of it.</p>' :
-    table(p.needsYou, [['What', x => txt(x.what)], ['When', x => esc(x.when)], ['Why', x => txt(x.why)]])],
-  ['risks', 'Risks', p => table(p.risks, [['Risk', x => txt(x.risk)], ['Likelihood', x => esc(x.likelihood)], ['Impact', x => esc(x.impact)], ['Mitigation', x => txt(x.mitigation)]])],
+    rows(p.needsYou, x => ['', `<b>${txt(x.what)}</b>`, x.when ? `<span class="tag">${txt(x.when)}</span>` : '', txt(x.why)], false)],
+  ['risks', 'Risks', p => {
+    if (isNa(p.risks)) return na(p.risks);
+    const rs = arr(p.risks).map(r => ({ ...r, l: lv(r.likelihood), i: lv(r.impact) })).map(r => ({ ...r, s: r.l * r.i }));
+    if (!rs.length) return empty;
+    const heat = s => (s >= 6 ? 3 : s >= 3 ? 2 : 1);
+    const cells = [3, 2, 1].map(l => `<span class="ax y">${lvName(l)}</span>${[1, 2, 3].map(i => {
+      const n = rs.filter(r => r.l === l && r.i === i).length;
+      return `<span class="cell h${heat(l * i)}${n ? ' has' : ''}" title="${lvName(l)} likelihood, ${lvName(i)} impact">${n || ''}</span>`;
+    }).join('')}`).join('');
+    return `<div class="risk-wrap">
+      <div><div class="matrix" aria-label="Risks by likelihood and impact">${cells}<span></span><span class="ax">low</span><span class="ax">med</span><span class="ax">high</span><span class="cap">impact →</span></div>
+        <p class="faint small" style="margin-top:6px">Rows: likelihood. Darker means worse.</p></div>
+      <div>${rs.sort((a, b) => b.s - a.s || b.i - a.i).map(r => `<div class="risk h${heat(r.s)}">
+        <div class="r">${txt(r.risk)}</div>
+        <div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap"><span class="pill plain lv-${lvName(r.l)}">${esc(cap(r.likelihood || '?'))} likelihood</span><span class="pill plain lv-${lvName(r.i)}">${esc(cap(r.impact || '?'))} impact</span></div>
+        ${r.mitigation ? `<div class="m"><span class="lbl">Mitigation</span>${txt(r.mitigation)}</div>` : ''}</div>`).join('')}</div></div>`;
+  }],
   ['later', 'Later milestones', p => Array.isArray(p.later) && p.later.length
-    ? `<p class="muted">Left for later plans, each its own /naqsha:plan once this one is built.</p>${table(p.later, [['Milestone', x => `<b>${txt(x.title)}</b>`], ['Adds', x => txt(x.adds)], ['Why later', x => txt(x.why)]])}`
+    ? `<p class="muted small" style="margin-bottom:12px">Left for later plans, each its own /naqsha:plan once this one is built.</p><div class="cards two">${p.later.map(x => `<div class="card"><div class="card-h"><span class="title">${txt(x.title)}</span></div><p>${txt(x.adds)}</p><div class="foot">${txt(x.why)}</div></div>`).join('')}</div>`
     : '<p class="na">Nothing deferred: this plan covers the whole request.</p>'],
-  ['rejected', 'Deliberately not doing', p => table(p.rejected, [['Option', x => txt(x.option)], ['Why not', x => txt(x.why)]])],
-  ['changelog', 'Change log', p => table(p.changelog, [['Date', x => esc(x.date)], ['Change', x => txt(x.change)], ['By', x => esc(x.by)]])],
+  ['rejected', 'Deliberately not doing', p => isNa(p.rejected) ? na(p.rejected) : !arr(p.rejected).length ? empty
+    : `<ul class="marks no">${p.rejected.map(x => `<li><b style="font-weight:500">${txt(x.option)}</b><div class="small muted">${txt(x.why)}</div></li>`).join('')}</ul>`],
+  ['changelog', 'Change log', p => isNa(p.changelog) ? na(p.changelog) : !arr(p.changelog).length ? empty
+    : `<ul class="log">${[...p.changelog].reverse().map(x => `<li><span class="d">${esc(x.date)}</span><span>${txt(x.change)}</span><span class="tag">${esc(x.by)}</span></li>`).join('')}</ul>`],
 ];
 
 // ---- tabs and phases --------------------------------------------------------
@@ -544,13 +857,15 @@ const SECTIONS = [
 // The plan reads in parts instead of one long scroll. Questions get a tab of
 // their own and are asked in phases.
 const TABS = [
-  ['overview', 'Overview', ['summary', 'later', 'needsYou', 'risks']],
+  ['overview', 'Overview', ['summary', 'needsYou', 'risks', 'later']],
   ['questions', 'Questions', []],
   ['requirements', 'Requirements', ['requirements']],
   ['research', 'Research', ['context', 'priorArt', 'research']],
-  ['design', 'Design', ['decisions', 'architecture', 'impact', 'quality', 'dependencies', 'rejected']],
+  ['decisions', 'Decisions', ['decisions', 'rejected']],
+  ['architecture', 'Architecture', ['architecture', 'dependencies', 'impact']],
+  ['quality', 'Quality', ['quality']],
   ['security', 'Security', ['security']],
-  ['build', 'Build', ['testing', 'steps', 'cost']],
+  ['build', 'Build', ['steps', 'testing', 'cost']],
   ['log', 'Change log', ['changelog']],
 ];
 let videoFormat = null;
@@ -564,12 +879,12 @@ const DEMO_TABS = [
 ];
 // A design (meta.kind "design", from /naqsha:design) reads in its own tabs.
 const DESIGN_TABS = [
-  ['overview', 'Overview', ['summary', 'later', 'needsYou', 'risks']],
+  ['overview', 'Overview', ['summary', 'needsYou', 'risks', 'later']],
   ['questions', 'Questions', []],
   ['direction', 'Direction', ['current', 'direction', 'decisions', 'impact']],
   ['tokens', 'Tokens', ['tokens']],
   ['screens', 'Screens', ['screens']],
-  ['build', 'Build', ['testing', 'steps', 'cost']],
+  ['build', 'Build', ['steps', 'testing', 'cost']],
   ['log', 'Change log', ['changelog']],
 ];
 const SECTION = Object.fromEntries(SECTIONS.map(x => [x[0], x]));
@@ -608,39 +923,38 @@ const firstOpenPhase = phases => Math.max(0, phases.findIndex(ph => ph.items.som
 
 function questionsTab(p, ask) {
   const phases = phasesOf(p);
-  if (!phases.length) return '<section><p class="na">No questions yet.</p></section>';
+  if (!phases.length) return '<p class="na">No questions yet.</p>';
   if (activePhase === null || activePhase >= phases.length) activePhase = firstOpenPhase(phases);
   const item = it => it.kind === 'q' ? question(it.item, ask) : decision(it.item, ask);
   const stepper = phases.map((ph, i) => {
     const open = ph.items.filter(it => it.open).map(it => it.item.id);
     return `<li><button type="button" class="phase${i === activePhase ? ' current' : ''}" data-phase="${i}"
       data-open="${esc(open.join(' '))}" data-total="${ph.items.length}" aria-current="${i === activePhase ? 'step' : 'false'}">
-      <span class="num">${i + 1}</span><span>${esc(ph.title)}</span><span class="muted k"></span></button></li>`;
+      <span class="num">${i + 1}</span><span>${esc(ph.title)}</span><span class="k"></span></button></li>`;
   }).join('');
   const panels = phases.map((ph, i) => {
     const open = ph.items.filter(it => it.open);
     const closed = ph.items.filter(it => !it.open);
     const prev = i > 0 ? `<button type="button" data-phase="${i - 1}">← ${esc(phases[i - 1].title)}</button>` : '<span></span>';
     const next = i < phases.length - 1 ? `<button type="button" class="primary" data-phase="${i + 1}">Next: ${esc(phases[i + 1].title)} →</button>`
-      : ask ? '<span class="muted">Last phase. Send your answers with the bar below.</span>' : '<span></span>';
+      : ask ? '<span class="muted small">Last phase. Send your answers with the bar below.</span>' : '<span></span>';
     return `<div data-phase-panel="${i}"${i === activePhase ? '' : ' hidden'}>
-      <section><h2><span>${esc(ph.title)}</span><span class="muted">Phase ${i + 1} of ${phases.length}</span></h2>
-        ${open.length ? open.map(item).join('') : '<p class="na">Nothing open in this phase.</p>'}
-        ${closed.length ? `<details class="answered"><summary>Answered earlier (${closed.length})</summary>${closed.map(item).join('')}</details>` : ''}
-        <div class="phase-nav">${prev}${next}</div>
-      </section></div>`;
+      <div class="sec-h"><h2>${esc(ph.title)}</h2><span class="eyebrow">Phase ${i + 1} of ${phases.length}</span></div>
+      ${open.length ? open.map(item).join('') : '<p class="na">Nothing open in this phase.</p>'}
+      ${closed.length ? `<details class="answered"${open.length ? '' : ' open'}><summary>Answered earlier (${closed.length})</summary>${closed.map(item).join('')}</details>` : ''}
+      <div class="phase-nav">${prev}${next}</div></div>`;
   }).join('');
   const recommend = ask && openItems(p).some(d => d.recommendation)
-    ? '<p><button type="button" data-action="recommend">Use the recommendation wherever I haven’t answered</button></p>' : '';
+    ? '<p style="margin-bottom:18px"><button type="button" data-action="recommend">Use the recommendation wherever I haven’t answered</button></p>' : '';
   return `<ol class="phases" aria-label="Question phases">${stepper}</ol>${recommend}${panels}`;
 }
 
 const commentButton = (id, ask) => ask ? `<button type="button" class="link" data-toggle="${id}">Comment</button>` : '';
-const commentBox = (id, ask) => ask ? `<textarea data-comment="${id}" rows="3" placeholder="Your comment on this section" aria-label="Comment on this section"${
+const commentBox = (id, ask) => ask ? `<textarea data-comment="${id}" rows="3" placeholder="Your comment on this section" aria-label="Comment on this section" style="margin:0 0 14px"${
   opened.has(id) || (draft.comments[id] || '').trim() ? '' : ' hidden'}></textarea>` : '';
 const sectionHtml = (p, ask, id) => {
   const [, title, f] = SECTION[id];
-  return `<section id="${id}"><h2><span>${title}</span>${commentButton(id, ask)}</h2>${commentBox(id, ask)}${present(p, id) ? f(p, ask) : empty}</section>`;
+  return `<section class="sec" id="${id}"><div class="sec-h"><h2>${title}</h2>${commentButton(id, ask)}</div>${commentBox(id, ask)}${present(p, id) ? f(p, ask) : empty}</section>`;
 };
 
 function overviewTop(p, ask) {
@@ -654,72 +968,95 @@ function overviewTop(p, ask) {
   const steps = Array.isArray(p.steps) ? p.steps : [];
   const size = buildSize(p);
   const needs = Array.isArray(p.needsYou) ? p.needsYou.length : 0;
-  const done = steps.filter(s => s.status === 'done').length;
   const toAnswer = open.filter(d => !answered(draft.answers[d.id])).length;
   const inPhases = phases.filter(ph => ph.items.some(it => !settled(it))).length;
   const waitingLine = toAnswer
     ? `${toAnswer} question${toAnswer > 1 ? 's' : ''} to answer, in ${inPhases} phase${inPhases > 1 ? 's' : ''}${open.length > toAnswer ? `; ${open.length - toAnswer} answered here, waiting to be sent or recorded` : ''}.`
     : `All ${open.length} answered here, waiting to be sent or recorded.`;
-  return `
-    ${open.length ? `<section class="waiting"><h2>Waiting on you</h2>
-      <p>${waitingLine}
-        ${ask ? 'Answer them in the Questions tab, then press <b>Send to Claude</b>. You can also answer in the terminal.'
-          : m.status === 'draft' ? 'Answer them in the terminal, or ask Claude for the live page link to answer here.' : ''}</p>
-      <p><button type="button" class="primary" data-tab="questions">Go to the questions →</button></p></section>`
-    : ask ? `<section><h2>Ready for your review</h2><p>Read the plan, tab by tab. To change anything, comment on a section and send it to Claude.
-      When you're happy, type <code>/naqsha:approve</code> in Claude Code. Approval is only that command.</p></section>` : ''}
-    ${accepted.length && m.status === 'draft' ? `<section class="waiting"><h2>Risks marked as accepted by you</h2>
-      <p>These threats will not be mitigated. Approving the plan accepts them. If one wasn't your decision, say so before you approve.</p>
-      ${list(accepted, t => `<a href="#security">${esc(t.id)}</a> · ${txt(t.threat)}<br><span class="muted">Your reason: ${txt(t.acceptedReason)}</span>`)}</section>` : ''}
-    <section>
-      <h2>Build size</h2>
+  const kindStats = m.kind === 'demo' ? '' : `<section class="sec"><div class="sec-h"><h2>Build size</h2></div>
       <div class="stats">
-        <div class="stat"><span class="muted">Steps</span><b>${size.steps}</b></div>
-        <div class="stat"><span class="muted">Independent reviews</span><b>about ${size.reviewed}</b><span class="muted">plus the finish review</span></div>
-        <div class="stat"><span class="muted">App runs</span><b>about ${size.runs}</b></div>
-        <div class="stat"><span class="muted">Needs you</span><b>${needs ? `<a href="#needsYou">${needs} item${needs > 1 ? 's' : ''}</a>` : '—'}</b></div>
-        <div class="stat"><span class="muted">Progress</span><b>${done} / ${steps.length} steps</b><div class="bar"><i style="width:${steps.length ? (100 * done / steps.length) : 0}%"></i></div></div>
+        <div class="stat"><span class="k">Steps</span><b>${size.steps}</b><span class="s">effort: ${esc(size.effort)}</span></div>
+        <div class="stat"><span class="k">Independent reviews</span><b>~${size.reviewed}</b><span class="s">plus the finish review</span></div>
+        <div class="stat"><span class="k">App runs</span><b>~${size.runs}</b><span class="s">driven like a user</span></div>
+        <div class="stat"><span class="k">Needs you</span><b>${needs ? `<a href="#needsYou" style="color:inherit">${needs}</a>` : '0'}</b><span class="s">${needs ? `item${needs > 1 ? 's' : ''} only you can do` : 'Claude can do all of it'}</span></div>
       </div>
-      <p class="muted">Effort: ${esc(size.effort)}. Claude builds the code, so the size is counted in its work, not in developer hours; the calendar time that remains is what needs you.</p>
-    </section>`;
+      <p class="faint small" style="margin-top:10px">Claude builds the code, so the size is counted in its work, not in developer hours; the calendar time that remains is what needs you.</p></section>`;
+  return `
+    ${open.length ? `<div class="callout warn"><div><h2>Waiting on you</h2>
+      <p class="small">${waitingLine}
+        ${ask ? 'Answer them in Questions, then press <b>Send to Claude</b>. You can also answer in the terminal.'
+          : m.status === 'draft' ? 'Answer them in the terminal, or ask Claude for the live page link to answer here.' : ''}</p></div>
+      <button type="button" class="primary" data-tab="questions">Go to the questions →</button></div>`
+    : ask && m.kind !== 'demo' ? `<div class="callout info"><h2>Ready for your review</h2><p class="small">Read the plan, tab by tab. To change anything, comment on a section and send it to Claude.
+      When you’re happy, type <code>/naqsha:approve</code> in Claude Code. Approval is only that command.</p></div>` : ''}
+    ${accepted.length && m.status === 'draft' ? `<div class="callout bad"><h2>Risks marked as accepted by you</h2>
+      <p class="small">These threats will not be mitigated. Approving the plan accepts them. If one wasn’t your decision, say so before you approve.</p>
+      ${marks(accepted, 'no', t => `<a class="ref" href="#thr-${esc(t.id)}">${esc(t.id)}</a> ${txt(t.threat)}<br><span class="muted small">Your reason: ${txt(t.acceptedReason)}</span>`)}</div>` : ''}
+    ${p.summary ? sectionHtml(p, ask, 'summary') : ''}
+    ${steps.length || m.kind !== 'demo' ? kindStats : ''}`;
+}
+
+function masthead(p) {
+  const m = p.meta || {};
+  const steps = isNa(p.steps) ? [] : arr(p.steps);
+  const done = steps.filter(s => s.status === 'done').length;
+  const kind = m.kind === 'new-app' ? 'New app plan' : m.kind === 'design' ? `Design${m.approach ? ` · ${m.approach}` : ''}` : m.kind === 'demo' ? 'Demo' : 'Feature plan';
+  const open = openItems(p).length;
+  const right = m.kind === 'demo' ? '' : steps.length && m.status !== 'draft'
+    ? `<div class="progress-box"><div class="nums"><span class="eyebrow">Build progress</span><span><b>${done}</b> <span class="muted">/ ${steps.length} step${steps.length === 1 ? '' : 's'}</span></span></div>
+        <div class="segbar">${steps.map(s => `<a class="seg st-${STEP_STATES.includes(s.status) ? s.status : 'todo'}" href="#${esc(s.id)}" title="${esc(s.id)} · ${esc(s.title)} · ${esc(s.status || 'todo')}"></a>`).join('')}</div></div>`
+    : m.status === 'draft' ? `<div class="progress-box"><div class="nums"><span class="eyebrow">Planning</span><span><b>${open}</b> <span class="muted">open question${open === 1 ? '' : 's'}</span></span></div>
+        <div class="segbar">${phasesOf(p).flatMap(ph => ph.items).map(it => `<span class="seg ${settled(it) ? 'st-done' : ''}"></span>`).join('')}</div></div>` : '';
+  return `<header class="masthead"><div class="in"><div>
+      <span class="eyebrow">naqsha · ${esc(kind)}</span>
+      <h1>${txt0(m.title || 'Untitled plan')}</h1>
+      <div class="meta">${pill(m.status)}
+        ${m.updated ? `<span>Updated ${esc(m.updated)}</span>` : ''}
+        ${m.approvedAt ? `<span class="sep">/</span><span>Approved ${esc(m.approvedAt.slice(0, 10))}</span>` : ''}
+        ${m.effort ? `<span class="sep">/</span><span>${esc(m.effort)} effort</span>` : ''}
+        ${m.buildMode ? `<span class="sep">/</span><span>${esc(m.buildMode)} build</span>` : ''}
+        ${m.research && m.research !== 'full' ? `<span class="pill st-blocked">Research ${txt0(m.research)}</span>` : ''}
+      </div></div>${right}</div></header>`;
 }
 
 function render(p) {
   const m = p.meta || {};
   const ask = asking(p);
+  indexIds(p);
   document.title = (m.title || 'Plan') + (m.kind === 'design' ? ' · design' : m.kind === 'demo' ? ' · demo' : ' · plan');
   const tabs = (m.kind === 'design' ? DESIGN_TABS : m.kind === 'demo' ? DEMO_TABS : TABS).filter(([id]) => id !== 'questions' || phasesOf(p).length);
   if (!tabs.some(([id]) => id === activeTab)) {
     activeTab = openItems(p).length && tabs.some(([id]) => id === 'questions') ? 'questions' : 'overview';
   }
-  const bar = tabs.map(([id, title, secs]) => `<button type="button" role="tab" id="tab-${id}" data-tab="${id}"
-    aria-controls="panel-${id}" aria-selected="${id === activeTab}" tabindex="${id === activeTab ? 0 : -1}"
-    class="${secs.some(x => !present(p, x)) ? 'todo' : ''}"${secs.some(x => !present(p, x)) ? ' title="Has sections not written yet"' : ''}>${title}${
-    id === 'questions' ? ' <span class="count-badge" id="open-count"></span>' : ''}</button>`).join('');
+  // The overview's summary is drawn at its top, so it isn't listed twice.
+  const secsOf = (id, secs) => id === 'overview' ? secs.filter(x => x !== 'summary') : secs;
+  const bar = tabs.map(([id, title, secs], i) => {
+    const todo = secs.some(x => !present(p, x));
+    const subs = secsOf(id, secs).length > 1 ? `<ul class="sub" data-sub="${id}"${id === activeTab ? '' : ' hidden'}>${
+      secsOf(id, secs).map(x => `<li><a href="#${x}">${SECTION[x][1]}</a></li>`).join('')}</ul>` : '';
+    return `<button type="button" role="tab" id="tab-${id}" data-tab="${id}"
+      aria-controls="panel-${id}" aria-selected="${id === activeTab}" tabindex="${id === activeTab ? 0 : -1}"
+      class="${todo ? 'todo' : ''}"${todo ? ' title="Has sections not written yet"' : ''}><span class="n">${String(i + 1).padStart(2, '0')}</span>${title}${
+      id === 'questions' ? '<span class="count-badge" id="open-count"></span>' : ''}</button>${subs}`;
+  }).join('');
   const panels = tabs.map(([id, , secs]) => `<div role="tabpanel" id="panel-${id}" aria-labelledby="tab-${id}"${id === activeTab ? '' : ' hidden'}>
     ${id === 'overview' ? overviewTop(p, ask) : ''}
-    ${id === 'questions' ? questionsTab(p, ask) : secs.map(x => sectionHtml(p, ask, x)).join('')}</div>`).join('');
+    ${id === 'questions' ? questionsTab(p, ask) : secsOf(id, secs).map(x => sectionHtml(p, ask, x)).join('')}</div>`).join('');
 
-  app.innerHTML = `
-    <header>
-      <h1>${txt(m.title || 'Untitled plan')}</h1>
-      <div class="meta">
-        ${badge(m.status)}
-        <span>${m.kind === 'new-app' ? 'New app' : m.kind === 'design' ? `Design${m.approach ? ` · ${esc(m.approach)}` : ''}` : m.kind === 'demo' ? 'Demo' : 'Feature'}</span>
-        ${m.updated ? `<span>Updated ${esc(m.updated)}</span>` : ''}
-        ${m.approvedAt ? `<span>Approved ${esc(m.approvedAt.slice(0, 10))}</span>` : ''}
-        ${m.research && m.research !== 'full' ? `<span class="s-blocked">Research ${txt(m.research)}</span>` : ''}
-      </div>
-    </header>
-    <div class="tabs" role="tablist" aria-label="Plan sections">${bar}</div>
-    ${panels}
-    ${ask ? `<div class="sendbar" role="region" aria-label="Send to Claude">
-      <span class="count" id="count"></span>
-      <input type="text" id="message" placeholder="Message to Claude (optional)" aria-label="Message to Claude">
-      <button type="button" class="primary" data-action="send">Send to Claude</button>
-      <span class="status${status.bad ? ' bad' : ''}" id="status" role="status">${esc(status.text)}</span>
-    </div>` : ''}
-    <footer>Rendered from plan.js · refreshes when the file changes</footer>`;
+  app.innerHTML = `${masthead(p)}
+    <div class="shell">
+      <nav class="rail"><div role="tablist" aria-label="Plan sections" aria-orientation="vertical">${bar}</div></nav>
+      <main class="content">
+        ${panels}
+        ${ask ? `<div class="sendbar" role="region" aria-label="Send to Claude">
+          <span class="count" id="count"></span>
+          <input type="text" id="message" placeholder="Message to Claude (optional)" aria-label="Message to Claude">
+          <button type="button" class="primary" data-action="send">Send to Claude</button>
+          <span class="status${status.bad ? ' bad' : ''}" id="status" role="status">${esc(status.text)}</span>
+        </div>` : ''}
+        <footer>Rendered from plan.js · refreshes when the file changes</footer>
+      </main>
+    </div>`;
   restore();
   drawDiagrams();
   fitFrames();
@@ -736,6 +1073,7 @@ function setTab(id, focus = false) {
     t.setAttribute('aria-selected', String(on));
     t.tabIndex = on ? 0 : -1;
   }
+  for (const s of app.querySelectorAll('[data-sub]')) s.hidden = s.dataset.sub !== id;
   for (const panel of app.querySelectorAll('[role=tabpanel]')) panel.hidden = panel.id !== `panel-${id}`;
   if (focus) tab.focus();
   drawDiagrams();
@@ -882,6 +1220,10 @@ function onInput(e) {
 
 app.addEventListener('input', onInput);
 app.addEventListener('change', onInput);
+app.addEventListener('toggle', e => {
+  const d = e.target;
+  if (d.dataset && d.dataset.step) stepOpen[d.dataset.step] = d.open;
+}, true);
 app.addEventListener('click', e => {
   const link = e.target.closest('a[href^="#"]');
   if (link) {
@@ -892,6 +1234,9 @@ app.addEventListener('click', e => {
   const t = e.target.closest('button');
   if (!t) return;
   if (t.dataset.tab) setTab(t.dataset.tab);
+  else if (t.dataset.steps) {
+    for (const d of app.querySelectorAll('details[data-step]')) d.open = t.dataset.steps === 'open';
+  }
   else if (t.dataset.seek !== undefined || t.dataset.action === 'stamp') {
     const v = document.getElementById('demo-video');
     if (!v) return;
@@ -929,10 +1274,11 @@ app.addEventListener('click', e => {
 // Arrow keys, Home and End move between tabs (the WAI-ARIA tabs pattern).
 app.addEventListener('keydown', e => {
   const t = e.target.closest('[role=tab]');
-  if (!t || !['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(e.key)) return;
+  if (!t || !['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End'].includes(e.key)) return;
   const tabs = [...app.querySelectorAll('[role=tab]')];
   const i = tabs.indexOf(t);
-  const j = e.key === 'Home' ? 0 : e.key === 'End' ? tabs.length - 1 : (i + (e.key === 'ArrowRight' ? 1 : -1) + tabs.length) % tabs.length;
+  const fwd = e.key === 'ArrowRight' || e.key === 'ArrowDown';
+  const j = e.key === 'Home' ? 0 : e.key === 'End' ? tabs.length - 1 : (i + (fwd ? 1 : -1) + tabs.length) % tabs.length;
   e.preventDefault();
   setTab(tabs[j].dataset.tab, true);
 });
@@ -960,7 +1306,8 @@ function show(p) {
 // one draws without waiting on the CDN.
 let mermaidLoad = null;
 const loadMermaid = () => mermaidLoad || (mermaidLoad = import('https://cdn.jsdelivr.net/npm/mermaid@11.4.1/dist/mermaid.esm.min.mjs').then(m => {
-  m.default.initialize({ startOnLoad: false, securityLevel: 'strict', theme: matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'default' });
+  m.default.initialize({ startOnLoad: false, securityLevel: 'strict', theme: 'base', fontFamily: 'IBM Plex Sans, system-ui, sans-serif',
+    themeVariables: { background: '#fffdf9', primaryColor: '#e8ecfa', primaryBorderColor: '#2447c9', primaryTextColor: '#1c1b18', lineColor: '#8b877d', secondaryColor: '#efece5', tertiaryColor: '#fffdf9', fontSize: '14px' } });
   return m.default;
 }));
 async function drawDiagrams() {
