@@ -739,7 +739,13 @@ const SECTIONS = [
   }],
   ['direction', 'Direction', p => {
     const d = p.direction || {};
+    const c = d.contract || {};
+    const dealt = arr(d.roll && d.roll.dealt);
     return `${d.brief ? `<div class="lede out"><span class="eyebrow">Brief</span><p>${txt(d.brief)}</p></div>` : ''}${d.scene ? `<p style="margin-top:14px"><span class="lbl">Where it’s used</span>${txt(d.scene)}</p>` : ''}
+      ${c.thesis || c.firstViewport ? `<h3>The contract</h3><p class="muted small">Every screen is checked against it.</p>${kv([['Thesis', c.thesis && txt(c.thesis)], ['World', c.world && txt(c.world)], ['Story', c.story && txt(c.story)], ['First viewport', c.firstViewport && txt(c.firstViewport)], ['Signature', c.signature && txt(c.signature)]])}` : ''}
+      ${d.rut ? `<p style="margin-top:12px"><span class="lbl">The rut, kept out</span>${txt(d.rut)}</p>` : ''}
+      ${arr(d.worlds).length ? `<h3>Worlds from the audience’s life</h3>${d.roll ? `<p class="muted small">${dealt.length} dealt by the roll${d.roll.round > 1 ? ` (round ${esc(d.roll.round)})` : ''}, so the options weren’t just the first idea.</p>` : ''}
+        <ol class="small" style="padding-left:1.4em">${d.worlds.map((w, i) => `<li style="margin:6px 0">${dealt.includes(i + 1) ? `<span class="pill st-rec plain">dealt</span> ` : ''}<b style="font-weight:600">${txt(w.name)}</b>${w.why ? ` · ${txt(w.why)}` : ''}${w.looks ? `<br><span class="muted">${txt(w.looks)}</span>` : ''}</li>`).join('')}</ol>` : ''}
       <h3>Principles</h3>${marks(d.principles, 'to')}
       ${d.signature ? `<h3>Signature</h3><p>${txt(d.signature)}</p>` : ''}
       <h3>References</h3>${rows(d.references, x => ['', url(x.url) ? `<a href="${url(x.url)}" target="_blank" rel="noopener noreferrer">${txt0(x.name)}</a>` : txt(x.name), '', txt(x.take)], false)}

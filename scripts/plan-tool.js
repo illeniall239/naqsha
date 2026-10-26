@@ -23,6 +23,9 @@
 //       Only before the first step is done, so it can't be moved to hide a failure.
 //   plan-tool.js cost <plan.js> [S#]      what planning, each step and each agent cost, from Claude Code's logs;
 //                                         with a step, one line for it (the full breakdown goes on the page)
+//   plan-tool.js roll <plan.js> [n] [k]   a design: deal which of its n candidate worlds (direction.worlds,
+//                                         in Claude's order) become the k directions to show, so Claude's
+//                                         own ranking, which puts the category default first, doesn't pick
 'use strict';
 
 const fs = require('fs');
@@ -441,10 +444,35 @@ function readPatch() {
   }
 }
 
+// The deal: k distinct worlds out of n, at random, the first dealt leading. Recorded in
+// the plan, so the page and a later session show what was dealt, and a second roll is a
+// re-roll the user asked for, not a quiet redo until the favorite comes up.
+function roll(plan, n, k) {
+  const { randomInt } = require('crypto');
+  const worlds = Array.isArray(plan.direction && plan.direction.worlds) ? plan.direction.worlds : [];
+  const count = n || worlds.length;
+  if (!(count >= 3)) throw new Error('roll needs at least 3 candidate worlds (direction.worlds, or a count)');
+  if (worlds.length && worlds.length !== count) throw new Error(`direction.worlds has ${worlds.length} candidates, not ${count}`);
+  plan.direction = plan.direction || {};
+  const last = plan.direction.roll || {};
+  const rolls = last.round || 0;
+  // A re-roll never deals a world the user has already seen.
+  const shown = new Set(last.candidates === count ? [...(last.shown || []), ...(last.dealt || [])] : []);
+  const pool = Array.from({ length: count }, (_, i) => i + 1).filter(i => !shown.has(i));
+  const take = Math.min(k || 3, rolls ? pool.length : count - 1);
+  if (take < 1) throw new Error(`every one of the ${count} worlds has been shown: write new candidates in direction.worlds (or ask the user what quality is missing)`);
+  const dealt = [];
+  while (dealt.length < take) dealt.push(pool.splice(randomInt(pool.length), 1)[0]);
+  plan.direction.roll = { candidates: count, dealt, shown: [...shown], round: rolls + 1, at: new Date().toISOString().slice(0, 16) };
+  const name = i => (worlds[i - 1] && (worlds[i - 1].name || worlds[i - 1].world)) ? ` (${worlds[i - 1].name || worlds[i - 1].world})` : '';
+  return [`Dealt ${dealt.length} of ${count}${rolls ? `, re-roll ${rolls}` : ''}: lead ${dealt[0]}${name(dealt[0])}${dealt.length > 1 ? `; then ${dealt.slice(1).map(i => `${i}${name(i)}`).join(', ')}` : ''}.`,
+    'Build these as the directions, each fused with the product and fully committed. Your own top candidate joins only as one card labeled as your pick, with its familiarity in its risk line.'].join('\n');
+}
+
 function main(argv) {
   const [cmd, file, id] = argv;
-  if (!file || !['step', 'status', 'ready', 'digest', 'update-step', 'set-meta', 'checkpoint', 'baseline', 'cost'].includes(cmd)) {
-    throw new Error('usage: plan-tool.js step|status|ready|digest|update-step|set-meta|checkpoint|baseline|cost <plan.js> [S#]');
+  if (!file || !['step', 'status', 'ready', 'digest', 'update-step', 'set-meta', 'checkpoint', 'baseline', 'cost', 'roll'].includes(cmd)) {
+    throw new Error('usage: plan-tool.js step|status|ready|digest|update-step|set-meta|checkpoint|baseline|cost|roll <plan.js> [S#]');
   }
   const planFile = path.resolve(file);
   const plan = readPlan(planFile);
@@ -456,6 +484,11 @@ function main(argv) {
     plan.cost = costOf(plan, planFile);
     writePlan(planFile, plan);
     return console.log(id ? stepCostLine(plan.cost, id) : costView(plan.cost));
+  }
+  if (cmd === 'roll') {
+    const out = roll(plan, Number(id) || 0, Number(argv[3]) || 0);
+    writePlan(planFile, plan);
+    return console.log(out);
   }
   if (cmd === 'update-step') updateStep(plan, id, readPatch());
   else if (cmd === 'checkpoint') checkpoint(plan, id, readPatch());
@@ -475,4 +508,4 @@ if (require.main === module) {
   }
 }
 
-module.exports = { stepView, statusView, digestView, referencesFor, reviewFor, NAMES };
+module.exports = { roll, stepView, statusView, digestView, referencesFor, reviewFor, NAMES };

@@ -21,9 +21,15 @@ users and their scene, the user chooses, defaults are named and replaced, and th
 held to `${CLAUDE_PLUGIN_ROOT}/skills/build/references/interface.md`. Read it now; it is the
 standard the design must make possible and the build will enforce.
 
-**As creative as possible is the default.** Aim for the best of the web, the level of
-Awwwards Site of the Day: distinct, unexpected, with motion that feels designed, and still
-clean and fast. No typical UI, ever, unless the user asks for it.
+**As creative as possible is the default,** and "be creative" is not how you get there:
+asked for something distinctive, a model lands on the next most common look (cream and a
+serif, near-black and neon, editorial hairlines and mono labels). Read
+`${CLAUDE_SKILL_DIR}/references/direction.md` now: the direction comes from the audience's
+own world, a roll picks which candidates become options so your ranking doesn't, the chosen
+one is written as a contract you can audit a screenshot against, and you judge rendered
+screenshots, not code. The craft bar is still the best of the web (Awwwards Site of the
+Day): distinct, with motion that feels designed, and clean and fast. No typical UI, ever,
+unless the user asks for it.
 
 The brief wins. When the user names a look, a brand, fonts or a palette, or asks for
 something calmer, that's the design, even where `interface.md` calls it a default.
@@ -145,28 +151,42 @@ need has no source.
 
 ## 5. Direction
 
-- **Look at the best of the best.** Start from Awwwards (awwwards.com): Sites of the Day,
-  of the Month and of the Year (`/websites/sites_of_the_day/`, `/websites/sites_of_the_month/`,
-  `/websites/sites_of_the_year/`), narrowed by category (`/websites/web-interactive/`,
-  `/websites/e-commerce/`, `/websites/mobile-apps/`) and by the tags for motion
-  (`/websites/animation/`, `/websites/transitions/`, `/websites/microinteractions/`,
-  `/websites/interaction-design/`). Pick five to eight recent winners that fit this
-  product's mood, not its industry, and the best products in its category for how they
-  handle the task. For each: the composition, the type, the color, how it moves (view
-  transitions, interactions, the signature moment), and the one idea worth taking. Use
-  subagents named and modeled as `/naqsha:plan` describes (Sonnet for this), returning
+An existing world that's kept (extend, refine) is inherited: skip to the contract below,
+written from the system as it is. For a new or replaced world, follow `direction.md`:
+
+- **Name the ground and the rut** (`direction.md` section 2): the mechanism, the scene in
+  one physical sentence, the cultural home, and the page this category always ships plus
+  its predictable opposite (`direction.rut`). Both are out.
+- **Seven worlds** from the audience's own life (`direction.worlds`, section 3): visual
+  systems, artifacts, places, rituals, publications, notations they know by heart, across
+  at least three material families, each with why it carries the mechanism and how it
+  looks. Not the tools they operate, and at most one literal reading of the product's name.
+- **The craft bar, separately.** Look at a few recent Awwwards Sites of the Day
+  (awwwards.com/websites/sites_of_the_day/, with the animation, transitions and
+  interaction-design tags) and the category's best products for how they handle the task.
+  They set the finish, motion and density to reach, never the world: they're a cluster of
+  their own. Subagents named and modeled as `/naqsha:plan` describes (Sonnet) can gather
   condensed observations with URLs. Take ideas, never copy a site.
+- **The roll:** `node "${CLAUDE_PLUGIN_ROOT}/scripts/plan-tool.js" roll <plan.js> 7` deals
+  which worlds become directions (section 4). Build those, each fused with the product and
+  fully committed: its color strategy, faces from its world, composition, the material it
+  authors instead of chrome, motion language and signature moment.
 - **Consider 3D where it applies** (a product to turn or configure, a space, data with a
   third dimension, an interactive story, a shader-driven signature; "3D with Three.js" in
-  `interface.md`), and when it does, make at least one direction use it.
-- **Propose two or three directions** as a decision, each ambitious and each different
-  from the others: its palette, type pairing, composition, motion language and signature
-  moment, and a `preview` of the key screen in that direction (the page renders option
-  previews like screen previews, with their CSS animations running). Recommend one and say
-  why, from the scene and the references. The user picks.
-- Record the chosen one in `direction`: the brief, the scene, the references and what you
-  take from each, the principles, the signature, and the `motion` language (view
-  transitions, how controls respond, how content enters, the signature moment).
+  `interface.md`), and when it does, let one direction use it.
+- **Show them** as one decision, each option a `preview` of the key screen's first viewport
+  at full fidelity (the page renders option previews like screen previews, with their CSS
+  animations running): the dealt directions, the lead first; your own pick as one more card
+  when the roll didn't deal it, its risk line honest about how familiar it is; and one line
+  offering the category standard played straight, never recommended. Shoot the options
+  (`design-shots.mjs <design> --only-options`, section 7) and look at them before the user
+  does. The user picks, steers ("bolder", "more like the second") or re-rolls (run `roll`
+  again: it never deals a world they've seen).
+- **Record the chosen one** in `direction`: the brief, the scene, the references and what
+  you take from each, the principles, the signature, the `motion` language (view
+  transitions, how controls respond, how content enters, the signature moment), and the
+  **contract** (`direction.md` section 6): thesis, world, story, first viewport, signature.
+  Every screen is checked against it.
 
 ## 6. Tokens
 
@@ -182,24 +202,40 @@ comes from.
 
 Write each screen's `previews`, one per state: HTML and CSS using only the token
 variables (`design-format.md` lists them), with realistic content, including the long and
-awkward cases. Show the motion: CSS animations and transitions run in the previews (no
+awkward cases, and the material the world calls for authored in it (inline SVG
+illustrations and figures, real names and entries, images as `data:` URIs), never chrome
+standing in for it. Every atom is built in the world's vocabulary: navigation, buttons,
+inputs, tables, empty states. Show the motion: CSS animations and transitions run in the previews (no
 JavaScript), so the entrance choreography, hover and press states and the signature moment
 are visible, with a `prefers-reduced-motion` version. A 3D scene can't run in a preview:
 show its poster (a CSS rendition or an inline image) and describe the scene, its
 interaction and its fallback in the screen's `notes`. On operate screens the task stays
 obvious and the controls recognizable, inside a composition that is still clearly this
-product's. Then review them as the skeptical design lead who has to sign off:
+product's.
 
-- Go through "The defaults to refuse" in `interface.md`. For each one you find, rewrite
-  the element and add it to `direction.defaultsAvoided` with what replaced it.
-- Check the floor: contrast, focus styles visible in the previews, touch target sizes,
-  every state present, copy in the product's own words.
-- Hold each screen next to the Awwwards references: if it looks like a template, it isn't
-  done. Push the composition, the type or the motion until it's this product's.
-- Then make it clean: remove one thing from each screen.
+Then look at what you made, rendered, never at the code:
 
-If you can render the page in a browser (a headless browser or the user's), look at the
-previews at all three widths before handing over, and fix what you see.
+1. **Shoot it:** `node "${CLAUDE_PLUGIN_ROOT}/scripts/design-shots.mjs" <plans>/<slug>`
+   renders every preview through the page at phone and desktop width (`--dark` adds the
+   dark theme, `--options` the decision options) into `<slug>/shots/`, with contact sheets.
+   It needs Playwright in the project or installed globally; if neither, ask the user
+   before installing anything.
+2. **Review as the skeptical design lead** who has to sign off, sheet by sheet:
+   - the self-check: could someone guess this look from the category alone, or from the
+     category plus "avoid the obvious"? Is it one of the four clusters in `direction.md`?
+   - against the contract: does the first viewport show the thesis, in the world, at the
+     scale it promised? A stock component anywhere?
+   - "The defaults to refuse" in `interface.md`: for each one found, rewrite the element and
+     add it to `direction.defaultsAvoided` with what replaced it;
+   - the floor: contrast, focus styles visible, touch targets, every state present, copy in
+     the product's own words, nothing clipped or overlapping at phone width;
+   - then make it clean: remove one thing from each screen.
+3. **A fresh pair of eyes:** a reviewer subagent, named and modeled as `/naqsha:plan`
+   describes, given only the contact sheets, the contract and the brief (never this
+   conversation), returns what reads as generic, what breaks the contract, and what's
+   broken, each as `screen · problem → exact change`, most serious first.
+4. Fix in one batch, shoot again, look once more. Two rounds is the ceiling; a round that
+   resolves nothing ends it.
 
 ## 8. The build
 

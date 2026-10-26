@@ -38,7 +38,22 @@ window.NAQSHA = {
   "direction": {
     "brief": "Staff process 200 orders a day between customers; speed and no mistakes beat delight",
     "scene": "Bright shop floor and a dim stockroom; light theme with a dark one for the stockroom",
-    "references": [                    // Awwwards winners first, then the category's best products
+    // A new or replaced world (direction.md): the rut, seven worlds from the audience's
+    // life, the roll that dealt the options, and the contract every screen is checked against.
+    "rut": "The admin template (sidebar, stat cards, a table) and its opposite, a dark ops console",
+    "worlds": [                        // seven, in your order, across at least three material families
+      { "name": "Shelf-edge price labels", "why": "staff read them all day; one glance tells price and state",
+        "looks": "cool white card, black condensed numerals, one safety-orange strip, a barcode rhythm" }
+    ],
+    "roll": { "candidates": 7, "dealt": [4, 1, 6], "round": 1 },   // written by plan-tool.js roll
+    "contract": {
+      "thesis": "Every order is a label you read in one glance; refuses the grid of identical cards",
+      "world": "Label stock and price strips: cool white, black numerals, orange only for what needs action",
+      "story": "Staff see what needs doing, act from the keyboard, and never open a second screen",
+      "firstViewport": "The worklist fills the screen; the oldest order needing action sits top left at double size with its one action",
+      "signature": "Approving sweeps an orange strip off the label; rows settle up in 240 ms"
+    },
+    "references": [                    // the craft bar: the category's best products, recent Awwwards winners
       { "name": "Linear issue list", "url": "https://linear.app", "take": "dense rows, keyboard-first, one accent" }
     ],
     "principles": ["Every action reachable by keyboard", "Status colors only where they mean something"],
@@ -50,17 +65,17 @@ window.NAQSHA = {
   },
 
   "tokens": {                          // names follow the Design Tokens format 2025.10 where the stack allows
-    "color": [
-      { "name": "bg", "value": "#f7f6f2", "role": "page background" },
-      { "name": "text", "value": "#1c1d1a", "role": "body text" },
-      { "name": "accent", "value": "#1f5f4a", "role": "primary actions and selection" },
-      { "name": "danger", "value": "#b3261e", "role": "destructive actions and errors" }
+    "color": [                         // from the chosen world, never a fallback palette
+      { "name": "bg", "value": "#f1f3f4", "role": "page background (label stock)" },
+      { "name": "text", "value": "#111416", "role": "body text and numerals" },
+      { "name": "accent", "value": "#c2410c", "role": "what needs action, and the primary action" },
+      { "name": "danger", "value": "#b3121a", "role": "destructive actions and errors" }
     ],                                 // at least 3; every text/background pair meets 4.5:1
-    "dark": [{ "name": "bg", "value": "#141513" }],   // overrides for a dark theme, if the scene needs one
+    "dark": [{ "name": "bg", "value": "#121517" }],   // overrides for a dark theme, if the scene needs one
     "type": {
-      "families": [
-        { "name": "Source Serif 4", "role": "headings", "source": "google", "weights": [400, 600] },   // google | system | self-hosted
-        { "name": "IBM Plex Sans", "role": "body and controls", "source": "google", "weights": [400, 500] }
+      "families": [                    // faces from the world (direction.md section 5), with their source
+        { "name": "<the world's display face>", "role": "headings and numerals", "source": "google", "weights": [500, 800] },   // google | system | self-hosted
+        { "name": "<a workhorse UI face>", "role": "body and controls", "source": "google", "weights": [400, 500] }
       ],
       "scale": [
         { "name": "display", "size": "32px", "lineHeight": "40px", "weight": 600 },
@@ -126,7 +141,9 @@ into CSS variables and the fonts loaded, at phone, tablet and desktop width:
 - `--size-<name>`, `--leading-<name>` and `--weight-<name>` for each step of the type scale
 
 Google fonts load in the previews with the `weights` listed (only weights the family has).
-Images in previews are inline `data:` URIs or left out; nothing else loads. Option
+Images in previews are inline `data:` URIs, and illustrations are inline SVG; nothing else
+loads. Author the material the world needs this way rather than leaving gradients or empty
+boxes in its place. Option
 previews in a decision render with the design's tokens once it has them, so an option for
 one part (a hero, a button) uses the token variables and shows that part inside the real
 screen. Direction options proposed before any tokens exist are self-contained, with their

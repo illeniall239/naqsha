@@ -309,3 +309,28 @@ test('status shows progress and the next step', () => {
   assert.match(out, /1\/3 steps done/);
   assert.match(out, /Next: S2/);
 });
+
+test('the roll deals which worlds become directions, records it, and a re-roll never repeats one', t => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'naqsha-roll-'));
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  const file = path.join(dir, 'plan.js');
+  const worlds = Array.from({ length: 7 }, (_, i) => ({ name: `World ${i + 1}`, why: 'w', looks: 'l' }));
+  fs.writeFileSync(file, `window.NAQSHA = ${JSON.stringify({ meta: { kind: 'design', status: 'draft' }, direction: { worlds } })};\n`);
+  const roll = () => spawnSync('node', [TOOL, 'roll', file], { encoding: 'utf8' });
+  const first = roll();
+  assert.equal(first.status, 0, first.stderr);
+  assert.match(first.stdout, /^Dealt 3 of 7: lead \d \(World \d\); then \d \(World \d\), \d \(World \d\)\./);
+  const a = readPlan(file).direction.roll;
+  assert.equal(new Set(a.dealt).size, 3);
+  assert.ok(a.dealt.every(i => i >= 1 && i <= 7));
+  const again = roll();
+  assert.match(again.stdout, /re-roll 1/);
+  const b = readPlan(file).direction.roll;
+  assert.ok(b.dealt.every(i => !a.dealt.includes(i)), 'a re-roll deals only worlds not yet shown');
+  roll();
+  const out = roll();
+  assert.equal(out.status, 1);
+  assert.match(out.stderr, /every one of the 7 worlds has been shown/);
+  fs.writeFileSync(file, `window.NAQSHA = ${JSON.stringify({ meta: { kind: 'design' }, direction: { worlds: worlds.slice(0, 2) } })};\n`);
+  assert.match(roll().stderr, /at least 3 candidate worlds/);
+});

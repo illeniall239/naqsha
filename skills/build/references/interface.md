@@ -96,6 +96,15 @@ decision was made: rewrite the element, don't soften it.
 - A modal for a task that needs no interruption.
 - Placeholder content: lorem ipsum, "John Doe", round fake numbers. Use realistic content,
   including the long and awkward cases.
+- Gradients, glass, glows, blobs or generic icon tiles where an authored asset (an
+  illustration, a figure, real content) belongs.
+- One of the looks AI interfaces cluster around, when the brief left the look free: cream
+  ground with a high-contrast serif and a terracotta accent; near-black with one neon accent
+  and glowing edges; broadsheet hairlines, an italic display serif and tracked mono labels;
+  flat saturated ink with black boxes and hard offset shadows. And on persuade or
+  experience surfaces, a training-data default face (the list in
+  `${CLAUDE_PLUGIN_ROOT}/skills/design/references/direction.md`). The test: could someone
+  guess this look from the category alone?
 
 Before calling a screen done, look at it as a whole and remove one thing.
 

@@ -646,7 +646,8 @@ test('a design is gated like a plan, and approved on what the user can see', () 
     meta: { title: 'Admin design', slug: 'x', kind: 'design', status: 'draft' },
     context: { na: 'new product' },
     direction: { brief: 'Staff process orders fast', principles: ['Keyboard first'], defaultsAvoided: [{ default: 'stat cards', instead: 'a worklist' }],
-      motion: 'Rows expand in place; views slide with navigation' },
+      motion: 'Rows expand in place; views slide with navigation',
+      contract: { thesis: 'Every order is a label read in one glance', world: 'Label stock, black numerals, one orange strip', firstViewport: 'The worklist fills the screen, oldest action first' } },
     tokens: { motion: { fast: '120ms', easing: 'ease-out' }, color: [{ name: 'bg', value: '#fff', role: 'background' }, { name: 'text', value: '#111', role: 'text' }, { name: 'accent', value: '#1f5f4a', role: 'actions' }],
       type: { families: [{ name: 'IBM Plex Sans', role: 'body' }], scale: [{ name: 'a', size: '32px' }, { name: 'b', size: '16px' }, { name: 'c', size: '13px' }] } },
     screens: [screen()],
@@ -663,6 +664,7 @@ test('a design is gated like a plan, and approved on what the user can see', () 
   refused({ direction: { brief: 'x' } }, /no design direction/);
   refused({ direction: { brief: 'x', principles: ['y'], motion: 'm' } }, /no defaults reviewed/);
   refused({ direction: { brief: 'x', principles: ['y'], defaultsAvoided: { na: 'n' } } }, /no motion language/);
+  refused({ direction: { ...design().direction, contract: { thesis: 'Clean and modern' } } }, /no direction contract/);
   refused({ tokens: { color: [{ name: 'bg', value: '#fff', role: 'background' }] } }, /no token system/);
   refused({ screens: [] }, /no screens/);
   refused({ screens: [screen({ states: ['default'] })] }, /screen SC1 Orders needs empty, loading and error states/);

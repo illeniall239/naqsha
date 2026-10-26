@@ -387,6 +387,12 @@ function checkDesignPlan(plan) {
   if (!text(dir.motion) || Object.keys(plan.tokens && plan.tokens.motion || {}).length < 2) {
     problems.push('no motion language (direction.motion: view transitions, how controls respond, how content enters, the signature moment; and tokens.motion with at least 2 named durations or easings)');
   }
+  // A new or replaced visual world is decided when it can be drawn and audited: the
+  // contract every screen is checked against. An inherited world (extend, refine) has one.
+  const c = dir.contract || {};
+  if ((isNa(plan.context) || plan.meta.approach === 'redesign') && !(text(c.thesis) && text(c.world) && text(c.firstViewport))) {
+    problems.push('no direction contract (direction.contract: thesis, world and firstViewport at least, specific enough to check a screenshot against)');
+  }
   if (!isNa(dir.defaultsAvoided) && !list(dir.defaultsAvoided).length) {
     problems.push('no defaults reviewed (direction.defaultsAvoided: each generic default you caught and what replaced it, or { "na": ... })');
   }
