@@ -46,7 +46,9 @@ function readLog(file, agent) {
     const m = e.message;
     if (e.type !== 'assistant' || !m || !m.usage || seen.has(m.id) || m.model === '<synthetic>') continue;
     seen.add(m.id);
-    out.push({ at: Date.parse(e.timestamp), model: m.model || 'unknown', weight: weigh(m.usage), agent });
+    const u = m.usage;
+    const ctx = (u.input_tokens || 0) + (u.cache_read_input_tokens || 0) + (u.cache_creation_input_tokens || 0);
+    out.push({ at: Date.parse(e.timestamp), model: m.model || 'unknown', weight: weigh(u), ctx, agent });
   }
   return out;
 }
@@ -69,11 +71,46 @@ function safeDir(d) {
   try { return fs.readdirSync(d); } catch { return []; }
 }
 
-const bucket = () => ({ weight: 0, byModel: {} });
+const bucket = () => ({ weight: 0, byModel: {}, records: [] });
 function add(b, r) {
   b.weight += r.weight;
   b.byModel[r.model] = (b.byModel[r.model] || 0) + r.weight;
+  b.records.push(r);
 }
+
+// Who spent it: the session itself (in crew mode, the lead that coordinates), the agents
+// that build, and the ones that review.
+const roleOf = r => (!r.agent ? 'lead' : /review/i.test(r.agent) ? 'review' : /build|fix|resume|worker/i.test(r.agent) ? 'build' : 'other');
+const median = xs => { const s = [...xs].sort((a, b) => a - b); return s.length ? s[Math.floor(s.length / 2)] : 0; };
+// Minutes someone was working: gaps over three minutes are waiting (on the user, a
+// worker, a limit), not work.
+function activeMinutes(records) {
+  const ts = records.map(r => r.at).sort((a, b) => a - b);
+  let ms = 0;
+  for (let i = 1; i < ts.length; i++) ms += Math.min(ts[i] - ts[i - 1], 180000);
+  return Math.round(ms / 60000);
+}
+
+// Where a step's tokens look wasted, with the numbers, so the user can tell thorough from
+// stuck without reading logs.
+function flagsFor(id, step, agents, typical) {
+  const flags = [];
+  const lead = step.roles.lead;
+  if (lead && lead.weight >= 0.3 * step.weight && step.leadContext >= 200000) {
+    flags.push(`The session's own context was ${Math.round(step.leadContext / 1000)}k tokens, so each of its ${lead.calls} actions re-read it: ${compact(lead.weight)} of this step's ${compact(step.weight)}. /compact (or a new session) resets it; the build resumes from plan.js.`);
+  }
+  // A long worker isn't waste in itself; one whose context grew while it ran long pays
+  // for that context on every later call.
+  for (const a of agents.filter(x => x.where === id && roleOf({ agent: x.name }) === 'build' && x.calls > 90 && (x.context || 0) >= 120000)) {
+    flags.push(`${a.name.split(' · ')[0]} took ${a.calls} calls with a context of ${Math.round(a.context / 1000)}k at the median; a worker hands off at about 60, before its context makes every call cost more.`);
+  }
+  const reviews = agents.filter(x => x.where === id && roleOf({ agent: x.name }) === 'review').length;
+  if (reviews >= 3) flags.push(`${reviews} review rounds.`);
+  if (typical && step.weight > 2.5 * typical) flags.push(`${(step.weight / typical).toFixed(1)}x a typical step of this plan.`);
+  return flags;
+}
+
+const compact = n => (n >= 1e6 ? `${(n / 1e6).toFixed(1)}M` : n >= 1e3 ? `${Math.round(n / 1e3)}k` : String(Math.round(n || 0)));
 
 // Planning is from when drafting began to approval. A step runs from its
 // startedAt to its doneAt. An agent whose description names a step belongs to
@@ -85,7 +122,7 @@ function measure(plan, records) {
   const steps = (Array.isArray(plan.steps) ? plan.steps : []).filter(s => s.startedAt)
     .map(s => ({ id: s.id, start: Date.parse(s.startedAt), end: Date.parse(s.doneAt || '') || Infinity }));
   const ids = new Set((plan.steps || []).map(s => s.id));
-  const result = { planning: bucket(), steps: {}, between: bucket(), byModel: {}, agents: {}, total: 0 };
+  const result = { planning: bucket(), steps: {}, between: bucket(), byModel: {}, agents: {}, total: 0, records };
   for (const r of records) {
     if (!(r.at >= from)) continue;
     const named = r.agent && (/\b(S\d+)\b/.exec(r.agent) || [])[1];
@@ -101,9 +138,10 @@ function measure(plan, records) {
     result.byModel[r.model] = (result.byModel[r.model] || 0) + r.weight;
     result.total += r.weight;
     if (r.agent) {
-      const a = (result.agents[r.agent] ||= { name: r.agent, where, model: r.model, weight: 0, calls: 0 });
+      const a = (result.agents[r.agent] ||= { name: r.agent, where, model: r.model, weight: 0, calls: 0, ctxs: [] });
       a.weight += r.weight;
       a.calls += 1;
+      a.ctxs.push(r.ctx || 0);
     }
   }
   return result;
@@ -114,19 +152,48 @@ function costOf(plan, planFile) {
   const r = measure(plan, readAll(dir));
   const round = n => Math.round(n);
   const tidy = b => ({ weight: round(b.weight), byModel: Object.fromEntries(Object.entries(b.byModel).map(([k, v]) => [k, round(v)])) });
+  const agents = Object.values(r.agents).sort((a, b) => b.weight - a.weight).map(({ ctxs, ...a }) => ({ ...a, context: median(ctxs) }));
+  const stepOf = b => {
+    const roles = {};
+    for (const x of b.records) { const k = roleOf(x); (roles[k] ||= { weight: 0, calls: 0 }); roles[k].weight += x.weight; roles[k].calls += 1; }
+    for (const v of Object.values(roles)) v.weight = round(v.weight);
+    return { ...tidy(b), roles, minutes: activeMinutes(b.records), leadContext: median(b.records.filter(x => !x.agent).map(x => x.ctx)) };
+  };
+  const num = id => Number(String(id).replace(/\D/g, '')) || 0;
+  const steps = Object.fromEntries(Object.entries(r.steps).sort(([a], [b]) => num(a) - num(b)).map(([k, v]) => [k, stepOf(v)]));
+  const typical = median(Object.values(steps).map(s => s.weight));
+  for (const [k, v] of Object.entries(steps)) { const f = flagsFor(k, v, agents, typical); if (f.length) v.flags = f; }
+  // The whole build: what the session itself spent coordinating (in crew mode, steps
+  // overlap, so much of it falls between steps), and the model mix.
+  const between = stepOf(r.between);
+  const all = r.records || [];
+  const leadAll = all.filter(x => !x.agent && x.at >= (Date.parse((plan.meta || {}).approvedAt || '') || Infinity));
+  const leadWeight = leadAll.reduce((a, x) => a + x.weight, 0);
+  const flags = [];
+  if (r.total && between.weight > 0.2 * r.total) {
+    flags.push(`${Math.round(100 * between.weight / r.total)}% (${compact(between.weight)}) fell between steps${between.roles.lead ? `, ${compact(between.roles.lead.weight)} of it this session coordinating over ${between.roles.lead.calls} actions` : ''}.`);
+  }
+  const leadCtx = median(leadAll.map(x => x.ctx));
+  if (leadAll.length >= 20 && leadCtx >= 200000) {
+    flags.push(`The session running the build had a median context of ${Math.round(leadCtx / 1000)}k tokens (largest ${Math.round(Math.max(...leadAll.map(x => x.ctx)) / 1000)}k), so each of its ${leadAll.length} actions re-read it: ${compact(leadWeight)} in all. /compact at a step boundary, or a new session per plan, resets it; the build resumes from plan.js.`);
+  }
+  const opus = Object.entries(r.byModel).filter(([m]) => /opus/.test(m)).reduce((a, [, v]) => a + v, 0);
+  if (r.total && opus > 0.95 * r.total && agents.filter(a => roleOf({ agent: a.name }) === 'review').length >= 5) {
+    flags.push(`${Math.round(100 * opus / r.total)}% ran on Opus, reviews included.`);
+  }
   return {
     at: new Date().toISOString(),
     unit: 'weighted tokens',
     weights: WEIGHTS,
     total: round(r.total),
     planning: tidy(r.planning),
-    steps: Object.fromEntries(Object.entries(r.steps).map(([k, v]) => [k, tidy(v)])),
-    between: tidy(r.between),
+    steps,
+    between,
+    ...(flags.length ? { flags } : {}),
     byModel: Object.fromEntries(Object.entries(r.byModel).map(([k, v]) => [k, round(v)])),
-    agents: Object.values(r.agents).sort((a, b) => b.weight - a.weight).slice(0, 20)
-      .map(a => ({ name: a.name, where: a.where, model: a.model, weight: round(a.weight), calls: a.calls })),
+    agents: agents.slice(0, 40).map(a => ({ name: a.name, where: a.where, model: a.model, weight: round(a.weight), calls: a.calls, context: round(a.context) })),
     logs: dir,
   };
 }
 
-module.exports = { costOf, measure, weigh, logsDir, WEIGHTS };
+module.exports = { costOf, measure, weigh, logsDir, projectRoot, WEIGHTS, activeMinutes, flagsFor };

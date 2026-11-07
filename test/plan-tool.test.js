@@ -299,7 +299,7 @@ test('cost is measured from the session logs: planning, each step and each agent
   assert.match(r.stdout, /- Iris · build S2 \(S2, claude-opus-5-5\): 4k over 1 calls/);
   assert.match(readPlan(file).steps[0].startedAt, /^2026/, 'starting a step records when');
   const line = spawnSync('node', [TOOL, 'cost', file, 'S2'], { encoding: 'utf8', env: { ...process.env, NAQSHA_TRANSCRIPTS: logs } }).stdout.trim();
-  assert.equal(line, 'S2: 4k weighted tokens (55% of 6k so far); costliest agent Iris · build S2, 4k. Full breakdown on the plan page.', 'after a step, one line');
+  assert.equal(line, 'S2: 4k weighted tokens (55% of 6k so far): building 4k over 1 call; costliest agent Iris · build S2, 4k. Full breakdown on the plan page.', 'after a step, one line');
 });
 
 test('status shows progress and the next step', () => {
@@ -347,4 +347,58 @@ test('check says what /naqsha:approve would say, before the user runs it', t => 
   assert.match(r.stdout, /^Not ready\. \/naqsha:approve would refuse it for:/);
   for (const problem of checkPlan(plan)) assert.ok(r.stdout.includes(problem), `the hook's own list: ${problem}`);
   assert.match(r.stdout, /unanswered questions or open decisions: Q1|unanswered questions: Q1/);
+});
+
+test('the cost report says where a step looks wasted, with the numbers', () => {
+  const { flagsFor, activeMinutes } = require('../scripts/cost.js');
+  const step = { weight: 10e6, roles: { lead: { weight: 4e6, calls: 50 }, build: { weight: 6e6, calls: 300 } }, leadContext: 450000 };
+  const agents = [{ name: 'Hermes · build S3', where: 'S3', calls: 281, context: 210000 }, { name: 'Orion · build S3, fix', where: 'S3', calls: 120, context: 60000 }, { name: 'Hestia · review S3', where: 'S3', calls: 40 },
+    { name: 'Pollux · review S3', where: 'S3', calls: 30 }, { name: 'Castor · review S3', where: 'S3', calls: 20 }, { name: 'Atlas · build S4', where: 'S4', calls: 300, context: 300000 }];
+  const flags = flagsFor('S3', step, agents, 3e6);
+  assert.match(flags.join('\n'), /The session's own context was 450k tokens, so each of its 50 actions re-read it: 4\.0M of this step's 10\.0M\. \/compact/);
+  assert.match(flags.join('\n'), /Hermes took 281 calls with a context of 210k at the median; a worker hands off at about 60/);
+  assert.doesNotMatch(flags.join('\n'), /Orion/, 'a long worker that stayed lean is not flagged');
+  assert.doesNotMatch(flags.join('\n'), /Atlas/, 'only this step\'s agents');
+  assert.match(flags.join('\n'), /3 review rounds/);
+  assert.match(flags.join('\n'), /3\.3x a typical step/);
+  assert.deepEqual(flagsFor('S3', { weight: 2e6, roles: { lead: { weight: 1e6, calls: 9 } }, leadContext: 90000 }, [], 2e6), [], 'a lean step says nothing');
+  const t = s => ({ at: Date.parse(`2026-10-24T10:${s}Z`) });
+  assert.equal(activeMinutes([t('00:00'), t('02:00'), t('30:00'), t('31:00')]), 6, 'a gap over three minutes counts as three');
+});
+
+test('auto-compaction is this machine\'s setting: written, kept out of git, and taken out only as written', t => {
+  const root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'naqsha-compact-')));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  spawnSync('git', ['-C', root, 'init', '-q']);
+  fs.mkdirSync(path.join(root, 'docs', 'plans', 'x'), { recursive: true });
+  const file = path.join(root, 'docs', 'plans', 'x', 'plan.js');
+  fs.writeFileSync(file, `window.NAQSHA = ${JSON.stringify({ meta: { title: 'X', status: 'building' }, steps: [] })};\n`);
+  const settings = path.join(root, '.claude', 'settings.local.json');
+  fs.mkdirSync(path.dirname(settings));
+  fs.writeFileSync(settings, JSON.stringify({ permissions: { allow: ['Bash(npm test)'] } }));
+  // Git without the machine's own config, whose global ignore may already cover the file.
+  const env = { ...process.env, GIT_CONFIG_GLOBAL: '/dev/null', GIT_CONFIG_NOSYSTEM: '1', XDG_CONFIG_HOME: root, HOME: root };
+  const set = v => spawnSync('node', [TOOL, 'set-meta', file], { input: JSON.stringify({ autoCompact: v }), encoding: 'utf8', env });
+  let r = set('on');
+  assert.equal(r.status, 0, r.stderr);
+  assert.match(r.stdout, /auto-compaction on: sessions here compact at about 300k tokens \(\.claude\/settings\.local\.json\), from the next session on/);
+  assert.deepEqual(JSON.parse(fs.readFileSync(settings, 'utf8')), { permissions: { allow: ['Bash(npm test)'] }, autoCompactWindow: 300000 }, 'other settings stay');
+  assert.match(fs.readFileSync(path.join(root, '.git', 'info', 'exclude'), 'utf8'), /^\.claude\/settings\.local\.json$/m);
+  assert.equal(spawnSync('git', ['-C', root, 'check-ignore', '-q', settings], { env }).status, 0, 'kept out of commits');
+  assert.equal(readPlan(file).meta.autoCompact, 'on');
+  r = set('off');
+  assert.deepEqual(JSON.parse(fs.readFileSync(settings, 'utf8')), { permissions: { allow: ['Bash(npm test)'] } });
+  assert.deepEqual(JSON.parse(fs.readFileSync(path.join(root, '.claude', 'naqsha.json'), 'utf8')), { autoCompact: false }, 'off is remembered, so the hook won\'t turn it back on');
+  set('on');
+  assert.deepEqual(JSON.parse(fs.readFileSync(path.join(root, '.claude', 'naqsha.json'), 'utf8')), {});
+  set('off');
+  fs.writeFileSync(settings, JSON.stringify({ autoCompactWindow: 500000 }));
+  assert.match(set('on').stdout, /already set to 500000 tokens.*left as it is/, 'the user\'s own window wins');
+  assert.match(set('off').stdout, /auto-compaction off \(nothing of naqsha's was set\)/);
+  assert.deepEqual(JSON.parse(fs.readFileSync(settings, 'utf8')), { autoCompactWindow: 500000 });
+  fs.writeFileSync(settings, '{ broken');
+  r = set('on');
+  assert.equal(r.status, 1);
+  assert.match(r.stderr, /isn't valid JSON; fix it first, nothing was changed/);
+  assert.equal(fs.readFileSync(settings, 'utf8'), '{ broken');
 });

@@ -34,7 +34,8 @@ Each step starts from the tests the plan lists for it (`steps[].tests`).
    test at a time, never a batch of tests up front (they end up testing the shape you
    imagined, not the behavior you need).
 6. **Close.** The outer test from 1 passes. Run the project's whole suite, once: a green
-   file is not a green suite. Also run it before handing the step off.
+   file is not a green suite. That run is also the step's `doneWhen` evidence; run it
+   again only if code changed after it, including before handing the step off.
 
 **Inside the loop, run only what you're working on.** A browser or end-to-end suite takes
 minutes, and rerunning all of it on every red and green is where a step's time goes. Name

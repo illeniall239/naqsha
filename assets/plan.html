@@ -805,8 +805,13 @@ const SECTIONS = [
         <div class="stat"><span class="k">Total</span><b>${kilo(c.total)}</b><span class="s">weighted tokens</span></div>
         ${Object.entries(c.byModel || {}).map(([m, v]) => `<div class="stat"><span class="k">${esc(m)}</span><b>${kilo(v)}</b><span class="s">${pct(v)}</span></div>`).join('')}
       </div>
+      ${[...arr(c.flags), ...Object.entries(c.steps || {}).flatMap(([id, b]) => arr(b.flags).map(f => `${id}: ${f}`))].length ? `<div class="callout warn" style="display:block"><h2>Worth a look</h2>
+        <p class="small">Where the tokens look spent on waiting, re-reading or running long rather than on the work.</p>
+        <ul class="small">${[...arr(c.flags), ...Object.entries(c.steps || {}).flatMap(([id, b]) => arr(b.flags).map(f => `${id}: ${f}`))].map(f => `<li>${txt(f)}</li>`).join('')}</ul></div>` : ''}
       <h3>Where it went</h3>${rows(parts, ([name, b]) => ['', `<b>${esc(name)}</b><div class="hbar"><i style="width:${(100 * (b.weight || 0) / max).toFixed(1)}%"></i></div>`,
-        `${kilo(b.weight)} <span class="faint">${pct(b.weight)}</span>`, esc(Object.entries(b.byModel || {}).map(([m, v]) => `${m} ${kilo(v)}`).join(', '))], false)}
+        `${kilo(b.weight)} <span class="faint">${pct(b.weight)}</span>`, esc(b.roles
+          ? [['lead', 'this session'], ['build', 'building'], ['review', 'review'], ['other', 'other']].filter(([k]) => b.roles[k]).map(([k, l]) => `${l} ${kilo(b.roles[k].weight)} · ${b.roles[k].calls} calls`).join(', ') + (b.minutes ? ` · about ${b.minutes} min of work` : '')
+          : Object.entries(b.byModel || {}).map(([m, v]) => `${m} ${kilo(v)}`).join(', '))], false)}
       <h3>Agents, costliest first</h3>${rows(c.agents, x => ['', txt(x.name), `${kilo(x.weight)} <span class="faint">· ${esc(x.calls)} calls</span>`, `${esc(x.where)} · ${esc(x.model)}`], false)}
       <p class="faint small" style="margin-top:12px">Weighted tokens count a cached read as ${esc(c.weights.cacheRead)}, a cache write as ${esc(c.weights.cacheWrite5m)} to ${esc(c.weights.cacheWrite1h)} and output as ${esc(c.weights.output)} fresh input tokens.
         Sonnet and Haiku cost less per token than Opus, so compare within a model. Measured ${esc(String(c.at || '').slice(0, 16).replace('T', ' '))}.</p>`;

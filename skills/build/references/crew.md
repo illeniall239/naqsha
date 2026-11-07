@@ -69,7 +69,8 @@ quietly.
 6. On the build branch, after landing, check it, according to what `C land` reports:
    - **`recheck: false`:** nothing else landed since the worker branched and the step
      changed nothing about the environment, so the merged code is exactly what the worker
-     tested. Its check results stand: record them, and don't rerun the suites.
+     and the reviewer tested. Their results at that commit stand: record them, and don't
+     rerun the suites.
    - **`recheck: true`:** other work landed in between, or the step changed a lockfile or
      environment config. Run the project's whole test suite and the security checks,
      judged against the baseline as the build skill describes.
@@ -84,6 +85,28 @@ quietly.
    `<plans>/LEARNINGS.md`. With `buildReview: "pause"`, report to the user, with the step's
    cost, and wait.
 8. Back to 1 until `T ready` says all steps are done; then the build skill's finish.
+
+## Keeping the coordinator lean
+
+You are the costliest part of a crew build: every action you take re-reads your whole
+context, so at 450k tokens even a `git status` costs about 45k weighted tokens. In a
+measured build the coordinator spent more than all its workers together, mostly
+re-reading itself. So:
+
+- **Read summaries, not output.** Checks and logs go to a file; read the result line and
+  the failures. Don't read a worker's whole diff or test log: the reviewer reads the diff,
+  the worker reports the results.
+- **Never poll in the foreground.** No `sleep` loops for CI, a server or a process: one
+  background command that exits when the condition is true (`until <check>; do sleep 10;
+  done`, run in the background), then end your turn; you're woken when it exits.
+- **One check per landing,** as step 6 says, not again before and after recording it.
+- **Hand off a worker that runs long.** When a worker reports past about 60 calls without
+  handing off, its next brief says so: a fresh worker on the same branch costs less.
+- **Compact at a step boundary when the hook says the context is large.** Tell the user in
+  one line that `/compact` is due; after it, the hook hands back the step in progress and
+  the crew. A new session per plan does the same.
+- `T cost <plan>/plan.js S#` after each step reports where it looked wasted ("Worth telling
+  the user"); pass those lines on with the step's cost.
 
 ## When something goes wrong
 

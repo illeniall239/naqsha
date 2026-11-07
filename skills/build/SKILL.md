@@ -71,7 +71,8 @@ each step; it grows large. Use the plan tool (`T` below is
   conventions, one line per decision, and the references to read.
 - `T update-step <plan>/plan.js S3` with JSON on stdin, such as
   `{"status": "done", "notesAppend": "..."}`: status and notes without touching the rest.
-- `T set-meta <plan>/plan.js` with `{"status": "building"}` or `{"buildReview": "pause"}`.
+- `T set-meta <plan>/plan.js` with `{"status": "building"}`, `{"buildReview": "pause"}` or
+  `{"autoCompact": "off"}`.
 - `T checkpoint <plan>/plan.js S3` with JSON on stdin: `{"did": "...", "red": "...",
   "next": "...", "files": [...], "open": [...]}`. Where you are inside the step.
 
@@ -106,6 +107,13 @@ The build is long, and a full context makes every later step worse. So:
   scanners with output saved in the scratchpad, then read the summary and the failures
   (`tail`, `grep`), not thousands of passing lines. Use a quiet or summary reporter when
   the tool has one.
+- **Long commands run in the background.** A command that takes minutes (the whole suite,
+  a browser suite, a build) starts in the background with its output going to a file,
+  while you go on with other work for the step, and you read the result when it lands.
+  The check is the same; the wait isn't. A foreground wait of more than five minutes also
+  lets the prompt cache lapse, and the next action pays to write your whole context again.
+- **One whole-suite run per commit.** A result stands until the code changes: don't run
+  the suite again at a commit it already passed on.
 - **Logs:** grep for errors and warnings instead of reading them whole.
 - **Screenshots** at the viewport size and only where the look matters. To check text or
   state, read the page's text or accessibility tree instead.
@@ -137,6 +145,11 @@ The build is long, and a full context makes every later step worse. So:
     more tokens at the same time.
   Crew mode costs a worker per step on top of the coordinator, so don't offer it at `light`
   effort; build solo.
+- Auto-compaction is on by default: the hook sets this project's sessions to compact at
+  about 300k tokens instead of near the model's limit, and tells you when it first does
+  (say so in one line). The PreCompact hook tells each compaction what to keep, and the
+  build picks up from plan.js. If the user wants it off: `T set-meta` with
+  `{"autoCompact": "off"}`, which is remembered.
   In crew mode, read `${CLAUDE_SKILL_DIR}/references/crew.md` and follow its loop instead
   of "Each step" below; workers follow "Each step" themselves.
 - Read `<plans>/LEARNINGS.md` if it exists.
@@ -203,7 +216,8 @@ The build is long, and a full context makes every later step worse. So:
      notes as `found:` with `file:line` and why it matters, and tell the user when you report
      the step. If the step can't be built safely without fixing it (say, the new code would
      call a function that's open to injection), that's a deviation: bring it to the user.
-4. Prove `doneWhen`. Run the tests and commands it names, the project's whole test suite,
+4. Prove `doneWhen`. Run the tests and commands it names, the project's whole test suite
+   (the run that closes the step in `tdd.md` is this run, if no code changed after it),
    formatter, linter and type checker, and every check in `testing.securityChecks`, and
    read the output. With a baseline, a check passes when it adds nothing to the baseline:
    no failing test, finding or warning that wasn't already there, and no new warning in a
@@ -244,8 +258,9 @@ The build is long, and a full context makes every later step worse. So:
 7. Set the step to `done` (`T update-step`), then run `T cost <plan>/plan.js S3` (with the step's id), which measures
    what planning, each step and each agent cost from Claude Code's logs and puts it on the
    page. Report the step to the user in a few lines: what changed, the check results, what
-   it cost, and what you did *not* verify or any risk they should know about. If there's
-   nothing to flag, say so. With
+   it cost, and what you did *not* verify or any risk they should know about. If the cost
+   line says where it looked wasted ("Worth telling the user"), pass that on in plain words.
+   If there's nothing to flag, say so. With
    `buildReview: "pause"`, wait for their go-ahead before the next step. Treat their review
    comments as decisions: apply them, and log any that change the plan.
 

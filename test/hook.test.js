@@ -34,10 +34,12 @@ function project({ git = true } = {}) {
   const run = (input) => {
     const r = spawnSync('node', [HOOK], {
       input: JSON.stringify({ cwd: root, ...input }),
-      env: { ...process.env, CLAUDE_PROJECT_DIR: root, HOME: home },
+      env: { ...process.env, CLAUDE_PROJECT_DIR: root, HOME: home, CLAUDE_CONFIG_DIR: path.join(home, '.claude'), CLAUDE_CODE_AUTO_COMPACT_WINDOW: '' },
       encoding: 'utf8',
     });
     assert.equal(r.status, 0, r.stderr);
+    // PreCompact answers in plain text: the instructions for the compaction summary.
+    if (input.hook_event_name === 'PreCompact') return r.stdout || null;
     return r.stdout ? JSON.parse(r.stdout) : null;
   };
   const cmd = (name, args = '') => run({ hook_event_name: 'UserPromptExpansion', command_name: `naqsha:${name}`, command_args: args });
@@ -414,8 +416,9 @@ test('Bash changes to git-ignored files are caught, ignored folders are not', ()
   // Caches a test run refreshes, and Claude Code's own settings, aren't reported.
   fs.mkdirSync(path.join(p.root, 'cache'));
   fs.writeFileSync(path.join(p.root, 'cache', 'x'), 'x');
-  fs.mkdirSync(path.join(p.root, '.claude'));
+  fs.mkdirSync(path.join(p.root, '.claude'), { recursive: true });
   fs.writeFileSync(path.join(p.root, '.claude', 'settings.local.json'), '{}');
+  fs.writeFileSync(path.join(p.root, '.claude', 'naqsha.json'), '{"autoCompact":false}');
   assert.equal(p.afterBash(), null);
 
   fs.writeFileSync(path.join(p.root, '.env'), 'KEY=2, longer\n');
@@ -812,6 +815,74 @@ test('no turn that worked on a step ends without a checkpoint', () => {
 
   tool(['update-step', 'S1'], '{"status":"done"}');
   assert.equal(stop(), null, 'the step is done');
+});
+
+test('a session whose context grew large is told, once per 150k, that /compact would save it', () => {
+  const p = project();
+  const transcript = path.join(p.root, 'transcript.jsonl');
+  const at = size => fs.writeFileSync(transcript, [
+    JSON.stringify({ type: 'user', message: { content: 'hi' } }),
+    JSON.stringify({ type: 'assistant', isSidechain: true, message: { model: 'claude-opus-5-5', usage: { input_tokens: 10, cache_read_input_tokens: 999999 } } }),
+    JSON.stringify({ type: 'assistant', message: { model: 'claude-opus-5-5', usage: { input_tokens: 1000, cache_read_input_tokens: size - 2000, cache_creation_input_tokens: 1000 } } }),
+  ].join('\n'));
+  const stop = () => p.run({ hook_event_name: 'Stop', transcript_path: transcript });
+  at(400000);
+  assert.equal(stop(), null, 'not outside a naqsha phase');
+  // Auto-compaction is on by default; this project turned it off.
+  fs.mkdirSync(path.join(p.root, '.claude'));
+  fs.writeFileSync(path.join(p.root, '.claude', 'naqsha.json'), JSON.stringify({ autoCompact: false }));
+  p.cmd('plan');
+  assert.equal(fs.existsSync(path.join(p.root, '.claude', 'settings.local.json')), false, 'off stays off');
+  let out = stop();
+  assert.match(out.systemMessage, /this session's context is 400k tokens, so every action Claude takes re-reads it \(about 40k weighted tokens each/);
+  assert.match(out.systemMessage, /Type \/compact: the plan picks up from plan\.js.*ask Claude to turn it back on/);
+  assert.equal(stop(), null, 'told once');
+  at(500000);
+  assert.equal(stop(), null, 'not again for 100k more');
+  at(560000);
+  assert.match(stop().systemMessage, /560k tokens/, 'again after 150k more');
+  at(80000);
+  assert.equal(stop(), null);
+  at(300000);
+  assert.match(stop().systemMessage, /300k tokens/, 'a compaction starts the count over');
+});
+
+test('a compaction is told what to keep, and the step in progress gets its facts first', () => {
+  const p = project();
+  const compactNow = () => p.run({ hook_event_name: 'PreCompact', trigger: 'auto' });
+  assert.equal(compactNow(), null, 'nothing outside a naqsha phase');
+  p.cmd('plan');
+  const drafting = compactNow();
+  assert.match(drafting, /drafting a naqsha plan/);
+  assert.match(drafting, /Keep: the plan's folder; the questions or decisions waiting on the user/);
+  assert.match(drafting, /Drop what is on disk: file contents, diffs, test and build output/);
+
+  writePlan(p.root, 'login');
+  p.cmd('approve');
+  const file = path.join(p.root, 'docs', 'plans', 'login', 'plan.js');
+  const tool = (args, input) => execFileSync('node', [path.join(__dirname, '..', 'scripts', 'plan-tool.js'), args[0], file, ...args.slice(1)], { input, encoding: 'utf8' });
+  tool(['set-meta'], '{"status":"building","buildMode":"crew"}');
+  tool(['update-step', 'S1'], '{"status":"doing"}');
+  fs.writeFileSync(path.join(p.root, 'src', 'wip.js'), 'x');
+  const building = compactNow();
+  assert.match(building, /building the approved naqsha plan docs\/plans\/login\/plan\.js in crew mode/);
+  assert.match(building, /S1 \(.*\) is in progress/);
+  assert.match(building, /every worker and reviewer still running: its name, step, worktree and branch/);
+  const cp = JSON.parse(fs.readFileSync(file, 'utf8').replace(/^window\.NAQSHA = /, '').replace(/;\s*$/, '')).steps[0].checkpoint;
+  assert.ok(cp && cp.since.files.includes('src/wip.js'), 'what changed is on disk before the summary is written');
+});
+
+test('the context warning stays quiet when the project already compacts early', () => {
+  const p = project();
+  const transcript = path.join(p.root, 'transcript.jsonl');
+  fs.writeFileSync(transcript, JSON.stringify({ type: 'assistant', message: { model: 'claude-opus-5-5', usage: { input_tokens: 10, cache_read_input_tokens: 500000 } } }));
+  const out = p.cmd('plan');
+  assert.match(out.hookSpecificOutput.additionalContext, /Naqsha turned on auto-compaction for this project: from the next session, Claude Code compacts here at about 300k tokens/, 'on by default, and said once');
+  assert.deepEqual(JSON.parse(fs.readFileSync(path.join(p.root, '.claude', 'settings.local.json'), 'utf8')), { autoCompactWindow: 300000 });
+  assert.equal(p.run({ hook_event_name: 'Stop', transcript_path: transcript }), null);
+  assert.doesNotMatch(p.cmd('plan').hookSpecificOutput.additionalContext, /turned on auto-compaction/, 'only the first time');
+  fs.writeFileSync(path.join(p.root, '.claude', 'settings.local.json'), JSON.stringify({ modelSettings: { 'claude-opus-5-5': { autoCompactWindow: 900000 } } }));
+  assert.match(p.run({ hook_event_name: 'Stop', transcript_path: transcript }).systemMessage, /500k tokens.*Type \/compact/, 'a window near the limit is no help');
 });
 
 test('session start reminds Claude of the phase', () => {

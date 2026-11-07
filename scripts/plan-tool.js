@@ -402,7 +402,7 @@ function baseline(plan, patch) {
 function setMeta(plan, patch) {
   const rules = {
     status: ['building', 'done'], buildReview: ['pause', 'run'], buildMode: ['solo', 'crew'], crewParallel: [1, 2, 3, 4],
-    effort: ['light', 'standard', 'thorough'],
+    effort: ['light', 'standard', 'thorough'], autoCompact: ['on', 'off'],
   };
   for (const [k, v] of Object.entries(patch)) {
     if (!rules[k]) throw new Error(`can't set meta.${k} here`);
@@ -415,26 +415,87 @@ function setMeta(plan, patch) {
 }
 
 const compact = n => (n >= 1e6 ? `${(n / 1e6).toFixed(1)}M` : n >= 1e3 ? `${Math.round(n / 1e3)}k` : String(n));
+
+// Auto-compaction for this project: Claude Code compacts on its own once a session's
+// context reaches the window, instead of near the model's limit, where every action
+// re-reads hundreds of thousands of tokens. On by default (the hook turns it on); written
+// to .claude/settings.local.json, which is this machine's and kept out of git. Turning it
+// off is remembered in .claude/naqsha.json, and takes out only what naqsha wrote.
+const COMPACT_WINDOW = 300000;
+function readJsonFile(file) {
+  if (!fs.existsSync(file)) return {};
+  let j;
+  try { j = JSON.parse(fs.readFileSync(file, 'utf8')); } catch { throw new Error(`${file} isn't valid JSON; fix it first, nothing was changed`); }
+  if (!j || typeof j !== 'object' || Array.isArray(j)) throw new Error(`${file} isn't a JSON object; nothing was changed`);
+  return j;
+}
+function writeJsonFile(file, j) {
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  fs.writeFileSync(file, JSON.stringify(j, null, 2) + '\n');
+}
+function autoCompactAt(root, on, { remember = false } = {}) {
+  const file = path.join(root, '.claude', 'settings.local.json');
+  const config = path.join(root, '.claude', 'naqsha.json');
+  const settings = readJsonFile(file);
+  if (remember) {
+    const c = readJsonFile(config);
+    if (on) delete c.autoCompact; else c.autoCompact = false;
+    writeJsonFile(config, c);
+  }
+  if (on) {
+    if (settings.autoCompactWindow) {
+      return { changed: false, text: settings.autoCompactWindow === COMPACT_WINDOW ? 'auto-compaction is on' : `auto-compaction already set to ${settings.autoCompactWindow} tokens in .claude/settings.local.json; left as it is` };
+    }
+    settings.autoCompactWindow = COMPACT_WINDOW;
+  } else if (settings.autoCompactWindow === COMPACT_WINDOW) delete settings.autoCompactWindow;
+  else return { changed: false, text: 'auto-compaction off (nothing of naqsha\'s was set)' };
+  writeJsonFile(file, settings);
+  // A local file stays local: keep it out of commits without touching the project's .gitignore.
+  if (on) {
+    const { spawnSync } = require('child_process');
+    const ignored = spawnSync('git', ['-C', root, 'check-ignore', '-q', file]).status === 0;
+    const exclude = path.join(root, '.git', 'info', 'exclude');
+    if (!ignored && fs.existsSync(path.join(root, '.git'))) {
+      fs.mkdirSync(path.dirname(exclude), { recursive: true });
+      fs.appendFileSync(exclude, '\n# naqsha: this machine\'s Claude Code settings\n.claude/settings.local.json\n');
+    }
+  }
+  return { changed: true, text: on ? `auto-compaction on: sessions here compact at about ${compact(COMPACT_WINDOW)} tokens (.claude/settings.local.json), from the next session on`
+    : 'auto-compaction off: Claude Code compacts near the model\'s limit again' };
+}
+function autoCompact(planFile, on) {
+  const { projectRoot } = require('./cost.js');
+  return autoCompactAt(projectRoot(planFile), on, { remember: true }).text;
+}
+
 function costView(c) {
   const share = n => (c.total ? ` (${Math.round(100 * n / c.total)}%)` : '');
   const models = b => Object.entries(b.byModel).map(([k, v]) => `${k} ${compact(v)}`).join(', ');
   return [
     `# Cost: ${compact(c.total)} ${c.unit} (cached reads x${c.weights.cacheRead}, cache writes x${c.weights.cacheWrite5m} to x${c.weights.cacheWrite1h}, output x${c.weights.output})`,
     `Planning: ${compact(c.planning.weight)}${share(c.planning.weight)}${c.planning.weight ? `: ${models(c.planning)}` : ''}`,
-    ...Object.entries(c.steps).map(([id, b]) => `${id}: ${compact(b.weight)}${share(b.weight)}: ${models(b)}`),
-    ...(c.between.weight ? [`Between steps: ${compact(c.between.weight)}${share(c.between.weight)}`] : []),
+    ...Object.entries(c.steps).flatMap(([id, b]) => [`${id}: ${compact(b.weight)}${share(b.weight)}: ${models(b)}${b.roles ? `; ${roleLine(b)}` : ''}`, ...(b.flags || []).map(f => `  ! ${f}`)]),
+    ...(c.between.weight ? [`Between steps: ${compact(c.between.weight)}${share(c.between.weight)}${c.between.roles ? `; ${roleLine(c.between)}` : ''}`] : []),
+    ...(c.flags ? ['Worth a look:', ...c.flags.map(f => `  ! ${f}`)] : []),
     `By model: ${Object.entries(c.byModel).map(([k, v]) => `${k} ${compact(v)}${share(v)}`).join(', ') || 'nothing yet'}`,
     ...(c.agents.length ? ['Agents, costliest first:', ...c.agents.slice(0, 8).map(a => `- ${a.name} (${a.where}, ${a.model}): ${compact(a.weight)} over ${a.calls} calls`)] : []),
     ...(c.total ? [] : [`No usage found in ${c.logs}.`]),
   ].join('\n');
 }
 
-// After each step, one line: the full report would pile up in the context.
+// Who spent a step's tokens, and for how long.
+const roleLine = b => [['lead', 'this session'], ['build', 'building'], ['review', 'review'], ['other', 'other agents']]
+  .filter(([k]) => b.roles[k]).map(([k, label]) => `${label} ${compact(b.roles[k].weight)} over ${b.roles[k].calls} call${b.roles[k].calls === 1 ? '' : 's'}`).join(', ') +
+  (b.minutes ? `; about ${b.minutes} min of work` : '');
+
+// After each step, a line or two: the full report would pile up in the context. What looks
+// wasted is included, so it's reported to the user with the step.
 function stepCostLine(c, id) {
   const b = c.steps[id];
   const top = c.agents.find(a => a.where === id);
   return `${id}: ${compact(b ? b.weight : 0)} weighted tokens${b && c.total ? ` (${Math.round(100 * b.weight / c.total)}% of ${compact(c.total)} so far)` : ''}` +
-    `${top ? `; costliest agent ${top.name}, ${compact(top.weight)}` : ''}. Full breakdown on the plan page.`;
+    `${b && b.roles ? `: ${roleLine(b)}` : ''}${top ? `; costliest agent ${top.name}, ${compact(top.weight)}` : ''}. Full breakdown on the plan page.` +
+    (b && b.flags ? `\nWorth telling the user: ${b.flags.join(' ')}` : '');
 }
 
 function readPatch() {
@@ -504,7 +565,11 @@ function main(argv) {
   if (cmd === 'update-step') updateStep(plan, id, readPatch());
   else if (cmd === 'checkpoint') checkpoint(plan, id, readPatch());
   else if (cmd === 'baseline') baseline(plan, readPatch());
-  else setMeta(plan, readPatch());
+  else {
+    const patch = readPatch();
+    setMeta(plan, patch);
+    if (patch.autoCompact) console.log(autoCompact(planFile, patch.autoCompact === 'on'));
+  }
   plan.meta.updated = new Date().toISOString().slice(0, 10);
   writePlan(planFile, plan);
   console.log(statusView(plan));
@@ -519,4 +584,4 @@ if (require.main === module) {
   }
 }
 
-module.exports = { roll, stepView, statusView, digestView, referencesFor, reviewFor, NAMES };
+module.exports = { roll, autoCompactAt, stepView, statusView, digestView, referencesFor, reviewFor, NAMES };

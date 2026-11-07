@@ -50,6 +50,7 @@ function main(input) {
     case 'PostToolUse': return onPostTool(ctx);
     case 'SessionStart': return onSessionStart(ctx);
     case 'Stop': return onStop(ctx);
+    case 'PreCompact': return onPreCompact(ctx);
   }
 }
 
@@ -188,6 +189,8 @@ function startDrafting(ctx, kind = 'plan') {
       'for example { "plansDir": "plans" }, then run /naqsha:plan again.');
   }
   const plansDir = path.normalize(where.dir);
+  // Before the baseline, so the setting isn't taken for an edit made while planning.
+  const compaction = ensureAutoCompact(ctx);
   const paused = s && s.phase === 'approved' && unfinished(ctx, s.plan) ? s.plan
     : s && s.phase === 'drafting' ? s.paused : undefined;
   const baseline = snapshot(ctx.root, plansDir);
@@ -206,7 +209,19 @@ function startDrafting(ctx, kind = 'plan') {
   const map = mapNote(ctx, plansDir);
   if (map) msg += ` ${map}`;
   if (baseline.truncated) msg += ` This project has no git and more than ${WALK_LIMIT} files, so Bash changes past the first ${WALK_LIMIT} files go unnoticed. Keep Bash read-only.`;
-  return context('UserPromptExpansion', msg);
+  return context('UserPromptExpansion', msg + compaction);
+}
+
+// Auto-compaction is on by default: the first naqsha command in a project sets Claude
+// Code to compact its sessions at about 300k tokens. A window the user set, or "off"
+// remembered in .claude/naqsha.json, is left alone.
+function ensureAutoCompact(ctx) {
+  const config = readJson(path.join(ctx.root, CONFIG_FILE));
+  if (config && config.autoCompact === false) return '';
+  try {
+    const r = require('./plan-tool.js').autoCompactAt(ctx.root, true);
+    return r.changed ? ' Naqsha turned on auto-compaction for this project: from the next session, Claude Code compacts here at about 300k tokens instead of near the model\'s limit, where every action re-reads the whole history (.claude/settings.local.json, this machine only, kept out of git). Tell the user in one line, and that asking to turn it off undoes it (plan-tool.js set-meta with {"autoCompact": "off"}).' : '';
+  } catch { return ''; }
 }
 
 // The user's setting wins. Otherwise docs/plans, unless docs/ looks like it
@@ -297,7 +312,7 @@ function approve(ctx, slug) {
   writePlan(planFile, plan);
   clearPreSnapshots(ctx);
   writeState(ctx, { phase: 'approved', plansDir: ctx.plansDir, plan: rel, approvedAt: now });
-  let msg = `Naqsha: the user approved "${plan.meta.title}" (${rel}). Project files are unlocked for building.`;
+  let msg = `Naqsha: the user approved "${plan.meta.title}" (${rel}). Project files are unlocked for building.${ensureAutoCompact(ctx)}`;
   if (ctx.state.paused && ctx.state.paused !== rel) msg += ` ${resumeHint(ctx.state.paused)}`;
   return context('UserPromptExpansion', msg);
 }
@@ -720,21 +735,110 @@ function onSessionStart(ctx) {
   }
 }
 
+function onStop(ctx) {
+  const warning = contextWarning(ctx);
+  recordFacts(ctx);
+  return warning ? { systemMessage: warning } : undefined;
+}
+
+// The session's own context size, from the last reply in its transcript. Every action
+// re-reads the whole context, so a session coordinating a build for days pays for its
+// history on every git status: past a few hundred thousand tokens, that is most of the
+// bill. The user is told once per 150k of growth; a compaction resets it.
+const BIG_CONTEXT = 250000;
+function contextWarning(ctx) {
+  const s = ctx.state;
+  if (!s || !['drafting', 'approved'].includes(s.phase)) return null;
+  // Claude Code already compacts this project early: nothing to tell.
+  if (compactWindow(ctx.root) <= 400000) return null;
+  const size = lastContextSize(ctx.input.transcript_path);
+  if (!size) return null;
+  const warned = s.contextWarned || 0;
+  const remember = n => { ctx.state = { ...s, contextWarned: n }; writeState(ctx, ctx.state); };
+  if (size < BIG_CONTEXT) {
+    if (warned) remember(0);
+    return null;
+  }
+  if (warned && size < warned + 150000) return null;
+  remember(size);
+  const k = Math.round(size / 1000);
+  const building = s.phase === 'approved';
+  return `Naqsha: this session's context is ${k}k tokens, so every action Claude takes re-reads it (about ${Math.round(k / 10)}k weighted tokens each, even a git status). ` +
+    `Type /compact${building ? ' when a step finishes' : ''}: the ${building ? 'build picks up from plan.js and the step\'s checkpoint' : 'plan picks up from plan.js'}, and nothing is lost. ` +
+    'Auto-compaction, naqsha\'s default, would do this on its own here; ask Claude to turn it back on.';
+}
+
+// The auto-compact window Claude Code uses here, from the variable or any settings file
+// that sets one (the smallest wins for this check), or Infinity when nothing lowers it.
+function compactWindow(root) {
+  const sizes = [];
+  const env = Number(process.env.CLAUDE_CODE_AUTO_COMPACT_WINDOW);
+  if (env >= 100000) sizes.push(env);
+  const userDir = process.env.CLAUDE_CONFIG_DIR || path.join(os.homedir(), '.claude');
+  for (const f of [path.join(root, '.claude', 'settings.local.json'), path.join(root, '.claude', 'settings.json'), path.join(userDir, 'settings.json')]) {
+    const j = readJson(f);
+    if (!j || typeof j !== 'object') continue;
+    if (Number(j.autoCompactWindow) >= 100000) sizes.push(Number(j.autoCompactWindow));
+    for (const m of Object.values(j.modelSettings || {})) if (m && Number(m.autoCompactWindow) >= 100000) sizes.push(Number(m.autoCompactWindow));
+  }
+  return sizes.length ? Math.min(...sizes) : Infinity;
+}
+
+// What a compaction must keep. Its summary is all the next turn has, and the files hold
+// the rest, so it keeps what lives only in the conversation and drops what's on disk.
+function onPreCompact(ctx) {
+  const s = ctx.state;
+  if (!s || !['drafting', 'approved'].includes(s.phase)) return null;
+  const drop = 'Drop what is on disk: file contents, diffs, test and build output, research already written into plan.js, and tool output generally. Point to the file instead.';
+  if (s.phase === 'drafting') {
+    return `This session is drafting a naqsha plan (files outside ${ctx.plansDir}/ are locked until the user runs /naqsha:approve). plan.js in the plan's folder holds every question, decision and section written so far.\n` +
+      'Keep: the plan\'s folder; the questions or decisions waiting on the user; anything the user said in chat that isn\'t in plan.js yet; and what you were about to do next.\n' + drop;
+  }
+  const plan = tryReadPlan(path.join(ctx.root, s.plan, 'plan.js'));
+  const step = plan && (plan.steps || []).find(st => st.status === 'doing');
+  const crew = plan && plan.meta.buildMode === 'crew';
+  // The step's checkpoint gets the facts the hook can see, so the summary needn't carry them.
+  if (step) recordFacts(ctx, { force: true });
+  return `This session is building the approved naqsha plan ${s.plan}/plan.js${crew ? ' in crew mode, coordinating worker agents' : ''}. plan.js holds each step's status, notes and checkpoint${step ? `; ${step.id} (${String(step.title || '').slice(0, 80)}) is in progress` : ''}.\n` +
+    `Keep: ${crew ? 'every worker and reviewer still running: its name, step, worktree and branch, and what you are waiting on from it; ' : ''}where the step in progress stands and the next action; the user's instructions and answers from this session, and any question waiting on them; decisions not yet recorded in plan.js; and anything you promised the user.\n` + drop;
+}
+
+function lastContextSize(file) {
+  if (!file || typeof file !== 'string') return 0;
+  let fd;
+  try {
+    fd = fs.openSync(file, 'r');
+    const size = fs.fstatSync(fd).size;
+    const len = Math.min(size, 1 << 20);
+    const buf = Buffer.alloc(len);
+    fs.readSync(fd, buf, 0, len, size - len);
+    const lines = buf.toString('utf8').split('\n');
+    for (let i = lines.length - 1; i >= 0; i--) {
+      if (!lines[i].includes('"usage"')) continue;
+      let e;
+      try { e = JSON.parse(lines[i]); } catch { continue; }
+      const u = e.type === 'assistant' && !e.isSidechain && e.message && e.message.usage;
+      if (u && e.message.model !== '<synthetic>') return (u.input_tokens || 0) + (u.cache_read_input_tokens || 0) + (u.cache_creation_input_tokens || 0);
+    }
+  } catch { /* no transcript */ } finally { if (fd !== undefined) fs.closeSync(fd); }
+  return 0;
+}
+
 // No turn ends blind: a turn that worked on a step and ends without a fresh
 // checkpoint leaves nothing to resume from if the context goes. Rather than block
 // the turn (which the user sees as a hook error, every turn Claude forgets), the
 // hook records the facts it can see: the files changed and the last commit, beside
 // Claude's last checkpoint, which stays as it was.
-function onStop(ctx) {
+function recordFacts(ctx, opts = {}) {
   const s = ctx.state;
   if (!s || s.phase !== 'approved' || ctx.input.stop_hook_active) return;
-  if (!s.turnStartedAt || !(s.workedAt >= s.turnStartedAt)) return;
+  if (!opts.force && (!s.turnStartedAt || !(s.workedAt >= s.turnStartedAt))) return;
   const plan = tryReadPlan(path.join(ctx.root, s.plan, 'plan.js'));
   if (!plan || plan.meta.status !== 'building') return;
   const step = (plan.steps || []).find(st => st.status === 'doing');
   if (!step) return;
   const at = step.checkpoint ? Date.parse(step.checkpoint.at) : NaN;
-  if (at >= Date.parse(s.turnStartedAt)) return;
+  if (!opts.force && at >= Date.parse(s.turnStartedAt)) return;
   let files = [], commit = '';
   try { files = git(ctx.root, 'status', '--porcelain', '--untracked-files=normal').split('\n').filter(Boolean).map(l => l.slice(3)).filter(f => !f.startsWith(`${ctx.plansDir}/`) && !f.startsWith(`${STATE_DIR}/`)); } catch {}
   try { commit = git(ctx.root, 'log', '-1', '--format=%h %s').trim(); } catch {}
@@ -755,7 +859,9 @@ function snapshot(root, plansDir = DEFAULT_PLANS_DIR) {
   const files = {};
   let count = 0;
   let truncated = false;
-  const keep = rel => rel !== CLAUDE_LOCAL_SETTINGS &&
+  // Claude Code's local settings, and naqsha's own config (its plans folder is checked
+  // again whenever planning starts), aren't project code.
+  const keep = rel => rel !== CLAUDE_LOCAL_SETTINGS && rel !== CONFIG_FILE &&
     !inside(path.join(root, rel), path.join(root, plansDir)) && !inside(path.join(root, rel), path.join(root, STATE_DIR));
   const add = (rel, fp) => {
     if (count >= WALK_LIMIT) { truncated = true; return; }
@@ -976,7 +1082,8 @@ if (require.main === module) {
       process.stderr.write(`naqsha hook error: ${e.message}\n`);
       process.exit(1);
     }
-    if (out) process.stdout.write(JSON.stringify(out));
+    // PreCompact's stdout is plain text: the instructions for the compaction summary.
+    if (out) process.stdout.write(typeof out === 'string' ? out : JSON.stringify(out));
   });
 }
 

@@ -37,8 +37,10 @@ whatever the effort.
      command's output, the plan's text), not an argument.
    - **Non-blocking:** fix it if it's cheap and inside the step; otherwise list it in the
      notes for the user.
-4. Send the fixes and rebuttals back to the same reviewer (SendMessage) for a re-check.
-   Repeat until it reports no blocking findings. After three rounds, or if you and the
+4. Send the fixes and rebuttals back to the same reviewer (SendMessage) for a re-check:
+   it checks each finding against the fix and its new test, runs the tests the fixes
+   touch, and runs the whole suite once at the new commit (in the background while it
+   reads the fix). Repeat until it reports no blocking findings. After three rounds, or if you and the
    reviewer still disagree, stop and bring it to the user with both sides.
 5. In the step's notes: the verdict, the number of rounds, each finding and what happened
    to it (fixed, rebutted with evidence, or left for the user), and what the reviewer said
@@ -76,7 +78,9 @@ Check, in this order:
    errors handled where something can be done about them.
 4. Test-first: tests exist for every behavior, at the seams the plan agreed, with red runs
    recorded in the step's notes. Are the tests real? Break the code on purpose for one or
-   two key tests and confirm they fail, then restore it exactly.
+   two key tests and confirm they fail, then restore it exactly. For a break, run only the
+   test it should fail and that test's file, never the whole suite; after restoring,
+   `git diff --quiet` proves the tree is back.
 5. Modular: answer the review questions in modularity.md for each module touched.
 6. Performance: hot paths meet performance.md; no traps that grow quietly.
 7. Contracts, reliability and operations: the review questions in data-and-apis.md,
@@ -84,7 +88,9 @@ Check, in this order:
    migration that breaks the running version, an endpoint off the contract, a write to two
    systems with nothing tying them together, check-then-act, a cache key missing the user,
    a setting not checked at startup, docs left behind).
-8. Evidence: rerun the step's doneWhen checks and security checks. Does every pass
+8. Evidence: rerun the step's doneWhen checks and security checks, once, at the commit
+   under review. Start the whole suite in the background with its output in a file as you
+   begin, and read its result here, so the review goes on while it runs. Does every pass
    claimed in the notes reproduce? Where the working set has a baseline, compare by name:
    anything failing now that isn't in it is this step's. Was the app walked as run-like-a-user.md requires?
 
