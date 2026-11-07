@@ -334,3 +334,17 @@ test('the roll deals which worlds become directions, records it, and a re-roll n
   fs.writeFileSync(file, `window.NAQSHA = ${JSON.stringify({ meta: { kind: 'design' }, direction: { worlds: worlds.slice(0, 2) } })};\n`);
   assert.match(roll().stderr, /at least 3 candidate worlds/);
 });
+
+test('check says what /naqsha:approve would say, before the user runs it', t => {
+  const { checkPlan } = require('../scripts/hook.js');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'naqsha-check-'));
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  const file = path.join(dir, 'plan.js');
+  const plan = { meta: { title: 'X', kind: 'feature', status: 'draft' }, questions: [{ id: 'Q1', status: 'open' }], steps: [] };
+  fs.writeFileSync(file, `window.NAQSHA = ${JSON.stringify(plan)};\n`);
+  const r = spawnSync('node', [TOOL, 'check', file], { encoding: 'utf8' });
+  assert.equal(r.status, 1);
+  assert.match(r.stdout, /^Not ready\. \/naqsha:approve would refuse it for:/);
+  for (const problem of checkPlan(plan)) assert.ok(r.stdout.includes(problem), `the hook's own list: ${problem}`);
+  assert.match(r.stdout, /unanswered questions or open decisions: Q1|unanswered questions: Q1/);
+});

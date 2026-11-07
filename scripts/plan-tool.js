@@ -23,6 +23,8 @@
 //       Only before the first step is done, so it can't be moved to hide a failure.
 //   plan-tool.js cost <plan.js> [S#]      what planning, each step and each agent cost, from Claude Code's logs;
 //                                         with a step, one line for it (the full breakdown goes on the page)
+//   plan-tool.js check <plan.js>          what /naqsha:approve would say: "Ready", or every gap it would
+//                                         refuse for. Run it before telling the user to approve.
 //   plan-tool.js roll <plan.js> [n] [k]   a design: deal which of its n candidate worlds (direction.worlds,
 //                                         in Claude's order) become the k directions to show, so Claude's
 //                                         own ranking, which puts the category default first, doesn't pick
@@ -122,6 +124,8 @@ function stepView(plan, id, planFile) {
       ...(c.next ? [`Next: ${one(c.next)}`] : []),
       ...(list(c.files).length ? [`Files in progress: ${c.files.join(', ')}`] : []),
       ...list(c.open).map(q => `Open: ${one(q)}`),
+      // Recorded by the hook when a later turn ended without a checkpoint.
+      ...(c.since ? [`Since then (${minute(c.since.at)}), uncommitted: ${list(c.since.files).join(', ') || 'nothing'}${c.since.more ? ` and ${c.since.more} more` : ''}${c.since.commit ? `; last commit ${one(c.since.commit)}` : ''}`] : []),
     ]);
   }
   section(`Step ${step.id}: ${one(step.title)} [${one(step.status) || 'todo'}]`, [
@@ -471,8 +475,8 @@ function roll(plan, n, k) {
 
 function main(argv) {
   const [cmd, file, id] = argv;
-  if (!file || !['step', 'status', 'ready', 'digest', 'update-step', 'set-meta', 'checkpoint', 'baseline', 'cost', 'roll'].includes(cmd)) {
-    throw new Error('usage: plan-tool.js step|status|ready|digest|update-step|set-meta|checkpoint|baseline|cost|roll <plan.js> [S#]');
+  if (!file || !['step', 'status', 'ready', 'digest', 'update-step', 'set-meta', 'checkpoint', 'baseline', 'cost', 'roll', 'check'].includes(cmd)) {
+    throw new Error('usage: plan-tool.js step|status|ready|digest|update-step|set-meta|checkpoint|baseline|cost|roll|check <plan.js> [S#]');
   }
   const planFile = path.resolve(file);
   const plan = readPlan(planFile);
@@ -484,6 +488,13 @@ function main(argv) {
     plan.cost = costOf(plan, planFile);
     writePlan(planFile, plan);
     return console.log(id ? stepCostLine(plan.cost, id) : costView(plan.cost));
+  }
+  // The approval hook's own check, so Claude finds the gaps before the user does.
+  if (cmd === 'check') {
+    const problems = require('./hook.js').checkPlan(plan);
+    if (!problems.length) return console.log('Ready: /naqsha:approve will accept this plan.');
+    process.exitCode = 1;
+    return console.log(`Not ready. /naqsha:approve would refuse it for:\n- ${problems.join('\n- ')}`);
   }
   if (cmd === 'roll') {
     const out = roll(plan, Number(id) || 0, Number(argv[3]) || 0);

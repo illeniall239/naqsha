@@ -262,15 +262,20 @@ function resumeHint(rel) {
   return `The approved plan ${rel} is paused, not finished. The user resumes it with /naqsha:build ${path.basename(rel)}.`;
 }
 
+// A refusal goes to Claude as well as the user: blocking the command would show the user an
+// error that only Claude can act on, and leave them to paste it back. Nothing is approved
+// and nothing unlocks; the user runs /naqsha:approve again once it's fixed.
+const notApproved = msg => context('UserPromptExpansion', `Naqsha: NOT approved; nothing was unlocked. ${msg}`);
+
 function approve(ctx, slug) {
   if (!ctx.state || ctx.state.phase !== 'drafting') {
-    return block('Nothing to approve: no plan is being drafted. Start one with /naqsha:plan <what to build>.');
+    return notApproved('No plan is being drafted. The user starts one with /naqsha:plan <what to build>.');
   }
   const planFile = findPlan(ctx.root, ctx.plansDir, slug, ['draft']);
   if (!planFile) {
-    return block(slug
-      ? `No draft plan at ${path.join(ctx.plansDir, slug, 'plan.js')}.`
-      : `No draft plan found under ${ctx.plansDir}/. Pass the plan's folder name: /naqsha:approve <slug>.`);
+    return notApproved(slug
+      ? `There is no draft plan at ${path.join(ctx.plansDir, slug, 'plan.js')}.`
+      : `No draft plan was found under ${ctx.plansDir}/. The user names it: /naqsha:approve <folder>.`);
   }
   const rel = path.relative(ctx.root, path.dirname(planFile));
   let plan, problems;
@@ -278,10 +283,10 @@ function approve(ctx, slug) {
     plan = readPlan(planFile);
     problems = checkPlan(plan);
   } catch (e) {
-    return block(`${rel}/plan.js could not be read (${e.message}). Ask Claude to fix the file, then approve again.`);
+    return notApproved(`${rel}/plan.js could not be read (${e.message}). Fix the file, check it, and ask the user to run /naqsha:approve again.`);
   }
   if (problems.length) {
-    return block(`Not approved. ${rel} still has:\n- ${problems.join('\n- ')}\nResolve these with Claude, then run /naqsha:approve again.`);
+    return notApproved(`${rel} still has:\n- ${problems.join('\n- ')}\nFix what is yours to fix, check it with plan-tool.js check, and ask the user to run /naqsha:approve again; name any question or decision that only they can answer.`);
   }
 
   const now = new Date().toISOString();
@@ -716,8 +721,10 @@ function onSessionStart(ctx) {
 }
 
 // No turn ends blind: a turn that worked on a step and ends without a fresh
-// checkpoint leaves nothing to resume from if the context goes. Blocks once;
-// stop_hook_active means Claude is already answering this, so let it stop.
+// checkpoint leaves nothing to resume from if the context goes. Rather than block
+// the turn (which the user sees as a hook error, every turn Claude forgets), the
+// hook records the facts it can see: the files changed and the last commit, beside
+// Claude's last checkpoint, which stays as it was.
 function onStop(ctx) {
   const s = ctx.state;
   if (!s || s.phase !== 'approved' || ctx.input.stop_hook_active) return;
@@ -728,11 +735,14 @@ function onStop(ctx) {
   if (!step) return;
   const at = step.checkpoint ? Date.parse(step.checkpoint.at) : NaN;
   if (at >= Date.parse(s.turnStartedAt)) return;
-  const tool = path.join(path.resolve(__dirname, '..'), 'scripts', 'plan-tool.js');
-  return block(`Naqsha: ${step.id} is in progress, and this turn did work without leaving a checkpoint. ` +
-    'If the context is compacted or the session ends now, nothing says where you are. Write one before you stop: ' +
-    `echo '{"did": "...", "red": "...", "next": "...", "open": ["..."]}' | node ${tool} checkpoint ${s.plan}/plan.js ${step.id} ` +
-    '(put a question you are waiting on in "open"), then end the turn.');
+  let files = [], commit = '';
+  try { files = git(ctx.root, 'status', '--porcelain', '--untracked-files=normal').split('\n').filter(Boolean).map(l => l.slice(3)).filter(f => !f.startsWith(`${ctx.plansDir}/`) && !f.startsWith(`${STATE_DIR}/`)); } catch {}
+  try { commit = git(ctx.root, 'log', '-1', '--format=%h %s').trim(); } catch {}
+  const since = { at: new Date().toISOString(), files: files.slice(0, 30), ...(files.length > 30 ? { more: files.length - 30 } : {}), commit };
+  step.checkpoint = step.checkpoint
+    ? { ...step.checkpoint, since }
+    : { at: since.at, auto: true, next: 'Not written: a turn ended without a checkpoint. See what changed below, and the commits, before going on.', since };
+  writePlan(path.join(ctx.root, s.plan, 'plan.js'), plan);
 }
 
 // ---- snapshots -----------------------------------------------------------

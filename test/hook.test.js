@@ -2,6 +2,16 @@
 // Runs the hook as Claude Code does: JSON on stdin, decision on stdout.
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
+
+// Approval answers through Claude either way: approved, or NOT approved with what's missing.
+const approvalText = out => (out && out.hookSpecificOutput && out.hookSpecificOutput.additionalContext) || '';
+function refusal(out, why) {
+  assert.match(approvalText(out), /^Naqsha: NOT approved; nothing was unlocked\./, why);
+  return approvalText(out);
+}
+function approved(out, why) {
+  assert.match(approvalText(out), /^Naqsha: the user approved /, why);
+}
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
@@ -417,7 +427,7 @@ test('a paused build can be resumed by name', () => {
   p.cmd('plan');
   writePlan(p.root, 'login');
   p.cmd('approve');
-  assert.equal(p.cmd('approve', 'login').decision, 'block', 'an approved plan is not approved again');
+  refusal(p.cmd('approve', 'login'), 'an approved plan is not approved again');
 
   const drafting = p.cmd('plan', 'next thing').hookSpecificOutput.additionalContext;
   assert.match(drafting, /docs\/plans\/login is paused/);
@@ -468,9 +478,9 @@ test('Bash changes are caught outside git too', () => {
 
 test('approval is refused while the plan is incomplete', () => {
   const p = project();
-  assert.equal(p.cmd('approve').decision, 'block', 'nothing drafted yet');
+  refusal(p.cmd('approve'), 'nothing drafted yet');
   p.cmd('plan');
-  assert.match(p.cmd('approve').reason, /No draft plan/);
+  assert.match(refusal(p.cmd('approve')), /No draft plan/);
 
   writePlan(p.root, 'login', {
     questions: [{ id: 'Q1', status: 'answered' }, { id: 'Q2', status: 'open' }],
@@ -478,27 +488,27 @@ test('approval is refused while the plan is incomplete', () => {
     steps: [{ id: 'S1' }],
   });
   const out = p.cmd('approve');
-  assert.equal(out.decision, 'block');
-  assert.match(out.reason, /unanswered questions: Q2\b/);
-  assert.match(out.reason, /open decisions: D1\b/);
-  assert.doesNotMatch(out.reason, /estimate/, 'steps carry no time estimates');
-  assert.match(out.reason, /"done when" check: S1/);
+  refusal(out);
+  assert.match(refusal(out), /unanswered questions: Q2\b/);
+  assert.match(refusal(out), /open decisions: D1\b/);
+  assert.doesNotMatch(refusal(out), /estimate/, 'steps carry no time estimates');
+  assert.match(refusal(out), /"done when" check: S1/);
   assert.equal(p.state().phase, 'drafting');
 
   writePlan(p.root, 'empty', { decisions: { na: 'nothing to decide' }, steps: [] });
-  assert.match(p.cmd('approve', 'empty').reason, /no implementation steps/);
+  assert.match(refusal(p.cmd('approve', 'empty')), /no implementation steps/);
 
   writePlan(p.root, 'noprior', { priorArt: [] });
-  assert.match(p.cmd('approve', 'noprior').reason, /no prior art/);
+  assert.match(refusal(p.cmd('approve', 'noprior')), /no prior art/);
   writePlan(p.root, 'blankna', { priorArt: { na: ' ' } });
-  assert.match(p.cmd('approve', 'blankna').reason, /no prior art/);
+  assert.match(refusal(p.cmd('approve', 'blankna')), /no prior art/);
 
   fs.writeFileSync(path.join(p.root, 'docs', 'plans', 'login', 'plan.js'), 'window.NAQSHA = {oops};');
-  assert.match(p.cmd('approve', 'login').reason, /could not be read/);
+  assert.match(refusal(p.cmd('approve', 'login')), /could not be read/);
 
   // An explicit "searched, found nothing" is accepted (this one approves).
   writePlan(p.root, 'searched', { priorArt: { na: 'Searched GitHub, npm and vendor docs for X; nothing comparable' } });
-  assert.equal(p.cmd('approve', 'searched').decision, undefined);
+  approved(p.cmd('approve', 'searched'));
 });
 
 test('approval is refused until security and modules are pinned down', () => {
@@ -507,8 +517,8 @@ test('approval is refused until security and modules are pinned down', () => {
   const refused = (overrides, why) => {
     writePlan(p.root, 'x', overrides);
     const out = p.cmd('approve', 'x');
-    assert.equal(out.decision, 'block', String(why));
-    assert.match(out.reason, why);
+    refusal(out, String(why));
+    assert.match(refusal(out), why);
   };
   refused({ security: undefined }, /no security section/);
   refused({ security: [] }, /no security section/);
@@ -527,10 +537,10 @@ test('approval is refused until security and modules are pinned down', () => {
     security: { threats: [{ id: 'T1', acceptedBy: 'user', acceptedReason: 'Internal tool behind VPN; revisit before launch' }] },
     architecture: { style: { existing: 'x' }, components: [{ name: 'existing router' }] },
   });
-  assert.equal(p.cmd('approve', 'ok').decision, undefined);
+  approved(p.cmd('approve', 'ok'));
   p.cmd('plan');
   writePlan(p.root, 'local', { security: { na: 'Renames a CLI flag; no new data flows' } });
-  assert.equal(p.cmd('approve', 'local').decision, undefined);
+  approved(p.cmd('approve', 'local'));
 });
 
 test('approval is refused until every step says which failing tests it starts from', () => {
@@ -541,8 +551,8 @@ test('approval is refused until every step says which failing tests it starts fr
   const refused = (overrides, why) => {
     writePlan(p.root, 'x', overrides);
     const out = p.cmd('approve', 'x');
-    assert.equal(out.decision, 'block', String(why));
-    assert.match(out.reason, why);
+    refusal(out, String(why));
+    assert.match(refusal(out), why);
   };
   refused({ steps: [step({})] }, /steps without the failing tests they start from: S1/);
   refused({ steps: [step({ tests: [] })] }, /: S1/);
@@ -556,13 +566,13 @@ test('approval is refused until every step says which failing tests it starts fr
 
   // A step with nothing a test can state first says why.
   writePlan(p.root, 'ok', { steps: [step({ tests: { na: 'Adds the CI workflow; proven by its first run' } })] });
-  assert.equal(p.cmd('approve', 'ok').decision, undefined);
+  approved(p.cmd('approve', 'ok'));
   p.cmd('plan');
   writePlan(p.root, 'lib', { testing: { seams: [{ seam: 'parse()' }], runIt: { na: 'A library: its examples run in CI' }, securityChecks: checks } });
-  assert.equal(p.cmd('approve', 'lib').decision, undefined);
+  approved(p.cmd('approve', 'lib'));
   p.cmd('plan');
   writePlan(p.root, 'ok', { steps: [step({ tests: { na: 'Adds the CI workflow; proven by its first run' } })] });
-  assert.equal(p.cmd('approve', 'ok').decision, undefined);
+  approved(p.cmd('approve', 'ok'));
 });
 
 test('approval is refused while the design rests on assumptions', () => {
@@ -571,8 +581,8 @@ test('approval is refused while the design rests on assumptions', () => {
   const refused = (overrides, why) => {
     writePlan(p.root, 'x', overrides);
     const out = p.cmd('approve', 'x');
-    assert.equal(out.decision, 'block', String(why));
-    assert.match(out.reason, why);
+    refusal(out, String(why));
+    assert.match(refusal(out), why);
   };
   const nf = extra => ({ requirements: { nonFunctional: [{ id: 'N1', measure: 'p95 < 300 ms', source: 'user', verifiedBy: ['S1'], ...extra }] } });
   refused({ requirements: {} }, /no quality scenarios/);
@@ -593,10 +603,10 @@ test('approval is refused while the design rests on assumptions', () => {
     testing: { seams: [{ seam: 'api' }], runIt: { start: 'npm start', drive: 'http' }, acceptance: [{ id: 'A1', text: 'x' }], securityChecks: [{ check: 'c', command: 'c' }] },
     architecture: { style: { decision: 'D1' } },
   });
-  assert.equal(p.cmd('approve', 'ok').decision, undefined);
+  approved(p.cmd('approve', 'ok'));
   p.cmd('plan');
   writePlan(p.root, 'small', { requirements: { nonFunctional: { na: 'Copy change on one page; no quality affected' } }, architecture: { na: 'No structural change' } });
-  assert.equal(p.cmd('approve', 'small').decision, undefined);
+  approved(p.cmd('approve', 'small'));
 });
 
 test('in an existing codebase, approval needs who relies on what changes', () => {
@@ -607,8 +617,8 @@ test('in an existing codebase, approval needs who relies on what changes', () =>
   const refused = (overrides, why) => {
     writePlan(p.root, 'x', { context, impact: [change()], dependencies: [], ...overrides });
     const out = p.cmd('approve', 'x');
-    assert.equal(out.decision, 'block', String(why));
-    assert.match(out.reason, why);
+    refusal(out, String(why));
+    assert.match(refusal(out), why);
   };
   refused({ impact: undefined }, /no impact map/);
   refused({ impact: { na: ' ' } }, /no impact map/);
@@ -621,13 +631,13 @@ test('in an existing codebase, approval needs who relies on what changes', () =>
 
   writePlan(p.root, 'ok', { context, dependencies: [{ name: 'dayjs', version: '1.11.13', overlap: 'none: package.json has no date library' }],
     impact: [change({ users: [{ where: 'src/routes/auth.js:40', step: 'S1' }, { where: 'src/jobs/remind.js:12', ok: 'awaits already' }] })] });
-  assert.equal(p.cmd('approve', 'ok').decision, undefined);
+  approved(p.cmd('approve', 'ok'));
   p.cmd('plan');
   writePlan(p.root, 'additive', { context, impact: { na: 'Adds a new route and module; changes nothing existing' } });
-  assert.equal(p.cmd('approve', 'additive').decision, undefined);
+  approved(p.cmd('approve', 'additive'));
   p.cmd('plan');
   writePlan(p.root, 'newapp', { context: { na: 'new app' } });
-  assert.equal(p.cmd('approve', 'newapp').decision, undefined, 'a new app has nothing to break');
+  approved(p.cmd('approve', 'newapp'), 'a new app has nothing to break');
 });
 
 test('a design is gated like a plan, and approved on what the user can see', () => {
@@ -658,8 +668,8 @@ test('a design is gated like a plan, and approved on what the user can see', () 
   const refused = (overrides, why) => {
     writePlan(p.root, 'x', design(overrides));
     out = p.cmd('approve', 'x');
-    assert.equal(out.decision, 'block', String(why));
-    assert.match(out.reason, why);
+    refusal(out, String(why));
+    assert.match(refusal(out), why);
   };
   refused({ direction: { brief: 'x' } }, /no design direction/);
   refused({ direction: { brief: 'x', principles: ['y'], motion: 'm' } }, /no defaults reviewed/);
@@ -687,12 +697,12 @@ test('a design is gated like a plan, and approved on what the user can see', () 
   refused({ ...existing, current: {} }, /current design system isn't recorded/);
   refused({ ...existing, impact: undefined }, /no impact map/);
   writePlan(p.root, 'x', design(existing));
-  assert.equal(p.cmd('approve', 'x').decision, undefined, 'a complete refine of an existing product is approved');
+  approved(p.cmd('approve', 'x'), 'a complete refine of an existing product is approved');
   p.cmd('design');
 
   writePlan(p.root, 'x', design({ priorArt: [] }));
   out = p.cmd('approve', 'x');
-  assert.equal(out.decision, undefined, 'a design is not held to the backend plan\'s sections');
+  approved(out, 'a design is not held to the backend plan\'s sections');
   assert.equal(p.write('src/app.js'), null, 'approved: unlocked for building');
 });
 
@@ -778,18 +788,27 @@ test('no turn that worked on a step ends without a checkpoint', () => {
   p.prompt();
   assert.equal(stop(), null, 'a turn that did no work, such as a question, may end');
   p.bash('npm test');
-  const out = stop();
-  assert.equal(out.decision, 'block');
-  assert.match(out.reason, /S1 is in progress, and this turn did work without leaving a checkpoint/);
-  assert.match(out.reason, /plan-tool\.js checkpoint docs\/plans\/login\/plan\.js S1/);
-  assert.equal(stop({ stop_hook_active: true }), null, 'never blocks twice in a row');
+  const step = () => JSON.parse(fs.readFileSync(file, 'utf8').replace(/^window\.NAQSHA = /, '').replace(/;\s*$/, '')).steps.find(x => x.id === 'S1');
+  fs.mkdirSync(path.join(p.root, 'src'), { recursive: true });
+  fs.writeFileSync(path.join(p.root, 'src', 'wip.js'), 'x');
+  assert.equal(stop(), null, 'a turn without a checkpoint is never blocked');
+  let cp = step().checkpoint;
+  assert.equal(cp.auto, true, 'the hook records one itself');
+  assert.match(cp.next, /a turn ended without a checkpoint/);
+  assert.ok(cp.since.files.includes('src/wip.js'), 'with the files changed');
+  assert.ok(!cp.since.files.some(f => f.startsWith('docs/plans/') || f.startsWith('.naqsha/')), 'not the plan or naqsha state');
 
   tool(['checkpoint', 'S1'], '{"did":"red test","next":"make it pass"}');
   assert.equal(stop(), null, 'a checkpoint from this turn lets it end');
+  assert.equal(step().checkpoint.since, undefined);
 
   p.prompt();
   p.run({ hook_event_name: 'PreToolUse', tool_name: 'Edit', tool_input: { file_path: path.join(p.root, 'src', 'app.js') } });
-  assert.equal(stop().decision, 'block', "last turn's checkpoint isn't enough for this one");
+  assert.equal(stop(), null);
+  cp = step().checkpoint;
+  assert.equal(cp.next, 'make it pass', "Claude's last checkpoint stays");
+  assert.ok(cp.since && cp.since.files.includes('src/wip.js'), "and the hook adds what changed since");
+  assert.match(execFileSync('node', [path.join(__dirname, '..', 'scripts', 'plan-tool.js'), 'step', file, 'S1'], { encoding: 'utf8' }), /Since then \(.*\), uncommitted: .*src\/wip\.js/);
 
   tool(['update-step', 'S1'], '{"status":"done"}');
   assert.equal(stop(), null, 'the step is done');

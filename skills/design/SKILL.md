@@ -267,8 +267,13 @@ Then look at what you made, rendered, never at the code:
 ## 9. Hand over
 
 Every question answered, every decision made, every screen previewed in every state and
-built by a step. Add a changelog entry, then tell the user in a few lines what to look at
-on the page (the Screens tab, with the phone, tablet and desktop toggle and each state),
-that they can comment on any screen and send it, and that `/naqsha:approve` locks the
-design and `/naqsha:build` builds it. Start a `wait` for their comments. The hook refuses
-approval while anything above is missing.
+built by a step. Add a changelog entry, then run the approval hook's own check:
+`node "${CLAUDE_PLUGIN_ROOT}/scripts/plan-tool.js" check <plans>/<slug>/plan.js`. Fix every
+gap it lists that is yours (the exact fields it names, the states, the impact entries, the
+dependencies' overlap), and run it again until it says Ready, so the user's
+`/naqsha:approve` goes through the first time. Then tell the user in a few lines what to
+look at on the page (the Screens tab, with the phone, tablet and desktop toggle and each
+state), that they can comment on any screen and send it, and that `/naqsha:approve` locks
+the design and `/naqsha:build` builds it. If the check lists a question or decision only
+they can answer, name it instead. Start a `wait` for their comments, and after any later
+change, run the check again before saying it's ready.

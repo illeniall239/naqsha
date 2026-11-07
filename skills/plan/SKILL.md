@@ -443,12 +443,16 @@ Reread the whole plan as a skeptical staff engineer who has to sign off on it:
   code headed for a file that already mixes responsibilities.
 - Anything the ladder in section 6 rejects, and anything you decided on the user's behalf.
 
-Fix what you find. Add a changelog entry. Then tell the user, in a few lines, what to review
-on the page, that they can comment on any section there and send it, and that
-`/naqsha:approve` locks the plan and starts the build. Start a `wait` in the background so
-their comments reach you. Approval is that command, not a chat reply and not anything sent
-from the page. The hook refuses it while any question or decision is open or any step lacks
-its tests or a `doneWhen`.
+Fix what you find. Add a changelog entry. Then run the approval hook's own check:
+`node "${CLAUDE_PLUGIN_ROOT}/scripts/plan-tool.js" check <plan>/plan.js`. Fix every gap it
+lists that is yours, and run it again until it says Ready, so the user's `/naqsha:approve`
+goes through the first time. Then tell the user, in a few lines, what to review on the page,
+that they can comment on any section there and send it, and that `/naqsha:approve` locks the
+plan and starts the build. If the check still lists a question or decision only they can
+answer, name it instead, and say approval follows once it's answered. Start a `wait` in the
+background so their comments reach you. Approval is that command, not a chat reply and not
+anything sent from the page. After any later change to the plan, run the check again before
+saying it's ready.
 
 The user may ask for changes at any point, on the page or in chat. Make them, keep the
 changelog, and leave approval to them.
