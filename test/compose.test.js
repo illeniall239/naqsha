@@ -165,3 +165,50 @@ test('a storyline\'s hook composes from its own look and scenes, outside the pro
   assert.equal(fs.readFileSync(path.join(dir, 'plan.js'), 'utf8'), before);
   assert.match(run(dir, '--storyline', 'S3').stderr, /S3: a storyline needs hook\.scenes/);
 });
+
+test('a callout puts a line in the product, checked before anything is written', t => {
+  const scenes = [
+    { id: 'SC1', seconds: 3, caption: 'Hi there', make: { type: 'title', lines: ['Hi there'] } },
+    { id: 'SC2', seconds: 3, caption: 'Go', transition: 'blur', make: { type: 'callout', rec: 'sc2', at: 2, target: 'Nope', lines: ['One two three four five six seven eight nine'], side: 'up' } },
+    { id: 'SC3', caption: 'x', transition: 'whip', make: { type: 'recording', rec: 'sc2', segments: [[1, 4]], caption: ['x'], focus: ['Missing'] } },
+  ];
+  const dir = demo(t, scenes, LOOK);
+  ready(dir);
+  const r = run(dir, '--check');
+  for (const want of [/SC2: make\.target must name an action in capture\/sc2 \(Go\)/, /SC2: "One two three four five six seven eight nine" is too long for a callout line/,
+    /SC2: make\.side must be left, right or above/, /SC3: make\.focus "Missing" isn't an action in capture\/sc2 \(Go\)/]) assert.match(r.stderr, want);
+
+  scenes[1].make = { type: 'callout', rec: 'sc2', at: 2, target: 'Go', lines: ['Every decision', 'is <em>yours.</em>'] };
+  scenes[2].make.focus = ['Go'];
+  fs.writeFileSync(path.join(dir, 'plan.js'), `window.NAQSHA = ${JSON.stringify({ meta: { title: 'L', kind: 'demo' }, look: LOOK, scenes })};\n`);
+  assert.equal(run(dir, '--check').status, 0, run(dir, '--check').stderr);
+  // A still by default, taken with ffmpeg: a recording that isn't a video says so.
+  assert.match(run(dir).stderr, /couldn't take SC2's still from capture\/sc2 at 2 s/);
+  scenes[1].make.play = true;
+  fs.writeFileSync(path.join(dir, 'plan.js'), `window.NAQSHA = ${JSON.stringify({ meta: { title: 'L', kind: 'demo' }, look: LOOK, scenes })};\n`);
+  const c = run(dir);
+  assert.equal(c.status, 0, c.stderr);
+  const html = fs.readFileSync(path.join(dir, 'video', 'index.html'), 'utf8');
+  assert.match(html, /<div id="SC2" class="scene" style=/, 'a scene with a video is not a clip');
+  assert.match(html, /<video id="SC2-v" class="clip" src="assets\/rec\/sc2\.webm" muted data-start="3" data-duration="3" data-media-start="2"/);
+  assert.match(html, /window_\("SC2", 3, 3\)/);
+  assert.match(html, /clipPath: "inset\([\d.]+px [\d.]+px [\d.]+px [\d.]+px round [\d.]+px\)"/, 'the rest of the screen clears away');
+  assert.match(html, /<svg id="SC2-ring" class="ring"/);
+  assert.match(html, /"focus":\["Go"\]/, 'the recording punches in only where named');
+});
+
+test('the composer says where a film reads as slides, and a reason keeps a note quiet', t => {
+  const text = (id, s, tr) => ({ id, seconds: s, caption: 'A short line', transition: tr, make: { type: 'statement', lines: ['A short line'] } });
+  const scenes = [text('A', 6), text('B', 6, 'blur'), { id: 'C', seconds: 4, caption: 'Name', transition: 'blur', make: { type: 'end', name: 'Name' } }];
+  const look = { ...LOOK, colors: { ground: '#f7efe2', ink: '#1c1b18', accent: '#c2410c' } };
+  const dir = demo(t, scenes, look);
+  ready(dir);
+  let out = run(dir, '--check').stdout;
+  for (const want of [/75% of the film is words on a ground.*\[slides:/, /A and B are words on a ground back to back \[text-B:/,
+    /A holds still for [\d.]+ s after its last line lands.*\[still-A:/, /B and C arrive the same way \(blur\) \[repeat-C:/,
+    /the whole film stays on one ground.*\[one-world:/, /cream ground with a serif or a warm red accent is where AI films land.*\[cluster:/]) assert.match(out, want);
+  fs.writeFileSync(path.join(dir, 'plan.js'), `window.NAQSHA = ${JSON.stringify({ meta: { title: 'L', kind: 'demo' }, look, scenes, story: { keep: { cluster: 'the product is cream and terracotta', 'one-world': 'one light app' } } })};\n`);
+  out = run(dir, '--check').stdout;
+  assert.doesNotMatch(out, /\[cluster:|\[one-world:/, 'kept on purpose, with a reason');
+  assert.match(out, /\[slides:/);
+});

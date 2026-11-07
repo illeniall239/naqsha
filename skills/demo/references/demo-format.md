@@ -47,7 +47,15 @@ window.NAQSHA = {
   // "decisions": [{ "id": "D1", "phase": "Storyline", "question": "Which film should this be?",
   //   "options": [{ "name": "S1 · The doc collapses", "storyline": "S1" }, …], … }]
 
-  "story": { "hook": "A 400-page doc collapsing into one 10-minute lesson", "storyline": "S1" },
+  "story": {
+    "hook": "A 400-page doc collapsing into one 10-minute lesson", "storyline": "S1",
+    "ideas": [                         // seven or more, in your order; plan-tool.js roll deals three
+      { "device": "The result first", "form": "An endless zoom", "line": "today's lesson plays, the camera dives back into the doc it came from" }
+    ],
+    "roll": { "candidates": 7, "dealt": [5, 2, 7], "round": 1 },   // written by roll
+    "keep": { "one-world": "the product is one light screen; a dark end card would read as another app" }
+                                       // composer notes kept on purpose, by key, with why
+  },
 
   // The look, from the product: its tokens, its CSS, its brand. Hex colors; the rest of
   // the palette (dim, panel, line) is derived unless given.
@@ -88,7 +96,12 @@ window.NAQSHA = {
     "id": "SC4", "caption": "Paste a link. Get today's lesson.",
     "transition": { "type": "zoom-through", "via": "#SC3-term" },
     "make": { "type": "recording", "rec": "sc4", "segments": [[1.5, 8.2]], "frame": "window",
+              "focus": ["Paste a link"],   // the actions to punch in on; the rest play at full frame
               "caption": ["Paste a link.", "Get <em>today's lesson.</em>"] }
+  }, {
+    "id": "SC4b", "seconds": 3.5, "caption": "Every lesson ends with a question.", "transition": "blur",
+    "make": { "type": "callout", "rec": "sc4", "at": 6.0, "target": "Today's question",   // or "box": [x, y, w, h]
+              "lines": ["Every lesson ends", "with <em>a question.</em>"], "side": "left" }
   }, {
     "id": "SC5", "seconds": 4, "caption": "Your streak, kept.",
     "transition": { "type": "grow" },   // after a recording: from its last click
@@ -124,7 +137,8 @@ and `seconds`.
 | `statement` | `lines` (strings or `{ text, tone: "dim" \| "accent" }`), `size` | A sentence, line by line across the scene |
 | `number` | `value` ("1,240"), `prefix`, `suffix`, `above`, `label`, `size` | A number that lands on rolling digit columns, then its label |
 | `terminal` | `above`, `command`, `output`, `lock` ("close" \| "open") | A command typed into a terminal, with its output |
-| `recording` | `rec`, `segments`, `caption` (one or two lines), `frame` ("full" \| "window"), `zoom` | The real app: camera, cursor, keys, masks from the event log |
+| `recording` | `rec`, `segments`, `caption` (one or two lines), `frame` ("full" \| "window"), `zoom`, `focus` (action labels or numbers; "all"; "none"; by default the first and the last) | The real app: camera, cursor, keys, masks from the event log |
+| `callout` | `rec`, `at` (the recording's second), `target` (an action's label) or `box` ([x, y, w, h] in its window), `lines` (one to three, 8 words at most), `side` ("left" \| "right": where the words go) | The line in the product: the screen clears down to the element, which moves aside, big, beside the words, ringed |
 | `end` | `name`, `tagline`, `command`, `mark` (a logo in the demo folder), `note`, `align` | The mark lands, the name letter by letter, a rule draws, the call to action types in and holds |
 | `custom` | `src`, `sfx` | A hand-made scene (`production.md`) |
 

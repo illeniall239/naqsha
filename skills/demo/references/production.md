@@ -60,8 +60,11 @@ wins (`npx hyperframes docs <topic>`, `npx hyperframes <command> --help`).
   world), hand-made scenes keeping their contract, sounds present, music licensed. It also
   prints **notes**: the film's weak spots (more than a third hard cuts, under 3 kinds of
   transition, every title entering the same way, a generated-default font, hype words, a
-  long film with no sound, seams off the beat). Fix them, or keep one on purpose and say
-  why. Nothing is written until the check passes.
+  long film with no sound, seams off the beat) and where it reads as slides (words on a
+  ground past 40% of the film, two text scenes back to back, a scene still after its last
+  line, one world throughout, a transition repeated, a punch-in on every action, a look in
+  an AI cluster). Fix them, or keep one on purpose: each slides note has a key, and
+  `story.keep["<key>"]` with the reason records it and quiets it. Nothing is written until the check passes.
 - `C <demo> --storyline <id>` writes a storyline's hook clip; `C <demo>` writes the full
   film. Both go into `video/index.html` (the composition HyperFrames checks and renders)
   with `video/index.motion.json` (assertions `check` verifies); a hook keeps a copy in
@@ -131,7 +134,8 @@ function scene(tl, at, d, k, c) {
    `nested_structure_needs_subcomposition` is expected (one timeline for the whole film, so
    transitions can cross scenes), and so is a contrast warning on the outgoing scene's text
    during a `grow` (the checker reads the growing shape as its background).
-2. **Review** as `direction.md` section 10 says:
+2. **Review** as `direction.md` section 10 says, then hand the sheets to a fresh reviewer
+   (the skill's section 6):
    `npx hyperframes snapshot --review --describe false` (the `--describe false` keeps frames
    off Gemini's API when a `GEMINI_API_KEY` is set), and `snapshot --at <t,…>` for single
    moments. Fix the P0s and worthwhile P1s together, at most three rounds.

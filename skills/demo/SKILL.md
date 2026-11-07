@@ -88,10 +88,15 @@ and labels you can show, and screenshots of the screens you'll use.
 
 ## 3. Three storylines
 
-Write `storylines` (`direction.md` section 2): three films that differ in device, form and
-world, one of them bold, your recommendation first. Each gets a `hook`: its look and the
-scenes of its first five seconds or so, so the user watches how each film opens, not a
-description of it.
+Your own ranking puts the category's usual film first, so it doesn't choose. Sketch seven
+or more ideas in `story.ideas`, each a device and a form in a line (`direction.md` section
+2), across devices and forms that differ. Then `node "${CLAUDE_PLUGIN_ROOT}/scripts/plan-tool.js"
+roll <demo>/plan.js` deals three, and records the deal. Write those as `storylines`: three
+films that differ in device, form and world. Your own top idea joins as a fourth only when
+the roll didn't deal it, labeled as your pick, with how familiar it is. Each gets a
+`hook`: its look and the scenes of its first five seconds or so, so the user watches how
+each film opens, not a description of it. A re-roll (`roll` again) never deals an idea
+already shown.
 
 1. Record the shots the hooks need first (production steps 1 to 4), so every hook shows the
    real product.
@@ -114,7 +119,15 @@ From the picked storyline, write `scenes` (`demo-format.md` has each type): beat
 plus 0.3 s a word on screen, at least 2 s), its `make`, and, from the second scene on, its
 `transition`: how it arrives, caused by something on screen. Worlds change through
 `ground`. Where the kit stops, a scene is `custom`: a hand-made scene in
-`scenes/<id>.html` (`production.md` has the contract). The wording is a conversation, not a
+`scenes/<id>.html` (`production.md` has the contract).
+
+Let the product carry the words. A line about the product goes in a `callout` (the real
+screen, cleared down to the element the line is about, shown big beside it) or a
+recording's caption, not on an empty ground. Titles, statements and numbers on their own
+are for the hook, the claim and a number that lands, not for explaining the product: past
+about 40% of the film they read as slides, and the composer says so. In each recording,
+name the two or three actions that earn a punch-in (`make.focus`); the rest play at full
+frame. The wording is a conversation, not a
 page: settle it with the user in chat, then show the storyboard on the page.
 
 ## 5. Production
@@ -129,7 +142,11 @@ check, review, render. Record the renders in `plan.js`; the Video tab plays them
 
 Before the user sees it, review the film yourself as `direction.md` section 10 says: the
 check, the review sheets, every beat frame described as a stranger would, P0 and P1 notes
-fixed. Then the user watches on the page and comments at a timestamp ("[0:12] the zoom is
+fixed. Then a fresh pair of eyes: a reviewer subagent, named and modeled as `/naqsha:plan`
+describes, given only the review sheets (beats, seams, phone), the picked storyline and
+`direction.md` section 9 (never this conversation), returns what reads as generated, what
+a stranger wouldn't follow, and what's broken, each as `t=4.2s · where · problem → exact
+change`, most serious first. Fix what holds up, snapshot once more. Then the user watches on the page and comments at a timestamp ("[0:12] the zoom is
 too fast"). What they send arrives like page answers do. Fix what they asked, re-render
 only what it touches, and say in a line what changed. Running `/naqsha:demo` again with the
 same slug picks the film up where it is.

@@ -433,3 +433,16 @@ test('the build tunes itself from each step\'s measurements, both ways, and neve
   assert.ok(plan.tuning.rules.some(x => x.key === 'reviewLessons'));
   assert.ok(plan.tuning.rules.every(x => !/model|skip|review less|fewer tests/i.test(x.text)), 'no rule touches the model, the reviews or the checks');
 });
+
+test('a demo rolls its storyline ideas the way a design rolls its worlds', t => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'naqsha-sroll-'));
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  const file = path.join(dir, 'plan.js');
+  const ideas = Array.from({ length: 7 }, (_, i) => ({ device: `Device ${i + 1}`, form: `Form ${i + 1}` }));
+  fs.writeFileSync(file, `window.NAQSHA = ${JSON.stringify({ meta: { kind: 'demo' }, story: { ideas } })};\n`);
+  const r = spawnSync('node', [TOOL, 'roll', file], { encoding: 'utf8' });
+  assert.equal(r.status, 0, r.stderr);
+  assert.match(r.stdout, /^Dealt 3 of 7: lead \d \(Device \d \+ Form \d\)/);
+  assert.match(r.stdout, /Write these as the storylines/);
+  assert.equal(readPlan(file).story.roll.dealt.length, 3);
+});

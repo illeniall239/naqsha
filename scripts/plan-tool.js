@@ -25,9 +25,10 @@
 //                                         with a step, one line for it (the full breakdown goes on the page)
 //   plan-tool.js check <plan.js>          what /naqsha:approve would say: "Ready", or every gap it would
 //                                         refuse for. Run it before telling the user to approve.
-//   plan-tool.js roll <plan.js> [n] [k]   a design: deal which of its n candidate worlds (direction.worlds,
-//                                         in Claude's order) become the k directions to show, so Claude's
-//                                         own ranking, which puts the category default first, doesn't pick
+//   plan-tool.js roll <plan.js> [n] [k]   deal which of n candidates become the k options to show, so Claude's
+//                                         own ranking, which puts the category default first, doesn't pick:
+//                                         a design's worlds (direction.worlds), a demo's storyline ideas
+//                                         (story.ideas)
 'use strict';
 
 const fs = require('fs');
@@ -575,24 +576,29 @@ function readPatch() {
 // re-roll the user asked for, not a quiet redo until the favorite comes up.
 function roll(plan, n, k) {
   const { randomInt } = require('crypto');
-  const worlds = Array.isArray(plan.direction && plan.direction.worlds) ? plan.direction.worlds : [];
-  const count = n || worlds.length;
-  if (!(count >= 3)) throw new Error('roll needs at least 3 candidate worlds (direction.worlds, or a count)');
-  if (worlds.length && worlds.length !== count) throw new Error(`direction.worlds has ${worlds.length} candidates, not ${count}`);
-  plan.direction = plan.direction || {};
-  const last = plan.direction.roll || {};
+  // A design deals its candidate worlds; a demo its storyline ideas (device and form pairs).
+  const demo = (plan.meta || {}).kind === 'demo';
+  const home = demo ? (plan.story ||= {}) : (plan.direction ||= {});
+  const what = demo ? 'storyline ideas (story.ideas)' : 'candidate worlds (direction.worlds)';
+  const ideas = Array.isArray(demo ? home.ideas : home.worlds) ? (demo ? home.ideas : home.worlds) : [];
+  const count = n || ideas.length;
+  if (!(count >= 3)) throw new Error(`roll needs at least 3 ${what}, or a count`);
+  if (ideas.length && ideas.length !== count) throw new Error(`${demo ? 'story.ideas' : 'direction.worlds'} has ${ideas.length} candidates, not ${count}`);
+  const last = home.roll || {};
   const rolls = last.round || 0;
-  // A re-roll never deals a world the user has already seen.
+  // A re-roll never deals an idea the user has already seen.
   const shown = new Set(last.candidates === count ? [...(last.shown || []), ...(last.dealt || [])] : []);
   const pool = Array.from({ length: count }, (_, i) => i + 1).filter(i => !shown.has(i));
   const take = Math.min(k || 3, rolls ? pool.length : count - 1);
-  if (take < 1) throw new Error(`every one of the ${count} worlds has been shown: write new candidates in direction.worlds (or ask the user what quality is missing)`);
+  if (take < 1) throw new Error(`every one of the ${count} ${demo ? 'ideas' : 'worlds'} has been shown: write new candidates (or ask the user what quality is missing)`);
   const dealt = [];
   while (dealt.length < take) dealt.push(pool.splice(randomInt(pool.length), 1)[0]);
-  plan.direction.roll = { candidates: count, dealt, shown: [...shown], round: rolls + 1, at: new Date().toISOString().slice(0, 16) };
-  const name = i => (worlds[i - 1] && (worlds[i - 1].name || worlds[i - 1].world)) ? ` (${worlds[i - 1].name || worlds[i - 1].world})` : '';
+  home.roll = { candidates: count, dealt, shown: [...shown], round: rolls + 1, at: new Date().toISOString().slice(0, 16) };
+  const label = x => x && (x.name || x.world || [x.device, x.form].filter(Boolean).join(' + '));
+  const name = i => (label(ideas[i - 1]) ? ` (${label(ideas[i - 1])})` : '');
   return [`Dealt ${dealt.length} of ${count}${rolls ? `, re-roll ${rolls}` : ''}: lead ${dealt[0]}${name(dealt[0])}${dealt.length > 1 ? `; then ${dealt.slice(1).map(i => `${i}${name(i)}`).join(', ')}` : ''}.`,
-    'Build these as the directions, each fused with the product and fully committed. Your own top candidate joins only as one card labeled as your pick, with its familiarity in its risk line.'].join('\n');
+    demo ? 'Write these as the storylines, each a different film, fully committed. Your own top idea joins only as one more, labeled as your pick, with how familiar it is in its risk line.'
+      : 'Build these as the directions, each fused with the product and fully committed. Your own top candidate joins only as one card labeled as your pick, with its familiarity in its risk line.'].join('\n');
 }
 
 function main(argv) {

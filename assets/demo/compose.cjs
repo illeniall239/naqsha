@@ -25,7 +25,9 @@ const fs = require('fs');
 const path = require('path');
 
 const W = 1920, H = 1080;
-const TYPES = ['title', 'statement', 'number', 'terminal', 'recording', 'end', 'custom'];
+const TYPES = ['title', 'statement', 'number', 'terminal', 'recording', 'callout', 'end', 'custom'];
+// Scenes that are words on a ground. A film made mostly of them is a slideshow.
+const TEXT_ONLY = ['title', 'statement', 'number'];
 // How a scene arrives from the one before. Each is caused by something on screen; `match`
 // is a hard cut on frames the hand-made scenes on both sides were built to match.
 const TRANSITIONS = {
@@ -178,6 +180,28 @@ function validate(demo, plan, opts) {
       }
       if (!(Array.isArray(m.caption) && m.caption.length)) problems.push(`${at}: a recording needs make.caption (one or two lines)`);
       if (m.frame && !['full', 'window'].includes(m.frame)) problems.push(`${at}: make.frame must be full or window`);
+      if (m.focus !== undefined && !['all', 'none'].includes(m.focus) && !Array.isArray(m.focus)) problems.push(`${at}: make.focus is a list of action labels (or numbers), "all" or "none"`);
+      if (Array.isArray(m.focus) && recs[m.rec]) {
+        const labels = new Set(recs[m.rec].events.filter(e => e.box && ['click', 'type', 'hover'].includes(e.type)).map(e => String(e.label || '')));
+        for (const f of m.focus) if (typeof f === 'string' && !labels.has(f)) problems.push(`${at}: make.focus "${f}" isn't an action in capture/${m.rec} (${[...labels].filter(Boolean).join(', ') || 'none labelled'})`);
+      }
+    }
+    if (m.type === 'callout') {
+      const dir = path.join(demo, 'capture', m.rec || '');
+      if (!m.rec || !fs.existsSync(path.join(dir, 'events.json')) || !fs.existsSync(path.join(dir, 'recording.webm'))) {
+        problems.push(`${at}: no recording at capture/${m.rec}/ (record the shot first)`);
+      } else {
+        const log = recs[m.rec] || (recs[m.rec] = JSON.parse(fs.readFileSync(path.join(dir, 'events.json'), 'utf8')));
+        const len = log.duration / 1000;
+        // A still by default: the page moving under a line is noise. `play: true` plays it.
+        const span = m.play ? (Number(sc.seconds) || 0) : 0;
+        if (!(typeof m.at === 'number' && m.at >= 0 && m.at + span <= len + 0.05)) problems.push(`${at}: make.at (the recording's second the piece is taken from${m.play ? ', plus the scene\'s seconds when it plays' : ''}) must fit the recording (0 to ${len.toFixed(2)} s)`);
+        if (calloutBox(m, log) && calloutLayout(m, log).z < 1.3) notes.push(`${at}: the callout shows its element at ${calloutLayout(m, log).z.toFixed(1)}x; point at a smaller element (one card, one control) so it reads at 1.6 to 2x`);
+        if (!calloutBox(m, log)) problems.push(`${at}: make.target must name an action in capture/${m.rec} (${log.events.filter(e => e.box).map(e => e.label).filter(Boolean).join(', ') || 'none labelled'}), or make.box be [x, y, width, height] inside its ${log.viewport.width}x${log.viewport.height} window`);
+      }
+      if (!(Array.isArray(m.lines) && m.lines.length >= 1 && m.lines.length <= 3)) problems.push(`${at}: a callout needs make.lines, one to three`);
+      for (const l of [].concat(m.lines || [])) if (words(textOf(l)) > 8) problems.push(`${at}: "${textOf(l).replace(/<[^>]+>/g, '')}" is too long for a callout line (8 words at most)`);
+      if (m.side && !['left', 'right', 'above'].includes(m.side)) problems.push(`${at}: make.side must be left, right or above (where the words go)`);
     }
     if (m.type === 'custom') {
       const r = checkCustom(demo, sc);
@@ -210,6 +234,34 @@ function validate(demo, plan, opts) {
   const styles = scenes.filter(s => ['title', 'statement'].includes((s.make || {}).type)).map((s, i) => s.make.enter || [].concat(look.titles || ROTATION)[i % [].concat(look.titles || ROTATION).length]);
   if (styles.length >= 3 && new Set(styles).size === 1) notes.push(`${where}every title enters the same way (${styles[0]}); vary them`);
   const total = timeline(scenes).end;
+  // A slideshow: words on a ground standing in for the product.
+  if (!story) {
+    const keep = (plan.story && plan.story.keep) || {};
+    const say = (key, text) => { if (!keep[key]) notes.push(`${text} [${key}: fix it, or keep it with story.keep["${key}"] saying why]`); };
+    const tl = timeline(scenes).items;
+    const textSecs = tl.filter(x => TEXT_ONLY.includes((x.sc.make || {}).type)).reduce((a, x) => a + x.d, 0);
+    if (total > 15 && textSecs > 0.4 * total) say('slides', `${Math.round(100 * textSecs / total)}% of the film is words on a ground (title, statement, number scenes); past about 40% it reads as slides: let the product or an object carry some lines (a callout, a recording, a hand-made scene)`);
+    tl.forEach((x, i) => {
+      const prev = tl[i - 1];
+      if (prev && TEXT_ONLY.includes(prev.sc.make.type) && TEXT_ONLY.includes(x.sc.make.type)) say(`text-${x.sc.id}`, `${prev.sc.id} and ${x.sc.id} are words on a ground back to back`);
+      const m = x.sc.make;
+      if (['title', 'statement'].includes(m.type)) {
+        const lastIn = m.type === 'title' ? 0.45 + 0.35 * m.lines.length + (m.sub ? 0.5 : 0) : Math.max(0.5, Math.min(1.4, (x.d - 1.4) / Math.max(1, m.lines.length))) * m.lines.length + 0.3;
+        if (x.d - lastIn > 2.4) say(`still-${x.sc.id}`, `${x.sc.id} holds still for ${(x.d - lastIn).toFixed(1)} s after its last line lands; give its back half something to do, or shorten it`);
+      }
+      if (prev && i >= 2 && transitionOf(x.sc).type === transitionOf(prev.sc).type && transitionOf(x.sc).type !== 'cut') say(`repeat-${x.sc.id}`, `${prev.sc.id} and ${x.sc.id} arrive the same way (${transitionOf(x.sc).type})`);
+      if (m.type === 'recording' && m.focus === 'all') say(`camera-${x.sc.id}`, `${x.sc.id} punches in on every action; name the two or three that matter in make.focus`);
+    });
+    if (total > 15 && !scenes.some(x => x.ground)) say('one-world', 'the whole film stays on one ground; give the end card or the claim a world of its own (look.grounds)');
+    if (base) {
+      const [r, , bl] = rgb(base.ground);
+      const serif = /fraunces|playfair|newsreader|instrument serif|source serif|lora|cormorant|garamond|crimson|dm serif/i.test(String(((look.fonts || {}).display || {}).family || ''));
+      const accentRgb = rgb(base.accent), warmAccent = accentRgb[0] > accentRgb[2] + 60 && accentRgb[0] > 150;
+      if (lum(base.ground) > 0.75 && r > bl + 10 && (serif || warmAccent)) say('cluster', 'cream ground with a serif or a warm red accent is where AI films land; if this is the product\'s own look, keep it and say so');
+      const sat = (([x, y, z]) => (Math.max(x, y, z) - Math.min(x, y, z)) / 255)(accentRgb);
+      if (lum(base.ground) < 0.02 && sat > 0.6 && lum(base.accent) > 0.25) say('cluster', 'near-black with one neon accent is where AI films land; if this is the product\'s own look, keep it and say so');
+    }
+  }
   if (!story && total > 15 && !sound.sfx && !sound.music && !sound.voice) notes.push(`the film is ${total.toFixed(0)} s and silent; UI sounds (sound.sfx) or licensed music make it feel finished`);
   if (sound.music && sound.music.beats) {
     const bf = path.join(demo, sound.music.beats);
@@ -227,6 +279,36 @@ function validate(demo, plan, opts) {
 function beatTimes(j, start) {
   const raw = Array.isArray(j) ? j : j.beats || (j.result && j.result.beats) || [];
   return raw.map(b => (typeof b === 'number' ? b : b.time ?? b.t)).filter(t => typeof t === 'number').map(t => t - start).filter(t => t >= 0);
+}
+
+// The box a callout points at, in the recording's window pixels: a labelled action's box
+// from the log, or one given.
+function calloutBox(m, log) {
+  if (Array.isArray(m.box) && m.box.length === 4 && m.box.every(n => typeof n === 'number')) {
+    const [x, y, w, h] = m.box;
+    return x >= 0 && y >= 0 && w > 0 && h > 0 && x + w <= log.viewport.width && y + h <= log.viewport.height ? { x, y, width: w, height: h } : null;
+  }
+  const e = m.target != null && log.events.find(ev => ev.box && String(ev.label || '') === String(m.target));
+  return e ? e.box : null;
+}
+
+// Where a callout's piece goes and how big: from the element's box, in frame pixels.
+function calloutLayout(m, log) {
+  const k = log.scale || 1;
+  const vw = log.video ? log.video.width : log.viewport.width * k;
+  const f = W / vw;
+  const b0 = calloutBox(m, log);
+  const box = { x: b0.x * k * f, y: b0.y * k * f, w: b0.width * k * f, h: b0.height * k * f };
+  const pad = Math.max(28, 0.25 * Math.min(box.w, box.h));
+  const piece = { x: Math.max(0, box.x - pad), y: Math.max(0, box.y - pad) };
+  piece.w = Math.min(W, box.x + box.w + pad) - piece.x;
+  piece.h = Math.min(H, box.y + box.h + pad) - piece.y;
+  // A wide element (a row, a banner) gets the words above it and the frame's width; a
+  // compact one, the words on the side away from it.
+  const side = m.side || (piece.w / piece.h > 2.6 ? 'above' : box.x + box.w / 2 > W / 2 ? 'left' : 'right');
+  const z = side === 'above' ? Math.max(1, Math.min(0.86 * W / piece.w, 0.46 * H / piece.h, 2.6))
+    : Math.max(1, Math.min(0.52 * W / piece.w, 0.74 * H / piece.h, 2.6));
+  return { vw, f, box, piece, side, z };
 }
 
 const transitionOf = sc => (typeof sc.transition === 'string' ? { type: sc.transition } : { type: 'cut', ...(sc.transition || {}) });
@@ -307,7 +389,9 @@ function build(v, ctx) {
     // first frame: either way its first line is already there, not still to come.
     const carried = i > 0 && ['whip', 'blur', 'iris', 'zoom-through', 'grow'].includes(it.t.type);
     const r = SCENES[m.type](sc, { at, d, style, leaveAt, cue, recs: v.recs, custom: v.customs[sc.id], first: at === 0 || carried, carried });
-    const timed = m.type !== 'recording';
+    // A scene holding a video isn't a clip: the video keeps its own timing (a timed wrapper
+    // would shift its frames), and the scene shows in its own window instead.
+    const timed = !['recording', 'callout'].includes(m.type);
     parts.push(`<div id="${sc.id}" class="scene${timed ? ' clip' : ''}"${timed ? ` data-start="${at}" data-duration="${d}"` : ''} style="${vars}"><div id="${sc.id}-stage" class="stage ${m.type}${r.center || m.align === 'center' ? ' center' : ''}">${r.html}</div></div>`);
     js.push(`  // ${sc.id}: ${m.type}, ${at} s for ${d} s\n${r.js}`);
     if (r.first) motion.push({ kind: 'appearsBy', selector: r.first, bySec: r2(at === 0 ? 0 : at + 1.2) });
@@ -382,6 +466,11 @@ function build(v, ctx) {
   .lock .body { position: absolute; left: 0; bottom: 0; width: 150px; height: 112px; border-radius: 22px; background: var(--accent); }
   .lock .shackle { position: absolute; left: 30px; top: 0; width: 90px; height: 110px; border: 18px solid var(--accent); border-bottom: 0; border-radius: 48px 48px 0 0; }
   .grow { position: absolute; left: 0; top: 0; width: 10px; height: 10px; opacity: 0; z-index: 50; pointer-events: none; }
+  .stage.callout { display: block; padding: 0; }
+  .shot { position: absolute; left: 0; top: 0; width: ${W}px; height: ${H}px; background: #fff; }
+  .ring { position: absolute; left: 0; top: 0; pointer-events: none; }
+  .ring rect { fill: none; stroke: var(--accent); stroke-width: 5; stroke-dasharray: 100 120; stroke-dashoffset: 100; }
+  .say.callout { line-height: 1.12; }
 </style>
 </head>
 <body>
@@ -423,7 +512,7 @@ ${audio.join('\n')}
     Object.assign(fitBox.style, { width: vw + 'px', height: vh + 'px', transform: 'scale(' + (W / vw) + ')' });
     tl.set(layer, { opacity: 0 }, 0); tl.set(layer, { opacity: 1 }, s.at); tl.set(layer, { opacity: 0 }, s.at + s.dur);
     const css = getComputedStyle(document.getElementById(s.scene));
-    naqshaDemo.direct(tl, log, { layer, at: s.at, trim: s.from, until: s.until, scene: s.scene, enterCursor: s.first, maxZoom: s.zoom || 2,
+    naqshaDemo.direct(tl, log, { layer, at: s.at, trim: s.from, until: s.until, scene: s.scene, enterCursor: s.first, maxZoom: s.zoom || 2, focus: s.focus,
       frame: s.window ? document.getElementById(s.scene + '-frame') : null, window: s.window ? { scale: 0.86, x: 134, y: 40, radius: 22 } : null,
       accent: css.getPropertyValue('--accent').trim(), ink: css.getPropertyValue('--ink').trim(), ground: css.getPropertyValue('--ground').trim(), font: "'M', monospace" });
   }
@@ -596,7 +685,7 @@ const SCENES = {
   recording(sc, x) {
     const m = sc.make, id = sc.id;
     let t = x.at;
-    const mine = m.segments.map(([a, b], i) => { const s = { id: `${id}-r${i}`, scene: id, rec: m.rec, at: r2(t), dur: r2(b - a), from: a, until: b, first: i === 0, window: m.frame === 'window', zoom: m.zoom }; t += b - a; return s; });
+    const mine = m.segments.map(([a, b], i) => { const s = { id: `${id}-r${i}`, scene: id, rec: m.rec, at: r2(t), dur: r2(b - a), from: a, until: b, first: i === 0, window: m.frame === 'window', zoom: m.zoom, focus: m.focus }; t += b - a; return s; });
     // UI sounds on the frames of the clicks, keys and typing in the log.
     const log = x.recs[m.rec];
     for (const s of mine) {
@@ -616,6 +705,50 @@ const SCENES = {
     ${mine.map(s => `segment(${q(s)});`).join(' ')}
     lines(${q(x.carried ? caps.slice(1) : caps)}, ${r2(x.at + 0.3)}, 'line', 0.35);
     ${x.leaveAt != null ? `leaveAll(${q(caps)}, ${x.leaveAt});` : ''}`,
+    };
+  },
+  // The line in the product: the real recording, full frame, then everything but the
+  // element the line is about clears away, and that piece of the UI moves to one side, big,
+  // with the words beside it and a ring drawn round the element. Placed when composed, from
+  // the box in the log, so nothing is measured at render time.
+  callout(sc, x) {
+    const m = sc.make, id = sc.id;
+    // Words on the side away from the element, unless told.
+    const { vw, f, box, piece, side, z } = calloutLayout(m, x.recs[m.rec]);
+    const cx = side === 'left' ? 0.7 * W : side === 'right' ? 0.3 * W : W / 2;
+    const cy = side === 'above' ? 0.64 * H : H / 2;
+    const tx = r2(cx - (piece.x + piece.w / 2) * z), ty = r2(cy - (piece.y + piece.h / 2) * z);
+    const inset = `inset(${r2(piece.y)}px ${r2(W - piece.x - piece.w)}px ${r2(H - piece.y - piece.h)}px ${r2(piece.x)}px round ${r2(18 / z)}px)`;
+    const ring = { x: r2(box.x * z + tx - 10), y: r2(box.y * z + ty - 10), w: r2(box.w * z + 20), h: r2(box.h * z + 20) };
+    const pieceLeft = piece.x * z + tx, pieceRight = (piece.x + piece.w) * z + tx;
+    const pieceTop = piece.y * z + ty;
+    const words = side === 'left' ? { left: 140, width: Math.max(420, pieceLeft - 240) }
+      : side === 'right' ? { left: Math.round(pieceRight + 100), width: Math.max(420, W - pieceRight - 240) }
+      : { left: 140, width: W - 280, bottom: Math.round(H - pieceTop + 56) };
+    const ids = m.lines.map((_, i) => `${id}-l-${i}`);
+    // The words arrive once the screen has cleared, even on a carried first frame: the
+    // screen itself is what's there at the seam.
+    const live = ids;
+    const t0 = x.at, crop = r2(t0 + 0.35);
+    const vh = Math.round(H / f);
+    const media = m.play
+      ? `<video id="${id}-v" class="clip" src="assets/rec/${m.rec}.webm" muted data-start="${x.at}" data-duration="${x.d}" data-media-start="${m.at}" style="width:${vw}px;height:${vh}px"></video>`
+      : `<img id="${id}-still" src="assets/rec/${id}-still.png" alt="" style="width:${vw}px;height:${vh}px;display:block">`;
+    return {
+      first: `#${id}-shot`,
+      html: `<div id="${id}-shot" class="shot" data-layout-allow-overflow><div class="fit" style="width:${vw}px;height:${vh}px;transform:scale(${r2(f)})"><div class="layer" style="width:${vw}px;height:${vh}px">${media}</div></div></div>
+    <svg id="${id}-ring" class="ring" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" data-layout-ignore><rect x="${ring.x}" y="${ring.y}" width="${ring.w}" height="${ring.h}" rx="16" pathLength="100" /></svg>
+    <div class="say callout" style="position:absolute;left:${words.left}px;width:${words.width}px;${words.bottom != null ? `bottom:${words.bottom}px;text-align:center` : 'top:50%;transform:translateY(-50%)'};font-size:${m.size || 72}px">${m.lines.map((l, i) => line(ids[i], l)).join('')}</div>`,
+      js: `    window_(${q(id)}, ${x.at}, ${x.d});
+    { const shot = document.getElementById(${q(`${id}-shot`)}); shot.style.transformOrigin = '0 0';
+      // The rest of the screen clears away; the piece moves to its side and grows.
+      tl.fromTo(shot, { clipPath: 'inset(0px 0px 0px 0px round 0px)', x: 0, y: 0, scale: 1 }, { clipPath: ${q(inset)}, x: ${tx}, y: ${ty}, scale: ${r2(z)}, duration: 0.75, ease: 'power3.inOut', immediateRender: false }, ${crop});
+      tl.fromTo(shot, { filter: 'drop-shadow(0px 0px 0px rgba(0,0,0,0))' }, { filter: 'drop-shadow(0px 28px 48px rgba(0,0,0,0.22))', duration: 0.5, ease: 'power2.out', immediateRender: false }, ${r2(crop + 0.4)});
+      const rect = document.querySelector(${q(`#${id}-ring rect`)});
+      K.enter('#${id}-ring', ${r2(crop + 0.8)}, 'cut');
+      tl.fromTo(rect, { strokeDashoffset: 100 }, { strokeDashoffset: 0, duration: 0.5, ease: 'power2.inOut', immediateRender: false }, ${r2(crop + 0.8)}); }
+    lines(${q(live)}, ${r2(crop + 0.6)}, ${q(x.style || 'blur')}, 0.35);
+    ${x.leaveAt != null ? `leaveAll(${q(ids)}, ${x.leaveAt});` : ''}`,
     };
   },
   // The end card is performed, not faded in: the mark lands, the name arrives letter by
@@ -716,7 +849,14 @@ function main(argv) {
   fs.copyFileSync(path.join(__dirname, 'naqsha-demo.js'), path.join(video, 'assets', 'naqsha-demo.js'));
   for (const f of Object.values(v.look.fonts)) if (f && f.file) fs.copyFileSync(path.join(demo, f.file), path.join(video, 'assets', 'fonts', path.basename(f.file)));
   const { html, END, motion, cues } = build(v, { recs: v.recs, fps: plan.meta && plan.meta.fps });
-  for (const r of new Set(v.scenes.filter(s => s.make.type === 'recording').map(s => s.make.rec))) fs.copyFileSync(path.join(demo, 'capture', r, 'recording.webm'), path.join(video, 'assets', 'rec', `${r}.webm`));
+  // A callout's still: the recording's frame at its second, taken once here.
+  for (const sc of v.scenes.filter(s => s.make.type === 'callout' && !s.make.play)) {
+    const { spawnSync } = require('child_process');
+    const out = path.join(video, 'assets', 'rec', `${sc.id}-still.png`);
+    const r = spawnSync('ffmpeg', ['-v', 'error', '-y', '-ss', String(sc.make.at), '-i', path.join(demo, 'capture', sc.make.rec, 'recording.webm'), '-frames:v', '1', out], { encoding: 'utf8' });
+    if (r.status !== 0 || !fs.existsSync(out)) throw new Error(`couldn't take ${sc.id}'s still from capture/${sc.make.rec} at ${sc.make.at} s: ${(r.stderr || '').trim() || 'ffmpeg failed'}`);
+  }
+  for (const r of new Set(v.scenes.filter(s => s.make.type === 'recording' || (s.make.type === 'callout' && s.make.play)).map(s => s.make.rec))) fs.copyFileSync(path.join(demo, 'capture', r, 'recording.webm'), path.join(video, 'assets', 'rec', `${r}.webm`));
   for (const s of new Set(cues.map(c => c.sound))) fs.copyFileSync(path.join(demo, 'sfx', `${s}.mp3`), path.join(video, 'assets', 'sfx', `${s}.mp3`));
   for (const a of [v.sound.music, v.sound.voice].filter(Boolean)) fs.copyFileSync(path.join(demo, a.file), path.join(video, 'assets', 'audio', path.basename(a.file)));
   if (fs.existsSync(path.join(demo, 'media'))) for (const f of fs.readdirSync(path.join(demo, 'media'))) fs.copyFileSync(path.join(demo, 'media', f), path.join(video, 'assets', 'media', f));

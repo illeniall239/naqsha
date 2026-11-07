@@ -15,6 +15,8 @@
 //        frame: el, window: { scale: 0.86, x: 134, y: 40 },   // optional: the window on its
 //                                // ground, which the camera opens to full frame on a punch-in
 //        enterCursor: true,      // the cursor comes in from off-screen
+//        focus: ['Approve'],     // the actions to punch in on, by label or number; "all", "none",
+//                                // or (the default) the first and the last
 //        maxZoom: 2, accent, font, ink, ground, camera, cursor, keys, masks: true by default
 //      });
 //
@@ -356,7 +358,15 @@
       // A target that already fills most of the frame (a table row, a whole panel) needs no
       // zoom: forcing one would crop the very thing being shown.
       const worth = e => Math.min((vw * 0.55) / e.box.width, (vh * 0.42) / e.box.height) >= 1.15;
-      const shots = focus.filter(worth);
+      // Punch in where the storyboard says, not on every click: a zoom on each action is
+      // the same move beat after beat. `focus` names the actions by their label (or index);
+      // "all" is every action worth one; by default, the first and the last.
+      const worthy = focus.filter(worth);
+      const named = Array.isArray(o.focus) ? o.focus.map(String) : null;
+      const shots = o.focus === 'all' ? worthy
+        : o.focus === 'none' ? []
+        : named ? worthy.filter((e, i) => named.includes(String(e.label || '')) || named.includes(String(i + 1)))
+        : worthy.length > 2 ? [worthy[0], worthy[worthy.length - 1]] : worthy;
       shots.forEach((e, i) => {
         const b = e.box;
         const z = clamp(Math.min((vw * 0.55) / b.width, (vh * 0.42) / b.height), 1.25, maxZoom);

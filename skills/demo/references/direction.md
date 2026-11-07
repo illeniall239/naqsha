@@ -49,8 +49,10 @@ picked first.
 | Split screen to one | several panes at once collapse into the one that matters |
 | One frame that rebuilds | one composition keeps rearranging and never leaves the frame |
 
-A pitch where all three are plain cuts between scenes hasn't tried the forms. Each
-storyline says: its name, device and form, what the viewer sees and feels (two sentences),
+A pitch where all three are plain cuts between scenes hasn't tried the forms. Write the
+ideas in `story.ideas` and let `plan-tool.js roll` deal which three become storylines
+(the skill's section 3): your ranking is where the usual film comes from. Each storyline
+says: its name, device and form, what the viewer sees and feels (two sentences),
 the first two seconds exactly, its beats in one line, its look in one line, its sound in
 one line. Recommend one, with the reason in a clause. Pick for the story a stranger would
 follow and remember, ahead of the most striking picture.
@@ -150,7 +152,11 @@ everyone who uses it.
 - **Recordings** are the proof: the real app driven by the shot, with a camera that cycles
   between the window on its ground (`frame: "window"`), the full screen and a punch-in on
   the control being used (up to 2×), a big cursor whose click causes the next thing, and no
-  click rings.
+  click rings. Punch in on the two or three actions that matter (`make.focus`), not every
+  click: the same move on each action is a generated film's rhythm.
+- **Callouts** put a line in the product: the real screen clears down to the element the
+  line is about, which moves to one side, big, with the words beside it and a ring drawn
+  round it. Use one wherever a line explains the product, instead of a title on a ground.
 - **Rebuilt pieces** (a hand-made scene): only the part the beat uses (the panel, the
   button, the row that changes), at 1.6 to 2× its real size, in the product's own tokens
   and copy taken from the code. Containers morph instead of cutting: the button becomes the
@@ -181,6 +187,9 @@ brand or the subject:
 - everything fading and sliding up; every scene entering the same way;
 - three cards in a row; a feature list; side-by-side panels standing in for a scene;
 - a title over a dimmed screenshot; the logo docked small in a corner;
+- words on an empty ground explaining the product, scene after scene (the composer notes
+  past 40% of the film, back-to-back text scenes, and a scene that holds still after its
+  last line);
 - titles that keep moving after they land; breathing loops; click rings;
 - typing into a prompt box as the opener.
 
@@ -197,10 +206,12 @@ on a phone.
    of them.
 3. Describe each beat frame in one sentence as a stranger would. An object you'd have to
    explain is a P0. Do the frames, in order, tell the storyline with the words covered?
-4. Write each problem as `t=4.2s · where · problem → exact change`, ranked: **P0** breaks
+4. A fresh pair of eyes, with no stake in it: a reviewer subagent given only the sheets,
+   the storyline and section 9, never this conversation (the skill's section 6).
+5. Write each problem as `t=4.2s · where · problem → exact change`, ranked: **P0** breaks
    the read (unreadable, wrong, a tell in the hero shot), **P1** weakens the film (a dead
    stretch, a soft payoff, a seam that jumps), **P2** polish. Fix the P0s and the P1s worth
    it, text first, then timing, then detail; snapshot only what changed. Never score the
    film out of 10: a score finds nothing to fix. A busy film: remove a third of the motion.
-5. Record the creative calls, what was measured and what was only looked at, and the
+6. Record the creative calls, what was measured and what was only looked at, and the
    weakest shot, in `plan.js` `qa`.
