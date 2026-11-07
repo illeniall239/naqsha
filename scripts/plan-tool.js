@@ -218,6 +218,14 @@ function stepView(plan, id, planFile) {
   ]);
   section('References to read for this step (skip any already read in this context)',
     [...refs].map(([r, reason]) => `- ${r}.md: ${reason}`));
+  const tn = plan.tuning;
+  if (tn) {
+    section('How this build is tuned (from its own measurements; quality is fixed)', [
+      `- Workers hand off at about ${tn.handoffCalls} tool calls: commit at the next green and report a handoff.`,
+      ...list(tn.rules).map(r => `- For ${r.who}s: ${one(r.text)}`),
+      '- Never changed by tuning: the models, the reviews, and every test and check the step names.',
+    ]);
+  }
   const learnings = planFile && path.join(path.dirname(path.dirname(planFile)), LEARNINGS);
   if (learnings && fs.existsSync(learnings)) {
     section('Project learnings', [`- ${learnings}: read once per conversation; add what this step teaches`]);
@@ -488,6 +496,59 @@ const roleLine = b => [['lead', 'this session'], ['build', 'building'], ['review
   .filter(([k]) => b.roles[k]).map(([k, label]) => `${label} ${compact(b.roles[k].weight)} over ${b.roles[k].calls} call${b.roles[k].calls === 1 ? '' : 's'}`).join(', ') +
   (b.minutes ? `; about ${b.minutes} min of work` : '');
 
+// The build tunes itself from what it measured after each step. Quality is fixed: the
+// models, the reviews and every test and check stay as they are. Only how the work is done
+// moves, both ways: the hand-off tightens when workers run long with a large context and
+// relaxes after two lean steps; a rule is added where a role repeated work. What needs
+// judgment (a lesson from review, telling the user) comes back as an action for Claude.
+const HANDOFF = { start: 60, min: 40, by: 10 };
+const RULES = {
+  workerSuite: ['worker', 'Run the whole suite once, when the step\'s tests pass, in the background with its output in a file; again only after a code change.'],
+  reviewerSuite: ['reviewer', 'Run the whole suite once per round, at the commit under review, started in the background as you begin; break code against one test only.'],
+  reviewLessons: ['worker', 'Before reporting done, check your diff against "Caught in review" in LEARNINGS.md: those findings cost earlier steps extra review rounds.'],
+};
+function tune(plan, c, id) {
+  const b = c.steps[id];
+  if (!b) return { changes: [], actions: [] };
+  const t = (plan.tuning ||= { handoffCalls: HANDOFF.start, leanSteps: 0, rules: [], history: [] });
+  const changes = [], actions = [];
+  const at = new Date().toISOString().slice(0, 16);
+  const note = (change, why) => { changes.push(change); t.history.push({ step: id, at, change, why }); };
+  const rule = (key, why) => {
+    const [who, text] = RULES[key];
+    if (t.rules.some(r => r.key === key)) return;
+    t.rules.push({ key, who, text, since: id });
+    note(`${who}s: ${text}`, why);
+  };
+  const long = b.longWorkers || [];
+  if (long.length) {
+    t.leanSteps = 0;
+    if (t.handoffCalls > HANDOFF.min) {
+      t.handoffCalls = Math.max(HANDOFF.min, t.handoffCalls - HANDOFF.by);
+      note(`workers hand off at about ${t.handoffCalls} calls`, `${long.map(a => `${a.name.split(' · ')[0]} took ${a.calls} calls at a ${Math.round(a.context / 1000)}k context`).join('; ')}`);
+    }
+  } else if (b.builders) {
+    t.leanSteps = (t.leanSteps || 0) + 1;
+    if (t.leanSteps >= 2 && t.handoffCalls < HANDOFF.start) {
+      t.handoffCalls = Math.min(HANDOFF.start, t.handoffCalls + HANDOFF.by);
+      t.leanSteps = 0;
+      note(`workers hand off at about ${t.handoffCalls} calls`, 'two steps in a row stayed lean, so workers get more room again');
+    }
+  }
+  const runs = b.suiteRuns || {};
+  if (runs.build > 2) rule('workerSuite', `a worker on ${id} ran the whole suite ${runs.build} times`);
+  if (runs.review > 2) rule('reviewerSuite', `a reviewer on ${id} ran the whole suite ${runs.review} times`);
+  if (b.reviews >= 3) {
+    rule('reviewLessons', `${id} took ${b.reviews} review rounds`);
+    actions.push(`${id} took ${b.reviews} review rounds: add the findings that cost the extra rounds to LEARNINGS.md under "Caught in review", one line each with how to avoid it, so the next workers catch them first.`);
+  }
+  for (const f of b.flags || []) {
+    if (/x a typical step/.test(f)) actions.push(`${id}: ${f} Tell the user which part drove it (building, review, or this session) and why.`);
+    if (/session's own context/.test(f) && (plan.meta || {}).autoCompact === 'off') actions.push('Auto-compaction is off and this session\'s context is large: tell the user /compact is due when this step is recorded.');
+  }
+  return { changes, actions };
+}
+
 // After each step, a line or two: the full report would pile up in the context. What looks
 // wasted is included, so it's reported to the user with the step.
 function stepCostLine(c, id) {
@@ -547,8 +608,12 @@ function main(argv) {
   if (cmd === 'digest') return console.log(digestView(plan, planFile));
   if (cmd === 'cost') {
     plan.cost = costOf(plan, planFile);
+    const tuned = id ? tune(plan, plan.cost, id) : null;
     writePlan(planFile, plan);
-    return console.log(id ? stepCostLine(plan.cost, id) : costView(plan.cost));
+    if (!id) return console.log(costView(plan.cost));
+    return console.log([stepCostLine(plan.cost, id),
+      ...(tuned.changes.length ? [`Tuned for the next steps (recorded in plan.js; the working set carries it): ${tuned.changes.map(x => (/[.]$/.test(x) ? x : `${x}.`)).join(' ')} Models, reviews, tests and checks stay as they are.`] : []),
+      ...tuned.actions.map(a => `Do now: ${a}`)].join('\n'));
   }
   // The approval hook's own check, so Claude finds the gaps before the user does.
   if (cmd === 'check') {
@@ -584,4 +649,4 @@ if (require.main === module) {
   }
 }
 
-module.exports = { roll, autoCompactAt, stepView, statusView, digestView, referencesFor, reviewFor, NAMES };
+module.exports = { roll, autoCompactAt, tune, stepView, statusView, digestView, referencesFor, reviewFor, NAMES };

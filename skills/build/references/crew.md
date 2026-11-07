@@ -105,8 +105,13 @@ re-reading itself. So:
 - **Compact at a step boundary when the hook says the context is large.** Tell the user in
   one line that `/compact` is due; after it, the hook hands back the step in progress and
   the crew. A new session per plan does the same.
-- `T cost <plan>/plan.js S#` after each step reports where it looked wasted ("Worth telling
-  the user"); pass those lines on with the step's cost.
+- **The build tunes itself.** `T cost <plan>/plan.js S#` after each step measures it and
+  adjusts how the next steps run ("Tuned for the next steps"): the workers' hand-off point,
+  and a rule for a role that repeated work. The working set carries it to every worker
+  and reviewer. Do each "Do now" line it prints yourself (a lesson from review goes into
+  LEARNINGS.md under "Caught in review"). Tell the user in one line what was tuned and why,
+  with the step's cost and anything "Worth telling the user". Tuning never touches the
+  models, the reviews, or a test or check; neither do you on its account.
 
 ## When something goes wrong
 
@@ -149,9 +154,10 @@ Keep your context small: build, test and lint output goes to a file, and you rea
 summary and the failures. Inside the test-first loop, run only the test you're working on
 and its module's tests (tdd.md shows how per runner); run the whole suite once, before you
 report done or hand off. Report the whole-suite result with the commit it ran on, since
-the coordinator may rely on it instead of rerunning. If you pass about 60 tool calls and the step isn't done, stop at
-the next green: commit, and report a handoff with what's done, the next action, and the
-files in progress. A fresh worker continues from your commits.
+the coordinator may rely on it instead of rerunning. If you pass the hand-off point your working set gives ("How this build
+is tuned"; about 60 tool calls when it doesn't say) and the step isn't done, stop at the
+next green: commit, and report a handoff with what's done, the next action, and the files
+in progress. Follow that section's rules for your role too. A fresh worker continues from your commits.
 
 Commit to your branch after each green and when you finish (git add, then git commit with a
 message starting "[S#]"). Your commits are your checkpoints: if you're stopped, the next

@@ -34,7 +34,7 @@ function weigh(u) {
 
 // One record per model reply. A reply spans several log lines that repeat its
 // usage, so count each message id once.
-function readLog(file, agent) {
+function readLog(file, agent, suite) {
   const out = [];
   const seen = new Set();
   let text;
@@ -44,24 +44,27 @@ function readLog(file, agent) {
     let e;
     try { e = JSON.parse(line); } catch { continue; }
     const m = e.message;
-    if (e.type !== 'assistant' || !m || !m.usage || seen.has(m.id) || m.model === '<synthetic>') continue;
+    if (e.type !== 'assistant' || !m || !m.usage || m.model === '<synthetic>') continue;
+    // A reply spans several lines; each holds its own tool calls, so count those per line.
+    const runs = suite ? (m.content || []).filter(c => c && c.type === 'tool_use' && c.name === 'Bash' && isWholeSuite(String((c.input || {}).command || ''), suite)).length : 0;
+    if (seen.has(m.id)) { if (runs && out.length) out[out.length - 1].suiteRuns += runs; continue; }
     seen.add(m.id);
     const u = m.usage;
     const ctx = (u.input_tokens || 0) + (u.cache_read_input_tokens || 0) + (u.cache_creation_input_tokens || 0);
-    out.push({ at: Date.parse(e.timestamp), model: m.model || 'unknown', weight: weigh(u), ctx, agent });
+    out.push({ at: Date.parse(e.timestamp), model: m.model || 'unknown', weight: weigh(u), ctx, agent, suiteRuns: runs });
   }
   return out;
 }
 
-function readAll(dir) {
+function readAll(dir, suite) {
   const records = [];
   for (const f of safeDir(dir)) {
-    if (f.endsWith('.jsonl')) records.push(...readLog(path.join(dir, f), null));
+    if (f.endsWith('.jsonl')) records.push(...readLog(path.join(dir, f), null, suite));
     const sub = path.join(dir, f, 'subagents');
     for (const a of safeDir(sub).filter(x => x.endsWith('.jsonl'))) {
       let meta = {};
       try { meta = JSON.parse(fs.readFileSync(path.join(sub, a.replace(/\.jsonl$/, '.meta.json')), 'utf8')); } catch { /* no description */ }
-      records.push(...readLog(path.join(sub, a), meta.description || a));
+      records.push(...readLog(path.join(sub, a), meta.description || a, suite));
     }
   }
   return records;
@@ -93,7 +96,7 @@ function activeMinutes(records) {
 
 // Where a step's tokens look wasted, with the numbers, so the user can tell thorough from
 // stuck without reading logs.
-function flagsFor(id, step, agents, typical) {
+function flagsFor(id, step, agents, typical, handoff = 60) {
   const flags = [];
   const lead = step.roles.lead;
   if (lead && lead.weight >= 0.3 * step.weight && step.leadContext >= 200000) {
@@ -102,7 +105,11 @@ function flagsFor(id, step, agents, typical) {
   // A long worker isn't waste in itself; one whose context grew while it ran long pays
   // for that context on every later call.
   for (const a of agents.filter(x => x.where === id && roleOf({ agent: x.name }) === 'build' && x.calls > 90 && (x.context || 0) >= 120000)) {
-    flags.push(`${a.name.split(' · ')[0]} took ${a.calls} calls with a context of ${Math.round(a.context / 1000)}k at the median; a worker hands off at about 60, before its context makes every call cost more.`);
+    flags.push(`${a.name.split(' · ')[0]} took ${a.calls} calls with a context of ${Math.round(a.context / 1000)}k at the median; a worker hands off at about ${handoff}, before its context makes every call cost more.`);
+  }
+  // One whole-suite run per commit: a worker needs about one, a reviewer one per round.
+  for (const a of agents.filter(x => x.where === id && (x.suiteRuns || 0) > 2)) {
+    flags.push(`${a.name.split(' · ')[0]} ran the whole suite ${a.suiteRuns} times; once per commit is enough.`);
   }
   const reviews = agents.filter(x => x.where === id && roleOf({ agent: x.name }) === 'review').length;
   if (reviews >= 3) flags.push(`${reviews} review rounds.`);
@@ -138,18 +145,32 @@ function measure(plan, records) {
     result.byModel[r.model] = (result.byModel[r.model] || 0) + r.weight;
     result.total += r.weight;
     if (r.agent) {
-      const a = (result.agents[r.agent] ||= { name: r.agent, where, model: r.model, weight: 0, calls: 0, ctxs: [] });
+      const a = (result.agents[r.agent] ||= { name: r.agent, where, model: r.model, weight: 0, calls: 0, ctxs: [], suiteRuns: 0 });
       a.weight += r.weight;
       a.calls += 1;
+      a.suiteRuns += r.suiteRuns || 0;
       a.ctxs.push(r.ctx || 0);
     }
   }
   return result;
 }
 
+// The project's whole-suite command, from the baseline the build took, so a rerun can be
+// counted: each form it was written in ("make check (uv run pytest)" is two). Without a
+// baseline, runs aren't counted.
+function suiteCommand(plan) {
+  const checks = (plan.baseline && Array.isArray(plan.baseline.checks)) ? plan.baseline.checks : [];
+  const t = checks.find(c => /test/i.test(c.check || '') && c.command);
+  if (!t) return null;
+  const forms = String(t.command).split(/[();]|&&|,/).map(x => x.trim()).filter(x => x.length >= 5);
+  return forms.length ? forms : null;
+}
+// A run of the whole suite, not of one file or test.
+const isWholeSuite = (cmd, forms) => forms.some(f => cmd.includes(f)) && !/::|\s-k\s|\s-t\s|--grep|\btests?\/\S+\.\w+|\S+\.(test|spec)\.\w+|test_\w+\.py/.test(cmd);
+
 function costOf(plan, planFile) {
   const dir = logsDir(projectRoot(planFile));
-  const r = measure(plan, readAll(dir));
+  const r = measure(plan, readAll(dir, suiteCommand(plan)));
   const round = n => Math.round(n);
   const tidy = b => ({ weight: round(b.weight), byModel: Object.fromEntries(Object.entries(b.byModel).map(([k, v]) => [k, round(v)])) });
   const agents = Object.values(r.agents).sort((a, b) => b.weight - a.weight).map(({ ctxs, ...a }) => ({ ...a, context: median(ctxs) }));
@@ -162,7 +183,18 @@ function costOf(plan, planFile) {
   const num = id => Number(String(id).replace(/\D/g, '')) || 0;
   const steps = Object.fromEntries(Object.entries(r.steps).sort(([a], [b]) => num(a) - num(b)).map(([k, v]) => [k, stepOf(v)]));
   const typical = median(Object.values(steps).map(s => s.weight));
-  for (const [k, v] of Object.entries(steps)) { const f = flagsFor(k, v, agents, typical); if (f.length) v.flags = f; }
+  for (const [k, v] of Object.entries(steps)) {
+    const f = flagsFor(k, v, agents, typical, (plan.tuning && plan.tuning.handoffCalls) || 60);
+    if (f.length) v.flags = f;
+    // What tuning reads: the step's review rounds, its long workers, its repeated suite runs.
+    const own = agents.filter(a => a.where === k);
+    v.reviews = own.filter(a => roleOf({ agent: a.name }) === 'review').length;
+    const long = own.filter(a => roleOf({ agent: a.name }) === 'build' && a.calls > 90 && (a.context || 0) >= 120000);
+    if (long.length) v.longWorkers = long.map(a => ({ name: a.name, calls: a.calls, context: round(a.context) }));
+    const runs = role => Math.max(0, ...own.filter(a => roleOf({ agent: a.name }) === role).map(a => a.suiteRuns || 0));
+    v.suiteRuns = { build: runs('build'), review: runs('review') };
+    v.builders = own.filter(a => roleOf({ agent: a.name }) === 'build').length;
+  }
   // The whole build: what the session itself spent coordinating (in crew mode, steps
   // overlap, so much of it falls between steps), and the model mix.
   const between = stepOf(r.between);
@@ -191,9 +223,9 @@ function costOf(plan, planFile) {
     between,
     ...(flags.length ? { flags } : {}),
     byModel: Object.fromEntries(Object.entries(r.byModel).map(([k, v]) => [k, round(v)])),
-    agents: agents.slice(0, 40).map(a => ({ name: a.name, where: a.where, model: a.model, weight: round(a.weight), calls: a.calls, context: round(a.context) })),
+    agents: agents.slice(0, 40).map(a => ({ name: a.name, where: a.where, model: a.model, weight: round(a.weight), calls: a.calls, context: round(a.context), ...(a.suiteRuns ? { suiteRuns: a.suiteRuns } : {}) })),
     logs: dir,
   };
 }
 
-module.exports = { costOf, measure, weigh, logsDir, projectRoot, WEIGHTS, activeMinutes, flagsFor };
+module.exports = { costOf, measure, weigh, logsDir, projectRoot, WEIGHTS, activeMinutes, flagsFor, isWholeSuite };

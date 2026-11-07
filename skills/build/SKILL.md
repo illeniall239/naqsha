@@ -257,9 +257,11 @@ The build is long, and a full context makes every later step worse. So:
    the check. Either way, record which in the notes.
 7. Set the step to `done` (`T update-step`), then run `T cost <plan>/plan.js S3` (with the step's id), which measures
    what planning, each step and each agent cost from Claude Code's logs and puts it on the
-   page. Report the step to the user in a few lines: what changed, the check results, what
-   it cost, and what you did *not* verify or any risk they should know about. If the cost
-   line says where it looked wasted ("Worth telling the user"), pass that on in plain words.
+   page, and tunes the next steps from it ("Tuned for the next steps"; never the models,
+   reviews, tests or checks). Do each "Do now" line it prints. Report the step to the user
+   in a few lines: what changed, the check results, what it cost, and what you did *not*
+   verify or any risk they should know about. If the cost line says where it looked wasted
+   ("Worth telling the user") or what was tuned, pass that on in plain words.
    If there's nothing to flag, say so. With
    `buildReview: "pause"`, wait for their go-ahead before the next step. Treat their review
    comments as decisions: apply them, and log any that change the plan.

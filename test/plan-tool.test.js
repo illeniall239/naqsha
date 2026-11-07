@@ -402,3 +402,34 @@ test('auto-compaction is this machine\'s setting: written, kept out of git, and 
   assert.match(r.stderr, /isn't valid JSON; fix it first, nothing was changed/);
   assert.equal(fs.readFileSync(settings, 'utf8'), '{ broken');
 });
+
+test('the build tunes itself from each step\'s measurements, both ways, and never touches quality', () => {
+  const { tune } = require('../scripts/plan-tool.js');
+  const { isWholeSuite } = require('../scripts/cost.js');
+  const forms = ['make check', 'uv run pytest'];
+  assert.ok(isWholeSuite('cd x; make check > out.txt 2>&1', forms));
+  assert.ok(isWholeSuite('uv run pytest -q', forms));
+  assert.ok(!isWholeSuite('uv run pytest tests/test_leads.py::test_one', forms), 'one test is not the suite');
+  assert.ok(!isWholeSuite('uv run pytest -k reminders', forms));
+  const plan = { meta: {} };
+  const step = extra => ({ steps: { S1: { weight: 1, builders: 1, reviews: 1, suiteRuns: { build: 1, review: 1 }, ...extra } }, agents: [] });
+  let r = tune(plan, step({ longWorkers: [{ name: 'Hermes · build S1', calls: 281, context: 144000 }], suiteRuns: { build: 7, review: 4 } }), 'S1');
+  assert.equal(plan.tuning.handoffCalls, 50);
+  assert.match(r.changes.join('\n'), /workers hand off at about 50 calls/);
+  assert.match(r.changes.join('\n'), /workers: Run the whole suite once/);
+  assert.match(r.changes.join('\n'), /reviewers: Run the whole suite once per round/);
+  assert.match(plan.tuning.history[0].why, /Hermes took 281 calls at a 144k context/);
+  tune(plan, step({ longWorkers: [{ name: 'Orion · build S2', calls: 120, context: 200000 }] }), 'S1');
+  tune(plan, step({ longWorkers: [{ name: 'Orion · build S3', calls: 120, context: 200000 }] }), 'S1');
+  assert.equal(plan.tuning.handoffCalls, 40, 'never below 40');
+  assert.equal(tune(plan, step({ suiteRuns: { build: 9, review: 9 } }), 'S1').changes.length, 0, 'a rule is added once (and that step was lean)');
+  assert.equal(plan.tuning.handoffCalls, 40);
+  r = tune(plan, step(), 'S1');
+  assert.equal(plan.tuning.handoffCalls, 50, 'two lean steps give workers room again');
+  assert.match(plan.tuning.history[plan.tuning.history.length - 1].why, /two steps in a row stayed lean/);
+  r = tune(plan, step({ reviews: 3, flags: ['2.9x a typical step of this plan.'] }), 'S1');
+  assert.match(r.actions.join('\n'), /add the findings that cost the extra rounds to LEARNINGS\.md under "Caught in review"/);
+  assert.match(r.actions.join('\n'), /Tell the user which part drove it/);
+  assert.ok(plan.tuning.rules.some(x => x.key === 'reviewLessons'));
+  assert.ok(plan.tuning.rules.every(x => !/model|skip|review less|fewer tests/i.test(x.text)), 'no rule touches the model, the reviews or the checks');
+});

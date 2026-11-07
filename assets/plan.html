@@ -808,6 +808,9 @@ const SECTIONS = [
       ${[...arr(c.flags), ...Object.entries(c.steps || {}).flatMap(([id, b]) => arr(b.flags).map(f => `${id}: ${f}`))].length ? `<div class="callout warn" style="display:block"><h2>Worth a look</h2>
         <p class="small">Where the tokens look spent on waiting, re-reading or running long rather than on the work.</p>
         <ul class="small">${[...arr(c.flags), ...Object.entries(c.steps || {}).flatMap(([id, b]) => arr(b.flags).map(f => `${id}: ${f}`))].map(f => `<li>${txt(f)}</li>`).join('')}</ul></div>` : ''}
+      ${p.tuning && arr(p.tuning.history).length ? `<h3>How the build tuned itself</h3>
+        <p class="muted small">From its own measurements, after each step. Workers now hand off at about ${esc(p.tuning.handoffCalls)} tool calls. The models, the reviews and every test and check are never changed by it.</p>
+        ${rows([...p.tuning.history].reverse(), x => [x.step, txt(x.change), '', `<span class="muted">${txt(x.why)}</span>`])}` : ''}
       <h3>Where it went</h3>${rows(parts, ([name, b]) => ['', `<b>${esc(name)}</b><div class="hbar"><i style="width:${(100 * (b.weight || 0) / max).toFixed(1)}%"></i></div>`,
         `${kilo(b.weight)} <span class="faint">${pct(b.weight)}</span>`, esc(b.roles
           ? [['lead', 'this session'], ['build', 'building'], ['review', 'review'], ['other', 'other']].filter(([k]) => b.roles[k]).map(([k, l]) => `${l} ${kilo(b.roles[k].weight)} · ${b.roles[k].calls} calls`).join(', ') + (b.minutes ? ` · about ${b.minutes} min of work` : '')
