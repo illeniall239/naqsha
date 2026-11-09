@@ -13,7 +13,7 @@ const crypto = require('crypto');
 const { execFileSync } = require('child_process');
 const { readPlan, tryReadPlan, writePlan } = require('./plan-file.js');
 
-const DEFAULT_PLANS_DIR = path.join('docs', 'plans');
+const DEFAULT_PLANS_DIR = 'docs/plans';
 const CONFIG_FILE = '.claude/naqsha.json';
 // Paths naqsha stores and shows are relative and use /, as git does, on every platform;
 // path.join reads them fine on Windows too.
@@ -234,7 +234,7 @@ function choosePlansDir(root) {
   if (config && config.plansDir !== undefined) return { dir: config.plansDir, why: `set in ${CONFIG_FILE}` };
   const sign = PUBLISHED_DOCS.find(f => fs.existsSync(path.join(root, f)));
   if (sign) {
-    return { dir: 'plans', why: `not ${DEFAULT_PLANS_DIR}: ${sign} suggests docs/ is published as a website. Tell the user, and that "plansDir" in ${CONFIG_FILE} changes it` };
+    return { dir: 'plans', why: `not ${DEFAULT_PLANS_DIR}: ${posix(sign)} suggests docs/ is published as a website. Tell the user, and that "plansDir" in ${CONFIG_FILE} changes it` };
   }
   return { dir: DEFAULT_PLANS_DIR };
 }
@@ -712,7 +712,7 @@ function onSessionStart(ctx) {
   const root = path.resolve(__dirname, '..'); // hook output isn't expanded like skill text
   if (s.phase === 'drafting') {
     let msg = `Naqsha: a plan is being drafted (since ${s.startedAt}). Plans go in ${ctx.plansDir}/. Files outside it are locked until the user runs /naqsha:approve. The user continues it with /naqsha:plan.`;
-    if (compacted) msg += ` The context was just compacted: re-read ${root}/skills/plan/SKILL.md and the plan's plan.js before going on.`;
+    if (compacted) msg += ` The context was just compacted: re-read ${path.join(root, 'skills', 'plan', 'SKILL.md')} and the plan's plan.js before going on.`;
     return context('SessionStart', msg);
   }
   if (s.phase === 'approved') {
@@ -720,7 +720,7 @@ function onSessionStart(ctx) {
     if (plan && plan.meta.status === 'done') return;
     let msg = `Naqsha: the approved plan ${s.plan} is being built. The user resumes it with /naqsha:build.`;
     if (compacted) {
-      msg += ` The context was just compacted: before going on, re-read ${root}/skills/build/SKILL.md and its always-loaded references.`;
+      msg += ` The context was just compacted: before going on, re-read ${path.join(root, 'skills', 'build', 'SKILL.md')} and its always-loaded references.`;
     }
     // Losing the context mid-step is where work goes wrong, so hand back the
     // step in progress, checkpoint included, instead of asking for it.
@@ -731,8 +731,8 @@ function onSessionStart(ctx) {
       msg += `\n\nThe step in progress:\n\n${stepView(plan, current.id, path.join(ctx.root, s.plan, 'plan.js'))}`;
     }
     if (plan && plan.meta.buildMode === 'crew' && ['compact', 'resume', 'clear'].includes(ctx.input.source)) {
-      msg += `\n\nThis build runs in crew mode: you coordinate workers (${root}/skills/build/references/crew.md). ` +
-        `See every worker's worktree with: node ${root}/scripts/crew.js list ${s.plan}/plan.js, and what can start with plan-tool.js ready.`;
+      msg += `\n\nThis build runs in crew mode: you coordinate workers (${path.join(root, 'skills', 'build', 'references', 'crew.md')}). ` +
+        `See every worker's worktree with: node ${path.join(root, 'scripts', 'crew.js')} list ${s.plan}/plan.js, and what can start with plan-tool.js ready.`;
     }
     return context('SessionStart', msg);
   }

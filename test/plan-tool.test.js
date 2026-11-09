@@ -377,7 +377,9 @@ test('auto-compaction is this machine\'s setting: written, kept out of git, and 
   fs.mkdirSync(path.dirname(settings));
   fs.writeFileSync(settings, JSON.stringify({ permissions: { allow: ['Bash(npm test)'] } }));
   // Git without the machine's own config, whose global ignore may already cover the file.
-  const env = { ...process.env, GIT_CONFIG_GLOBAL: os.devNull, GIT_CONFIG_NOSYSTEM: '1', XDG_CONFIG_HOME: root, HOME: root };
+  const emptyConfig = path.join(root, 'empty.gitconfig');
+  fs.writeFileSync(emptyConfig, '');
+  const env = { ...process.env, GIT_CONFIG_GLOBAL: emptyConfig, GIT_CONFIG_NOSYSTEM: '1', XDG_CONFIG_HOME: root, HOME: root };
   const set = v => spawnSync('node', [TOOL, 'set-meta', file], { input: JSON.stringify({ autoCompact: v }), encoding: 'utf8', env });
   let r = set('on');
   assert.equal(r.status, 0, r.stderr);

@@ -742,7 +742,7 @@ test('after a compaction, Claude is told what to reload', () => {
   const p = project();
   p.cmd('plan');
   const drafting = p.run({ hook_event_name: 'SessionStart', source: 'compact' }).hookSpecificOutput.additionalContext;
-  assert.match(drafting, /just compacted: re-read \/\S+\/skills\/plan\/SKILL\.md/);
+  assert.match(drafting, /just compacted: re-read \S+[\\/]skills[\\/]plan[\\/]SKILL\.md/);
   assert.doesNotMatch(p.run({ hook_event_name: 'SessionStart', source: 'resume' }).hookSpecificOutput.additionalContext, /compacted/);
   writePlan(p.root, 'login');
   p.cmd('approve');
@@ -769,7 +769,7 @@ test('after a compaction, Claude is told what to reload', () => {
   assert.doesNotMatch(p.run({ hook_event_name: 'SessionStart', source: 'compact' }).hookSpecificOutput.additionalContext, /crew mode/);
   tool(['set-meta'], '{"buildMode":"crew"}');
   const crew = p.run({ hook_event_name: 'SessionStart', source: 'compact' }).hookSpecificOutput.additionalContext;
-  assert.match(crew, /crew mode: you coordinate workers \(\/\S+\/skills\/build\/references\/crew\.md\)/);
+  assert.match(crew, /crew mode: you coordinate workers \(\S+[\\/]skills[\\/]build[\\/]references[\\/]crew\.md\)/);
   assert.match(crew, /crew\.js list docs\/plans\/login\/plan\.js/);
 });
 

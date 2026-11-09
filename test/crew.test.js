@@ -70,7 +70,8 @@ test('a finished step lands as a merge, and its worktree goes away', t => {
   assert.match(landed.why, /the merged code is what the worker tested/);
   assert.equal(r.g('log', '-1', '--format=%s'), 'S1: First');
   assert.equal(landed.commit, r.g('rev-parse', 'HEAD'));
-  assert.equal(fs.readFileSync(path.join(r.root, 'src', 'a.js'), 'utf8'), 'one\nTWO\nthree\n');
+  // Line endings as git checks them out: \r\n on Windows.
+  assert.equal(fs.readFileSync(path.join(r.root, 'src', 'a.js'), 'utf8').replace(/\r\n/g, '\n'), 'one\nTWO\nthree\n');
   assert.equal(fs.existsSync(wt), false);
   assert.equal(r.g('branch', '--list', 'crew/*'), '');
 });
