@@ -3,10 +3,20 @@
 Each release is one commit, `naqsha X.Y.Z: ...`, with the version in
 `.claude-plugin/plugin.json`. Update with `claude plugin update naqsha@naqsha`.
 
-## 0.17.1 (unreleased)
+## 0.17.2 (2026-11-09)
+
+Windows works. The tests now run on Linux, macOS and Windows, and Windows turned up:
+
+- **The lock missed Bash edits on Windows.** The snapshot matched git's paths to the
+  project by comparing folder names, which fails when one is the short 8.3 form of the
+  other, so every change looked like it was outside the project. It now asks git where
+  the project sits. Crew mode finds the plans folder the same way.
+- Paths naqsha stores and shows use `/` on every platform.
+- A build's checkpoint no longer lists plan files as changed project files.
+
+## 0.17.1 (2026-11-09)
 
 - Tests run on Linux, macOS and Windows in CI.
-- Fixed: on Windows, a build's checkpoint could list plan files as changed project files.
 - Plans with the same timestamp always sort the same way.
 - A plugin icon, and documentation for contributors, security reports and this changelog.
 

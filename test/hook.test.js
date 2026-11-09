@@ -747,7 +747,7 @@ test('after a compaction, Claude is told what to reload', () => {
   writePlan(p.root, 'login');
   p.cmd('approve');
   const building = p.run({ hook_event_name: 'SessionStart', source: 'compact' }).hookSpecificOutput.additionalContext;
-  assert.match(building, /skills\/build\/SKILL\.md and its always-loaded references/);
+  assert.match(building, /skills[\\/]build[\\/]SKILL\.md and its always-loaded references/);
   assert.ok(!building.includes('${'), 'paths are real, not unexpanded variables');
   assert.doesNotMatch(building, /step in progress/, 'no step started yet');
 
