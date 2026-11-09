@@ -29,7 +29,9 @@ function context(planFile, id) {
   if (id && !/^[A-Z]\d{1,4}$/.test(id)) throw new Error(`step id "${id}" can't name a branch`);
   return {
     plan, step, root, slug,
-    plansRel: path.relative(root, plansDir).split(path.sep).join('/'), // git reports paths with /
+    // Where the plans folder sits in the repository, from git itself: comparing folder
+    // names fails on Windows, where one can be the short 8.3 form of the other.
+    plansRel: git(plansDir, 'rev-parse', '--show-prefix').replace(/\/$/, ''),
     branch: id && `crew/${slug}/${id}`,
     // Next to the repository, not inside it, so the project's own test runner
     // and linters never pick up a second copy of the code.

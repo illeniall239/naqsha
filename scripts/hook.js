@@ -14,7 +14,10 @@ const { execFileSync } = require('child_process');
 const { readPlan, tryReadPlan, writePlan } = require('./plan-file.js');
 
 const DEFAULT_PLANS_DIR = path.join('docs', 'plans');
-const CONFIG_FILE = path.join('.claude', 'naqsha.json');
+const CONFIG_FILE = '.claude/naqsha.json';
+// Paths naqsha stores and shows are relative and use /, as git does, on every platform;
+// path.join reads them fine on Windows too.
+const posix = p => String(p).split(path.sep).join('/');
 // Any of these suggests docs/ is built into a public website, plans included.
 const PUBLISHED_DOCS = [
   'docs/_config.yml', 'docs/CNAME', 'docs/.nojekyll', 'docs/index.html', 'docs/index.md', 'docs/.vitepress',
@@ -28,7 +31,7 @@ const RUNS_APPROVE = /(^|[;&|(\n`]|\$\()\s*(?:(?:env|exec|npx|command)\s+(?:\S+=
 const WALK_SKIP = new Set(['.git', 'node_modules', STATE_DIR]);
 const WALK_LIMIT = 20000;
 // Claude Code writes this when the user allows a command, mid-turn.
-const CLAUDE_LOCAL_SETTINGS = path.join('.claude', 'settings.local.json');
+const CLAUDE_LOCAL_SETTINGS = '.claude/settings.local.json';
 // What a plan folder holds: the page, the plan, and the page server's files.
 const PLAN_FILES = new Set(['index.html', 'plan.js', 'guide.js', 'review.js', '.gitignore', 'server.json', 'inbox']);
 // Written by /naqsha:review, read first by every later plan, guide and review.
@@ -72,7 +75,7 @@ function onCommand(ctx) {
 // /naqsha:demo changes no project code: it needs its folder, the demos already
 // made, the product's design to stay on-brand, and how to run the app to record it.
 function demoContext(ctx) {
-  const plansDir = ctx.state ? ctx.plansDir : path.normalize(String(choosePlansDir(ctx.root).dir));
+  const plansDir = ctx.state ? ctx.plansDir : posix(path.normalize(String(choosePlansDir(ctx.root).dir)));
   const base = path.join(ctx.root, plansDir, DEMOS);
   const demos = safeReaddir(base).map(d => {
     const p = tryReadPlan(path.join(base, d, 'plan.js'));
@@ -83,17 +86,17 @@ function demoContext(ctx) {
   const runner = plans.map(p => ({ p, plan: tryReadPlan(path.join(ctx.root, plansDir, p.d, 'plan.js')) }))
     .find(x => x.plan && x.plan.testing && x.plan.testing.runIt && x.plan.testing.runIt.start);
   const map = fs.existsSync(path.join(ctx.root, plansDir, CODEBASE_MAP));
-  return `Naqsha demo: each demo goes in ${path.join(plansDir, DEMOS)}/<slug>/ (renders in its renders/ folder). ` +
+  return `Naqsha demo: each demo goes in ${path.posix.join(plansDir, DEMOS)}/<slug>/ (renders in its renders/ folder). ` +
     `Demos so far: ${demos.join('; ') || 'none'}. ` +
-    `Design to match: ${design ? `${path.join(plansDir, design.d)} (its tokens and screens)` : map ? `the system recorded in ${path.join(plansDir, CODEBASE_MAP)}` : 'none recorded; read it from the code (theme, CSS variables, components)'}. ` +
-    `How the app runs: ${runner ? `testing.runIt in ${path.join(plansDir, runner.p.d)}/plan.js (start: ${runner.plan.testing.runIt.start})` : map ? `the "Run it" section of ${path.join(plansDir, CODEBASE_MAP)}` : 'not recorded; find it in the README and package scripts'}. ` +
+    `Design to match: ${design ? `${path.posix.join(plansDir, design.d)} (its tokens and screens)` : map ? `the system recorded in ${path.posix.join(plansDir, CODEBASE_MAP)}` : 'none recorded; read it from the code (theme, CSS variables, components)'}. ` +
+    `How the app runs: ${runner ? `testing.runIt in ${path.posix.join(plansDir, runner.p.d)}/plan.js (start: ${runner.plan.testing.runIt.start})` : map ? `the "Run it" section of ${path.posix.join(plansDir, CODEBASE_MAP)}` : 'not recorded; find it in the README and package scripts'}. ` +
     'This changes no project code; record against demo data only.';
 }
 
 // Where the codebase map is, and how far the code has moved since it was
 // written, so Claude refreshes what changed instead of mapping from scratch.
 function mapNote(ctx, plansDir) {
-  const rel = path.join(plansDir, CODEBASE_MAP);
+  const rel = path.posix.join(plansDir, CODEBASE_MAP);
   let text;
   try { text = fs.readFileSync(path.join(ctx.root, rel), 'utf8'); } catch { return null; }
   const commit = (/commit ([0-9a-f]{7,40})\b/.exec(text.slice(0, 500)) || [])[1];
@@ -111,7 +114,7 @@ function mapNote(ctx, plansDir) {
 // /naqsha:review is read-only on the code: it writes a map and a report in the
 // plans folder. It needs the folder for this review and what earlier reviews found.
 function reviewContext(ctx) {
-  const plansDir = ctx.state ? ctx.plansDir : path.normalize(String(choosePlansDir(ctx.root).dir));
+  const plansDir = ctx.state ? ctx.plansDir : posix(path.normalize(String(choosePlansDir(ctx.root).dir)));
   const base = path.join(ctx.root, plansDir, 'reviews');
   const earlier = safeReaddir(base).map(d => {
     const r = tryReadData(path.join(base, d, 'review.js'), 'NAQSHA_REVIEW');
@@ -123,7 +126,7 @@ function reviewContext(ctx) {
   const day = [d.getFullYear(), String(d.getMonth() + 1).padStart(2, '0'), String(d.getDate()).padStart(2, '0')].join('-');
   let folder = day;
   for (let i = 2; fs.existsSync(path.join(base, folder, 'review.js')); i++) folder = `${day}-${i}`;
-  let msg = `Naqsha review: this review goes in ${path.join(plansDir, 'reviews', folder)}/, and the codebase map in ${path.join(plansDir, CODEBASE_MAP)}. ` +
+  let msg = `Naqsha review: this review goes in ${path.posix.join(plansDir, 'reviews', folder)}/, and the codebase map in ${path.posix.join(plansDir, CODEBASE_MAP)}. ` +
     `Earlier reviews, newest first: ${earlier.join('; ') || 'none'}. ` +
     (mapNote(ctx, plansDir) || 'There is no codebase map yet; this review writes the first one.');
   if (ctx.state && ctx.state.phase === 'drafting') {
@@ -135,7 +138,7 @@ function reviewContext(ctx) {
 // /naqsha:learn changes nothing; it only needs to know where plans and
 // guides live and which plans there are, so Claude doesn't have to guess.
 function learnContext(ctx) {
-  const plansDir = ctx.state ? ctx.plansDir : path.normalize(String(choosePlansDir(ctx.root).dir));
+  const plansDir = ctx.state ? ctx.plansDir : posix(path.normalize(String(choosePlansDir(ctx.root).dir)));
   const plans = plansIn(ctx, plansDir);
   const list = plans.length
     ? plans.map(p => `${p.d} (${p.status}, ${p.done}/${p.steps} steps done)`).join('; ')
@@ -164,7 +167,7 @@ function plansIn(ctx, plansDir) {
 // where this project stands, so the help ends with what to type next.
 function helpContext(ctx) {
   const s = ctx.state;
-  const plansDir = s ? ctx.plansDir : path.normalize(String(choosePlansDir(ctx.root).dir));
+  const plansDir = s ? ctx.plansDir : posix(path.normalize(String(choosePlansDir(ctx.root).dir)));
   const plans = plansIn(ctx, plansDir);
   const now = !s ? 'nothing is being planned or built'
     : s.phase === 'drafting' ? 'a plan or design is being drafted, so project files are locked until the user runs /naqsha:approve'
@@ -188,7 +191,7 @@ function startDrafting(ctx, kind = 'plan') {
       `planning, so it may hold only plans and Markdown notes. Set "plansDir" in ${CONFIG_FILE} to a folder just for plans, ` +
       'for example { "plansDir": "plans" }, then run /naqsha:plan again.');
   }
-  const plansDir = path.normalize(where.dir);
+  const plansDir = posix(path.normalize(where.dir));
   // Before the baseline, so the setting isn't taken for an edit made while planning.
   const compaction = ensureAutoCompact(ctx);
   const paused = s && s.phase === 'approved' && unfinished(ctx, s.plan) ? s.plan
@@ -246,7 +249,7 @@ function checkPlansDir(root, dir) {
     if (inside(abs, path.join(root, own))) return `can't be inside ${own}/`;
   }
   const stray = strayFile(abs, 0);
-  return stray ? `already holds ${path.relative(root, stray)}, which isn't part of a plan` : null;
+  return stray ? `already holds ${posix(path.relative(root, stray))}, which isn't part of a plan` : null;
 }
 
 function strayFile(dir, depth) {
@@ -289,10 +292,10 @@ function approve(ctx, slug) {
   const planFile = findPlan(ctx.root, ctx.plansDir, slug, ['draft']);
   if (!planFile) {
     return notApproved(slug
-      ? `There is no draft plan at ${path.join(ctx.plansDir, slug, 'plan.js')}.`
+      ? `There is no draft plan at ${path.posix.join(ctx.plansDir, slug, 'plan.js')}.`
       : `No draft plan was found under ${ctx.plansDir}/. The user names it: /naqsha:approve <folder>.`);
   }
-  const rel = path.relative(ctx.root, path.dirname(planFile));
+  const rel = posix(path.relative(ctx.root, path.dirname(planFile)));
   let plan, problems;
   try {
     plan = readPlan(planFile);
@@ -328,11 +331,11 @@ function startBuild(ctx, slug) {
     if (s && s.phase === 'approved') return context('UserPromptExpansion', `Naqsha: building the approved plan in ${s.plan}/plan.js.`);
     return block('No approved plan to build. Draft one with /naqsha:plan and approve it with /naqsha:approve, or name an approved plan: /naqsha:build <folder>.');
   }
-  const plansDir = s ? ctx.plansDir : path.normalize(String(choosePlansDir(ctx.root).dir));
+  const plansDir = s ? ctx.plansDir : posix(path.normalize(String(choosePlansDir(ctx.root).dir)));
   const planFile = findPlan(ctx.root, plansDir, slug, ['approved', 'building']);
   const plan = planFile && tryReadPlan(planFile);
-  if (!plan) return block(`No approved, unfinished plan at ${path.join(plansDir, slug, 'plan.js')}.`);
-  const rel = path.relative(ctx.root, path.dirname(planFile));
+  if (!plan) return block(`No approved, unfinished plan at ${path.posix.join(plansDir, slug, 'plan.js')}.`);
+  const rel = posix(path.relative(ctx.root, path.dirname(planFile)));
   writeState(ctx, { phase: 'approved', plansDir, plan: rel, approvedAt: plan.meta.approvedAt });
   return context('UserPromptExpansion', `Naqsha: building the approved plan in ${rel}/plan.js.`);
 }
@@ -599,7 +602,7 @@ function onPreTool(ctx) {
   }
   if (!drafting) return;
   if (writableWhileDrafting(abs, ctx)) return;
-  return deny(`Planning phase: ${path.relative(ctx.root, abs) || abs} is locked until the user approves the plan with /naqsha:approve. ` +
+  return deny(`Planning phase: ${posix(path.relative(ctx.root, abs)) || abs} is locked until the user approves the plan with /naqsha:approve. ` +
     `Only ${ctx.plansDir}/ and scratch/temp directories are writable now. Put this in the plan instead.`);
 }
 
@@ -680,7 +683,7 @@ function gitTracked(root, paths) {
   if (!paths.length) return new Set();
   try {
     const out = git(root, '--literal-pathspecs', 'ls-files', '-z', '--', ...paths);
-    return new Set(out.split('\0').filter(Boolean).map(p => path.normalize(p)));
+    return new Set(out.split('\0').filter(Boolean).map(p => path.posix.normalize(p)));
   } catch {
     return new Set();
   }
@@ -878,15 +881,19 @@ function snapshot(root, plansDir = DEFAULT_PLANS_DIR) {
   } catch { /* not a git repository */ }
 
   if (head) {
-    // Paths are relative to the repository top, which can sit above root.
-    const top = git(root, 'rev-parse', '--show-toplevel').trim();
+    // Status paths are relative to the repository top, which can sit above root. Where
+    // root is inside it comes from git itself: comparing the two folders' names fails on
+    // Windows, where one can be the short 8.3 form of the other.
+    const prefix = git(root, 'rev-parse', '--show-prefix').trim();
     const entries = git(root, 'status', '--porcelain=v1', '-z', '--untracked-files=all').split('\0');
     for (let i = 0; i < entries.length; i++) {
       const e = entries[i];
       if (!e) continue;
       if (e[0] === 'R' || e[0] === 'C') i++; // next entry is the source path
-      const rel = path.relative(root, path.join(top, e.slice(3)));
-      if (!rel.startsWith('..') && keep(rel)) add(rel, fingerprint(path.join(root, rel)));
+      const full = e.slice(3);
+      if (prefix && !full.startsWith(prefix)) continue;
+      const rel = full.slice(prefix.length);
+      if (keep(rel)) add(rel, fingerprint(path.join(root, rel)));
     }
     // Status never lists ignored files, but a command can still write .env.
     // Ignored folders (node_modules, caches a test run refreshes) are left
@@ -903,7 +910,7 @@ function snapshot(root, plansDir = DEFAULT_PLANS_DIR) {
     for (const d of fs.readdirSync(dir, { withFileTypes: true })) {
       if (truncated) return;
       const abs = path.join(dir, d.name);
-      const rel = path.relative(root, abs);
+      const rel = posix(path.relative(root, abs));
       if (!keep(rel) || (d.isDirectory() && WALK_SKIP.has(d.name))) continue;
       if (d.isDirectory()) walk(abs);
       else add(rel, fingerprint(abs));

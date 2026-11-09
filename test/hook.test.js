@@ -441,14 +441,14 @@ test('a paused build can be resumed by name', () => {
   assert.match(drafting, /\/naqsha:build login/);
   assert.match(p.cmd('build', 'login').reason, /being drafted/, 'no build while files are locked');
   p.prompt();
-  assert.equal(p.state().paused, path.join('docs', 'plans', 'login'), 'kept across prompts');
+  assert.equal(p.state().paused, 'docs/plans/login', 'kept across prompts');
 
   writePlan(p.root, 'search');
   assert.match(p.cmd('approve').hookSpecificOutput.additionalContext, /approved "Test plan" \(docs\/plans\/search\).*\/naqsha:build login/);
   assert.match(p.cmd('build').hookSpecificOutput.additionalContext, /docs\/plans\/search/);
 
   assert.match(p.cmd('build', 'login').hookSpecificOutput.additionalContext, /docs\/plans\/login/);
-  assert.equal(p.state().plan, path.join('docs', 'plans', 'login'));
+  assert.equal(p.state().plan, 'docs/plans/login');
   assert.match(p.cmd('build', 'nope').reason, /No approved, unfinished plan/);
   assert.match(p.cmd('build', '../../etc').reason, /No approved, unfinished plan/);
 
@@ -723,7 +723,7 @@ test('approval unlocks the project and marks the plan', () => {
   assert.match(out.hookSpecificOutput.additionalContext, /approved "Test plan"/);
   const s = p.state();
   assert.equal(s.phase, 'approved');
-  assert.equal(s.plan, path.join('docs', 'plans', 'login'));
+  assert.equal(s.plan, 'docs/plans/login');
   const plan = require(HOOK).readPlan(path.join(p.root, 'docs', 'plans', 'login', 'plan.js'));
   assert.equal(plan.meta.status, 'approved');
   assert.ok(plan.meta.approvedAt);

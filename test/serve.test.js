@@ -69,8 +69,11 @@ test('the page and plan are served only with the key, from localhost', async t =
   assert.equal((await fetch(new URL('server.json' + base.search, base))).status, 404, 'only the page and plan');
   assert.equal((await fetch(new URL('..%2fetc%2fpasswd' + base.search, base))).status, 404);
   // A rebinding attack arrives with the attacker's host name.
-  const rebound = execFileSync('curl', ['-s', '-o', '/dev/null', '-w', '%{http_code}', '-H', 'Host: evil.example', url], { encoding: 'utf8' });
-  assert.equal(rebound, '403');
+  // (fetch won't send a Host header of our choosing, so Node's http client does.)
+  const rebound = await new Promise((resolve, reject) => {
+    require('http').get({ host: base.hostname, port: base.port, path: base.pathname + base.search, headers: { Host: 'evil.example' } }, res => { res.resume(); resolve(res.statusCode); }).on('error', reject);
+  });
+  assert.equal(rebound, 403);
 });
 
 test('a restarted server keeps its port and key, so the open tab reconnects', async t => {
@@ -83,7 +86,8 @@ test('a restarted server keeps its port and key, so the open tab reconnects', as
   assert.equal(second.started, true);
   assert.equal(second.url, first.url);
   assert.match(fs.readFileSync(path.join(dir, '.gitignore'), 'utf8'), /server\.json/);
-  assert.equal((fs.statSync(path.join(dir, 'server.json')).mode & 0o077), 0, 'key file is private');
+  // Windows has no permission bits; there the user's profile keeps the folder theirs.
+  if (process.platform !== 'win32') assert.equal((fs.statSync(path.join(dir, 'server.json')).mode & 0o077), 0, 'key file is private');
 });
 
 test('what the user sends reaches wait, oldest first, once', async t => {

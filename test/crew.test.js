@@ -47,7 +47,8 @@ test('steps are opened in worktrees beside the repository, only from a build bra
 
   const opened = r.json(r.crew('open', 'S1'));
   assert.equal(opened.branch, 'crew/export/S1');
-  assert.equal(opened.path, path.join(r.parent, 'app-crew', 'export-S1'), 'beside the repo, not inside it');
+  // Compared as real paths: on Windows one side can be the short 8.3 form of the other.
+  assert.equal(fs.realpathSync.native(opened.path), fs.realpathSync.native(path.join(r.parent, 'app-crew', 'export-S1')), 'beside the repo, not inside it');
   assert.equal(r.inTree(opened.path, 'branch', '--show-current'), 'crew/export/S1');
   assert.equal(r.json(r.crew('open', 'S1')).reused, true);
   // The plan folder's own uncommitted changes don't block a worker.
