@@ -3,12 +3,12 @@
   "owner": {
     "name": "illeniall239"
   },
-  "description": "Naqsha: plan before code, with a hard approval gate.",
+  "description": "Naqsha: plan before code, with an approval gate only you can open.",
   "plugins": [
     {
       "name": "naqsha",
       "source": "./",
-      "description": "Plan and design before code, approve with one command, then build test-first and security-first. Also audits existing codebases and teaches what was built."
+      "description": "Plan before code. You steer a researched plan and a designed interface on local pages; project files stay locked until you approve; then Claude builds it test-first and security-first, with reviews and cost tracking. Also audits existing codebases, teaches what was built, and makes demo videos of it."
     }
   ]
 }

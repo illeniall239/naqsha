@@ -1,0 +1,32 @@
+name: Bug
+description: Something naqsha did wrong
+labels: [bug]
+body:
+  - type: input
+    id: versions
+    attributes:
+      label: Versions
+      description: naqsha (`claude plugin list`), Claude Code (`claude --version`), and your OS.
+      placeholder: naqsha 0.17.0, Claude Code 2.1.319, macOS 15
+    validations:
+      required: true
+  - type: input
+    id: command
+    attributes:
+      label: Command
+      description: Which `/naqsha:` command, and at what point.
+      placeholder: /naqsha:approve, right after the plan said it was ready
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened, and what you expected
+      description: Paste any error message. Leave out anything private from your project; plan.js can hold your project's details, so describe it rather than pasting it.
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: How to make it happen again
+      description: The smallest steps that show it, if you know them.

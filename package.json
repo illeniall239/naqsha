@@ -1,5 +1,13 @@
 {
   "name": "naqsha",
   "private": true,
-  "scripts": { "test": "node --test test/" }
+  "description": "A Claude Code plugin: plan before code, with an approval gate only you can open.",
+  "license": "MIT",
+  "repository": "github:illeniall239/naqsha",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "test": "node --test test/"
+  }
 }

@@ -190,6 +190,10 @@ test('/naqsha:demo knows its folder, the design to match and how the app runs, a
 
   writePlan(p.root, 'admin', { testing: { runIt: { start: 'npm run dev', drive: 'browser' } } });
   writePlan(p.root, 'admin-design', { meta: { title: 'Design', slug: 'admin-design', kind: 'design', status: 'approved' } });
+  // The plan with the run instructions is the newer one; written in the same millisecond,
+  // which came first would be chance.
+  const later = new Date(Date.now() + 5000);
+  fs.utimesSync(path.join(p.root, 'docs', 'plans', 'admin', 'plan.js'), later, later);
   const demo = path.join(p.root, 'docs', 'plans', 'demos', 'launch');
   fs.mkdirSync(path.join(demo, 'renders'), { recursive: true });
   fs.mkdirSync(path.join(demo, 'video', 'assets'), { recursive: true });

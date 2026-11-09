@@ -57,3 +57,63 @@ claude plugin update naqsha@naqsha
 ```
 
 To leave planning without approving, delete the `.naqsha/` folder in your project.
+
+To uninstall: `claude plugin uninstall naqsha@naqsha`, then delete `.naqsha/` from any
+project you used it in.
+
+## Requirements
+
+- **Everything:** Claude Code, `node` 20 or later, and `git`.
+- **`/naqsha:design`:** Playwright, to screenshot the previews it judges. Claude asks
+  before installing it.
+- **`/naqsha:demo`:** `node` 22 or later, FFmpeg and Playwright. It renders with
+  [HyperFrames](https://github.com/heygen-com/hyperframes), fetched through `npx`.
+
+## What to expect
+
+Naqsha is thorough on purpose. It researches, asks before it assumes, has a second agent
+review every risky step, and runs your checks. That takes more time and tokens than
+letting Claude code straight away. Each plan's page shows what it cost, where the tokens
+went and what looked wasted, and the build tunes itself from that without lowering the
+bar. It works best on Opus.
+
+## What it does in your project
+
+- **Plans** go in `docs/plans/`, or `plans/` if `docs/` is published as a website. Set
+  `"plansDir"` in `.claude/naqsha.json` to choose.
+- **Its state** goes in `.naqsha/`, which ignores itself in git.
+- **The lock.** While you plan, Claude can't edit files outside the plans folder, and
+  changes made through the shell are caught and reported with how to undo them. It keeps
+  Claude from coding before you approve. It is a guardrail, not a sandbox: it doesn't
+  stop you, or a program that works around it on purpose.
+- **Its hooks** run on every prompt and tool call, in every project, in about 30 ms. They
+  only act where a plan is being drafted or built.
+- **Auto-compaction.** The first naqsha command in a project sets Claude Code to compact
+  that project's sessions at about 300k tokens, in `.claude/settings.local.json` (this
+  machine only, kept out of git). Ask Claude to turn it off.
+
+## Privacy
+
+Naqsha has no telemetry and sends nothing anywhere itself. Its pages are served on
+`127.0.0.1` behind a random key, and load fonts from Google Fonts and diagrams from
+jsDelivr. Cost reports read Claude Code's own logs on your machine. `/naqsha:demo`
+fetches HyperFrames from npm (with its telemetry turned off) and its sound effects from
+GitHub, and sends a script to a voice provider only if you choose one and say yes.
+
+## Contributing
+
+Issues and pull requests are welcome; [CONTRIBUTING.md](CONTRIBUTING.md) has the setup
+and the conventions. Report security issues privately, as [SECURITY.md](SECURITY.md)
+says. Changes are listed in [CHANGELOG.md](CHANGELOG.md).
+
+## Credits
+
+The demo and design skills learn from HeyGen's
+[HyperFrames](https://github.com/heygen-com/hyperframes) skills and Paul Bakaus's
+[Impeccable](https://github.com/pbakaus/impeccable) (both Apache 2.0), and from
+Anthropic's work on frontend design. The interface rules also draw on Vercel's Web
+Interface Guidelines. Their ideas are restated in naqsha's own words; no code is copied.
+
+## License
+
+[MIT](LICENSE).

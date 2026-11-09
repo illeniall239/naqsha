@@ -157,7 +157,7 @@ function plansIn(ctx, plansDir) {
       steps: steps.length, done: steps.filter(s => s.status === 'done').length, cost: plan.cost && plan.cost.total,
       at: fs.statSync(path.join(base, d, 'plan.js')).mtimeMs,
     };
-  }).filter(Boolean).sort((a, b) => b.at - a.at);
+  }).filter(Boolean).sort((a, b) => b.at - a.at || a.d.localeCompare(b.d)); // newest first; same moment, by name
 }
 
 // /naqsha:help changes nothing: the commands are in the skill, and this says
@@ -840,7 +840,9 @@ function recordFacts(ctx, opts = {}) {
   const at = step.checkpoint ? Date.parse(step.checkpoint.at) : NaN;
   if (!opts.force && at >= Date.parse(s.turnStartedAt)) return;
   let files = [], commit = '';
-  try { files = git(ctx.root, 'status', '--porcelain', '--untracked-files=normal').split('\n').filter(Boolean).map(l => l.slice(3)).filter(f => !f.startsWith(`${ctx.plansDir}/`) && !f.startsWith(`${STATE_DIR}/`)); } catch {}
+  // git reports paths with /, whatever the platform.
+  const own = [ctx.plansDir, STATE_DIR].map(d => `${d.split(path.sep).join('/')}/`);
+  try { files = git(ctx.root, 'status', '--porcelain', '--untracked-files=normal').split('\n').filter(Boolean).map(l => l.slice(3)).filter(f => !own.some(d => f.startsWith(d))); } catch {}
   try { commit = git(ctx.root, 'log', '-1', '--format=%h %s').trim(); } catch {}
   const since = { at: new Date().toISOString(), files: files.slice(0, 30), ...(files.length > 30 ? { more: files.length - 30 } : {}), commit };
   step.checkpoint = step.checkpoint
