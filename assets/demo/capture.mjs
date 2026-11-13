@@ -135,8 +135,12 @@ async function collectMasks() {
   for (const m of got) masks.push({ t: Math.max(0, Math.round(m.at - t0)), selector: m.selector, boxes: m.boxes });
 }
 
+// One line naqsha's progress row reads (the bar above Claude Code's prompt).
+const progress = (done, total, stage) => console.log(`@naqsha-progress ${JSON.stringify({ done, total, unit: 'steps', stage })}`);
+
 for (const [i, step] of (shot.steps || []).entries()) {
   const n = String(i + 1).padStart(2, '0');
+  progress(i, (shot.steps || []).length, rehearse ? 'Rehearsing' : 'Recording');
   try {
     if (step.do === 'goto') {
       await collectMasks();
@@ -198,6 +202,7 @@ if (rehearse) {
 // The screencast sends a frame only when the page changes. For every 1/30 s of the
 // session, link the frame that was on screen then, and encode that exact sequence at
 // 30 fps, so the video's time is the event log's time with no drift.
+progress((shot.steps || []).length, (shot.steps || []).length, 'Assembling the video');
 if (!frames.length) { console.error('No frames were captured.'); process.exit(1); }
 const FPS = 30;
 const total = Math.ceil((duration / 1000) * FPS);

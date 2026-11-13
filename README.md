@@ -91,6 +91,15 @@ bar. It works best on Opus.
 - **Auto-compaction.** The first naqsha command in a project sets Claude Code to compact
   that project's sessions at about 300k tokens, in `.claude/settings.local.json` (this
   machine only, kept out of git). Ask Claude to turn it off.
+- **A progress row.** While Claude or its agents work, a row above the prompt shows
+  everything that has run for more than two seconds, in any project: each command, web
+  fetch, search or MCP call, with a real bar, rate and time left when its output says
+  how far it has got (a render's frames, a download's megabytes, a recording's steps)
+  and its last line of output otherwise; each subagent with what it's doing now and how
+  many tools it has used; and the build's step. It only reads: the output of the
+  commands it shows, and the plan.
+  It needs a Claude Code recent enough to run plugin hooks modules (checked on 2.1.318
+  and later); on an older one the row doesn't appear.
 
 ## Privacy
 

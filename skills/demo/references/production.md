@@ -8,6 +8,11 @@ wins (`npx hyperframes docs <topic>`, `npx hyperframes <command> --help`).
 
 `C` below is `node "${CLAUDE_PLUGIN_ROOT}/assets/demo/compose.cjs"`.
 
+Run anything that takes more than about half a minute (each recording, a render,
+`--fetch-sfx`, an install) with the Bash tool's `run_in_background`, then wait for its
+notification. naqsha's progress row above the prompt reads its output and shows how far
+it has got (the steps, the frames); in the foreground it shows only that it's running.
+
 ## 1. Before anything runs
 
 - `C --env`: Node 22 or later, FFmpeg and ffprobe. Install what's missing first (ask

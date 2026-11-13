@@ -14,6 +14,11 @@ naqsha's own rule, too.
   while planning, records approval, checks a plan before it can be approved, and feeds
   context to the skills. It runs on every prompt and tool call, so it must stay fast and
   must never wedge a session: on an error it says why and lets the call through.
+- **`hooks/progress.tsx`**: the progress row above the prompt, a hooks module that Claude
+  Code runs in the session itself. It only watches: each hook passes its event on, and
+  one that fails hands it on unchanged. What it reads out of a command's output is in
+  `hooks/progress-read.mjs`. A script shows real progress by printing
+  `@naqsha-progress {"done":3,"total":12,"unit":"steps","stage":"Recording"}`.
 - **`scripts/plan-tool.js`**: what the build uses to read and update a plan one step at a
   time, measure cost (`cost.js`), tune the build, and run the approval check
   (`plan-tool.js check`).
@@ -34,7 +39,8 @@ tests in the same pull request.
 git clone https://github.com/illeniall239/naqsha
 cd naqsha
 npm test                         # no dependencies to install
-claude plugin validate .         # the plugin and marketplace manifests
+claude plugin test .             # the progress row, against Claude Code's own engine
+claude plugin validate .         # the manifests and the hooks module
 ```
 
 To try a change, open Claude Code in a scratch project with your copy loaded for that
@@ -65,4 +71,4 @@ Then run the command you changed, and check the page it makes.
 ## Pull requests
 
 Keep each one to a single change, say what it fixes or adds and how you checked it, and
-make sure `npm test` and `claude plugin validate .` pass.
+make sure `npm test`, `claude plugin test .` and `claude plugin validate .` pass.

@@ -809,7 +809,10 @@ async function fetchSfx(demo) {
   const dir = path.join(demo, 'sfx');
   fs.mkdirSync(dir, { recursive: true });
   const failed = [];
-  for (const f of ['manifest.json', 'CREDITS.md', ...SFX_FILES.map(n => `${n}.mp3`)]) {
+  const files = ['manifest.json', 'CREDITS.md', ...SFX_FILES.map(n => `${n}.mp3`)];
+  for (const [i, f] of files.entries()) {
+    // A line naqsha's progress row reads (the bar above Claude Code's prompt).
+    console.log(`@naqsha-progress ${JSON.stringify({ done: i, total: files.length, unit: 'files', stage: 'Downloading sounds' })}`);
     try {
       const r = await fetch(SFX_BASE + f);
       if (!r.ok) throw new Error(`HTTP ${r.status}`);

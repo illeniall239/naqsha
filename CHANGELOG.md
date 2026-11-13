@@ -3,6 +3,16 @@
 Each release is one commit, `naqsha X.Y.Z: ...`, with the version in
 `.claude-plugin/plugin.json`. Update with `claude plugin update naqsha@naqsha`.
 
+## 0.18.0 (2026-11-13)
+
+A progress row above the prompt shows everything Claude and its agents are doing: every
+tool call that runs past two seconds (commands, web fetches, searches, MCP tools), with a
+real bar, the rate and the time left when its output says how far it has got (renders,
+downloads, recordings) and its latest output line otherwise; each subagent with what it's
+doing now and how many tools it has used; and the build's step. Background commands come
+back after a reload, and a percent or count is only read from a line about progress. The demo's recordings and sound download print their progress for it,
+and the demo runs its long jobs in the background so the row can show them.
+
 ## 0.17.2 (2026-11-09)
 
 Windows works. The tests now run on Linux, macOS and Windows, and Windows turned up:
