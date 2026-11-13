@@ -109,3 +109,29 @@ test('says the rate and the time left once a bar has moved for 4 seconds', async
   assert.equal(figure({ done: 1.2, total: 5, unit: 'MB' }, 3000, { rate: 0.4, leftMs: 9500 }), '1.2 of 5 MB · 0.40 MB/s · ~0:09 left · 0:03');
   assert.equal(figure({ done: 3, total: 12, unit: 'steps' }, 3000, { rate: 1, leftMs: 9000 }), '3 of 12 steps · ~0:09 left · 0:03');
 });
+
+test('counts a checklist that refreshes, like a CI run being watched', async () => {
+  const { readProgress } = await load();
+  const board = jobs => ['Refreshing run status every 3 seconds. Press Ctrl+C to quit.', '', '* main test · 43475251148', '', 'JOBS', ...jobs, ''];
+  const log = [
+    ...board(['* test (windows-latest, 22) (ID 1)', '* test (ubuntu-latest, 22) (ID 2)', '* test (ubuntu-latest, 20) (ID 3)', '* test (macos-latest, 22) (ID 4)']),
+    ...board([
+      '✓ test (windows-latest, 22) in 1m23s (ID 1)', '  ✓ Set up job', '  ✓ Run npm test',
+      '✓ test (ubuntu-latest, 22) in 58s (ID 2)', 'X test (ubuntu-latest, 20) in 40s (ID 3)', '* test (macos-latest, 22) (ID 4)',
+    ]),
+  ].join('\n');
+  assert.deepEqual(readProgress(log), { done: 3, total: 4, unit: 'jobs', stage: '1 failed' });
+  assert.deepEqual(readProgress(log.replace('X test', '✗ test')), { done: 3, total: 4, unit: 'jobs', stage: '1 failed' });
+  // Finished and printed again: all done.
+  const finished = log + '\n' + board(['✓ a (ID 1)', '✓ b (ID 2)', '✓ c (ID 3)', '✓ d (ID 4)']).join('\n') + '\n' + board(['✓ a (ID 1)', '✓ b (ID 2)', '✓ c (ID 3)', '✓ d (ID 4)']).join('\n');
+  assert.deepEqual(readProgress(finished), { done: 4, total: 4, unit: 'jobs' });
+});
+
+test('counts a task list with boxes, and ignores a stream of passed tests', async () => {
+  const { readProgress } = await load();
+  assert.deepEqual(readProgress('Plan\n[x] migrate\n[x] seed\n[ ] build\n[ ] deploy\n'), { done: 2, total: 4, unit: 'items' });
+  assert.equal(readProgress('✔ reads lines (1.6ms)\n✔ counts (0.4ms)\n✔ finds tasks (0.3ms)\n'), null);
+  // A newer progress line wins over an older list, and the other way round.
+  assert.deepEqual(readProgress('[ ] a\n[x] b\nDownloading 45%\n'), { pct: 45, stage: 'Downloading' });
+  assert.deepEqual(readProgress('Downloading 45%\n[ ] a\n[x] b\n'), { done: 1, total: 2, unit: 'items' });
+});

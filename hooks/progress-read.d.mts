@@ -1,6 +1,7 @@
 // Types for progress-read.mjs.
 export type Progress = { pct?: number; done?: number; total?: number; unit?: string; stage?: string };
 export function readProgress(text: string): Progress | null;
+export function checklist(lines: string[]): { got: Progress; at: number } | null;
 export function endedTasks(text: string): { taskId: string; toolUseId: string; status: string }[];
 export function outputPathOf(text: string | undefined): string;
 export function clock(ms: number): string;

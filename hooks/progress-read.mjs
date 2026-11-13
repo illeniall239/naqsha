@@ -16,18 +16,81 @@ const NOT_PROGRESS = /\b(coverage|skipped|skip|failed|failing|fail|errors?|warni
 //     (or any tool's @<name>-progress line with pct, done and total)
 //   45%  Extracting frames
 //   412/1200 frames · 2.1/5.0 MB · 3 of 12
+// or a checklist that marks items done and pending (see checklist), whichever
+// was printed last.
 export function readProgress(text) {
   if (typeof text !== 'string' || !text) return null;
   const lines = text.slice(-16000).replace(ANSI, '').split(/\r\n|\r|\n/);
+  let line = null;
   let seen = 0;
   for (let i = lines.length - 1; i >= 0 && seen < 60; i--) {
-    const line = lines[i].trim();
-    if (!line) continue;
+    const l = lines[i].trim();
+    if (!l) continue;
     seen++;
-    const got = tagged(line) || percent(line) || ratio(line);
-    if (got) return got;
+    const got = tagged(l) || percent(l) || ratio(l);
+    if (got) { line = { got, at: i }; break; }
   }
-  return null;
+  const list = checklist(lines);
+  if (list && (!line || list.at > line.at)) return list.got;
+  return line ? line.got : null;
+}
+
+// A list of items each marked done, failed or still to come, as a CI watcher,
+// a build or a task runner prints it, often printed again on every refresh:
+//   JOBS
+//   ✓ test (ubuntu-latest, 22) in 58s (ID 1)
+//   ✓ test (windows-latest, 22) in 1m23s (ID 2)
+//   * test (macos-latest, 22) (ID 3)
+// Counts the newest mark of each item at the outermost level, back to where
+// the list was last printed: { done, total, unit, stage? }. Only a list that
+// still has something to come, or that is printed again, counts: a test run's
+// stream of ticks has no total.
+const DONE = /^(?:[✓✔√☑]|\[[xX✓✔]\])\s+/;
+// gh marks a failed job with a plain X.
+const FAILED = /^(?:[✗✘×✖X]|\[[!✗✘]\])\s+/;
+const TO_COME = /^(?:[*•○◯◌⏳…]|\[ \]|[⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏])\s+/;
+export function checklist(lines) {
+  const items = new Map();
+  let indent = Infinity;
+  let at = -1;
+  let repeated = false;
+  let header = '';
+  let ended = false;
+  for (let i = lines.length - 1, n = 0; i >= 0 && n < 400; i--, n++) {
+    const raw = lines[i].replace(/\t/g, '  ');
+    const text = raw.trim();
+    if (!text) continue;
+    const mark = DONE.test(text) ? 'done' : FAILED.test(text) ? 'failed' : TO_COME.test(text) ? 'to come' : '';
+    if (!mark) {
+      // The list ends at the first other line above it; a heading there names
+      // what it counts ("JOBS"). Further up, only look for it printed before.
+      if (items.size && !ended) {
+        ended = true;
+        if (/^[A-Z][A-Z ]{1,20}$/.test(text)) header = text.toLowerCase();
+      }
+      continue;
+    }
+    const lead = raw.length - raw.trimStart().length;
+    const name = text.replace(DONE, '').replace(FAILED, '').replace(TO_COME, '')
+      .replace(/\s*\(ID \d+\)\s*$/i, '').replace(/\s+in\s+[\dhms.]+\s*$/i, '').trim();
+    if (ended) {
+      if (items.has(name)) { repeated = true; break; }
+      continue;
+    }
+    if (lead > indent) continue;
+    if (lead < indent) { items.clear(); indent = lead; at = -1; }
+    if (items.has(name)) { repeated = true; break; }
+    items.set(name, mark);
+    if (at < 0) at = i;
+  }
+  if (items.size < 2) return null;
+  const marks = [...items.values()];
+  const toCome = marks.filter(m => m === 'to come').length;
+  if (!toCome && !repeated) return null;
+  const failed = marks.filter(m => m === 'failed').length;
+  const got = { done: items.size - toCome, total: items.size, unit: header || 'items' };
+  if (failed) got.stage = `${failed} failed`;
+  return { got, at };
 }
 
 function tagged(line) {

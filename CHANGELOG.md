@@ -3,6 +3,12 @@
 Each release is one commit, `naqsha X.Y.Z: ...`, with the version in
 `.claude-plugin/plugin.json`. Update with `claude plugin update naqsha@naqsha`.
 
+## 0.18.1 (2026-11-13)
+
+The progress row counts checklists: a list of items marked done (✓, [x]) and still to
+come (*, [ ]), like `gh run watch` printing a CI run's jobs, shows as "3 of 4 jobs", with
+any that failed. A stream of passed tests with no total still shows no number.
+
 ## 0.18.0 (2026-11-13)
 
 A progress row above the prompt shows everything Claude and its agents are doing: every

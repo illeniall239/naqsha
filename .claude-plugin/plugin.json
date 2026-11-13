@@ -1,7 +1,7 @@
 {
   "name": "naqsha",
   "displayName": "Naqsha",
-  "version": "0.18.0",
+  "version": "0.18.1",
   "description": "Plan before code. You steer a researched plan and a designed interface on local pages; project files stay locked until you approve; then Claude builds it test-first and security-first, with reviews and cost tracking. Also audits existing codebases, teaches what was built, and makes demo videos of it.",
   "author": {
     "name": "illeniall239"

@@ -94,7 +94,8 @@ bar. It works best on Opus.
 - **A progress row.** While Claude or its agents work, a row above the prompt shows
   everything that has run for more than two seconds, in any project: each command, web
   fetch, search or MCP call, with a real bar, rate and time left when its output says
-  how far it has got (a render's frames, a download's megabytes, a recording's steps)
+  how far it has got (a render's frames, a download's megabytes, a recording's steps,
+  a CI run's jobs)
   and its last line of output otherwise; each subagent with what it's doing now and how
   many tools it has used; and the build's step. It only reads: the output of the
   commands it shows, and the plan.
