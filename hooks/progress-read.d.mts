@@ -1,8 +1,9 @@
 // Types for progress-read.mjs.
-export type Progress = { pct?: number; done?: number; total?: number; unit?: string; stage?: string };
+export type Progress = { pct?: number; done?: number; total?: number; unit?: string; stage?: string; deadline?: number };
 export function readProgress(text: string): Progress | null;
 export function checklist(lines: string[]): { got: Progress; at: number } | null;
-export function endedTasks(text: string): { taskId: string; toolUseId: string; status: string }[];
+export function endedTasks(text: string): { taskId: string; toolUseId: string; status: string; output: string }[];
+export function monitorEvents(text: string): { taskId: string; event: string }[];
 export function outputPathOf(text: string | undefined): string;
 export function clock(ms: number): string;
 export type Sample = { value: number; max: number; at: number };
@@ -14,3 +15,7 @@ export function fill(p: Progress | null): { value: number; max: number } | null;
 export function shorten(text: unknown, max?: number): string;
 export function buildStep(plan: unknown): { title: string; done: number; total: number; step: string } | null;
 export function parsePlan(text: unknown): unknown;
+export function planProgress(plan: unknown): { title: string; answered: number; questions: number; decided: number; decisions: number } | null;
+export type TaskItem = { id: string; subject: string; status: string; activeForm?: string };
+export function taskFigure(items: TaskItem[]): { done: number; total: number; now: string } | null;
+export function tokens(n: number): string;

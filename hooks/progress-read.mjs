@@ -108,7 +108,10 @@ function tagged(line) {
   if (stage) out.stage = stage;
   const unit = words(o.unit);
   if (unit) out.unit = unit;
-  return 'pct' in out || 'done' in out ? out : null;
+  // A wait with a known end: when it gives up, in epoch milliseconds.
+  const deadline = num(o.deadline);
+  if (deadline !== null && deadline > 0) out.deadline = deadline;
+  return 'pct' in out || 'done' in out || 'deadline' in out ? out : null;
 }
 
 function percent(line) {
@@ -164,7 +167,21 @@ export function endedTasks(text) {
     const field = name => (new RegExp(`<${name}>([^<]*)</${name}>`).exec(block) || [])[1]?.trim() || '';
     const status = field('status');
     if (!status || status === 'running') continue;
-    out.push({ taskId: field('task-id'), toolUseId: field('tool-use-id'), status });
+    out.push({ taskId: field('task-id'), toolUseId: field('tool-use-id'), status, output: field('output-file') });
+  }
+  return out;
+}
+
+// A monitor's events in a notification: [{ taskId, event }], one per <event>.
+// Monitor events come one notification each, with the line the monitor's
+// command printed and no status.
+export function monitorEvents(text) {
+  if (typeof text !== 'string' || !text.includes('<task-notification>')) return [];
+  const out = [];
+  for (const block of text.split('<task-notification>').slice(1)) {
+    const id = (/<task-id>([^<]*)<\/task-id>/.exec(block) || [])[1]?.trim();
+    if (!id) continue;
+    for (const m of block.matchAll(/<event>([\s\S]*?)<\/event>/g)) out.push({ taskId: id, event: m[1] });
   }
   return out;
 }
@@ -266,4 +283,37 @@ export function parsePlan(text) {
   const start = text.indexOf('{'), end = text.lastIndexOf('}');
   if (start < 0 || end < start) return null;
   try { return JSON.parse(text.slice(start, end + 1)); } catch { return null; }
+}
+
+// A plan being drafted: { title, answered, questions, decided, decisions } or null.
+export function planProgress(plan) {
+  if (!plan || !plan.meta || plan.meta.kind === 'demo' || plan.meta.status !== 'draft') return null;
+  const qs = Array.isArray(plan.questions) ? plan.questions.filter(Boolean) : [];
+  const ds = Array.isArray(plan.decisions) ? plan.decisions.filter(Boolean) : [];
+  return {
+    title: String(plan.meta.title || 'the plan'),
+    answered: qs.filter(q => q.status === 'answered').length,
+    questions: qs.length,
+    decided: ds.filter(d => d.status === 'decided').length,
+    decisions: ds.length,
+  };
+}
+
+// Claude's own task list (TaskCreate/TaskUpdate, or TodoWrite): how many are
+// done and what it's on now, or null when there's nothing left to do.
+export function taskFigure(items) {
+  const list = (Array.isArray(items) ? items : []).filter(t => t && t.status !== 'deleted');
+  if (!list.length) return null;
+  const done = list.filter(t => t.status === 'completed').length;
+  if (done === list.length) return null;
+  const doing = list.find(t => t.status === 'in_progress');
+  return { done, total: list.length, now: doing ? String(doing.activeForm || doing.subject || '') : '' };
+}
+
+// 182000 → "182k", 1200000 → "1.2M".
+export function tokens(n) {
+  if (!(n >= 0)) return '0';
+  if (n >= 1e6) return `${(n / 1e6).toFixed(n >= 1e7 ? 0 : 1).replace(/\.0$/, '')}M`;
+  if (n >= 1e3) return `${Math.round(n / 1e3)}k`;
+  return String(Math.round(n));
 }

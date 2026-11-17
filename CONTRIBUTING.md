@@ -18,7 +18,8 @@ naqsha's own rule, too.
   Code runs in the session itself. It only watches: each hook passes its event on, and
   one that fails hands it on unchanged. What it reads out of a command's output is in
   `hooks/progress-read.mjs`. A script shows real progress by printing
-  `@naqsha-progress {"done":3,"total":12,"unit":"steps","stage":"Recording"}`.
+  `@naqsha-progress {"done":3,"total":12,"unit":"steps","stage":"Recording"}`, or a wait
+  with `"deadline"` (epoch milliseconds) for a bar to when it gives up.
 - **`scripts/plan-tool.js`**: what the build uses to read and update a plan one step at a
   time, measure cost (`cost.js`), tune the build, and run the approval check
   (`plan-tool.js check`).

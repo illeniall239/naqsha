@@ -43,7 +43,7 @@ test('finds the ended tasks in a notification', async () => {
   const { endedTasks } = await load();
   const text = 'x <task-notification>\n<task-id>bz1</task-id>\n<tool-use-id>toolu_1</tool-use-id>\n<status>completed</status>\n</task-notification>' +
     '<task-notification><task-id>bz2</task-id><status>running</status></task-notification>';
-  assert.deepEqual(endedTasks(text), [{ taskId: 'bz1', toolUseId: 'toolu_1', status: 'completed' }]);
+  assert.deepEqual(endedTasks(text), [{ taskId: 'bz1', toolUseId: 'toolu_1', status: 'completed', output: '' }]);
   assert.deepEqual(endedTasks('no notification here'), []);
 });
 
@@ -134,4 +134,46 @@ test('counts a task list with boxes, and ignores a stream of passed tests', asyn
   // A newer progress line wins over an older list, and the other way round.
   assert.deepEqual(readProgress('[ ] a\n[x] b\nDownloading 45%\n'), { pct: 45, stage: 'Downloading' });
   assert.deepEqual(readProgress('Downloading 45%\n[ ] a\n[x] b\n'), { done: 1, total: 2, unit: 'items' });
+});
+
+test('reads a monitor\'s events and where task output goes', async () => {
+  const { monitorEvents, endedTasks } = await load();
+  // As Claude Code sends them: one notification per event, then an end notice.
+  const event = n => `<task-notification>\n<task-id>bdegi5lkh</task-id>\n<summary>Monitor event: "inbox"</summary>\n<event>read message ${n} of 40</event>\nIf this event is something the user would act on now, send a PushNotification.\n</task-notification>`;
+  assert.deepEqual(monitorEvents(event(3)), [{ taskId: 'bdegi5lkh', event: 'read message 3 of 40' }]);
+  assert.deepEqual(endedTasks(event(3)), []);
+  const end = '<task-notification>\n<task-id>bdegi5lkh</task-id>\n<tool-use-id>toolu_01</tool-use-id>\n<output-file>/tmp/claude-1000/p/s/tasks/bdegi5lkh.output</output-file>\n<status>completed</status>\n<summary>Monitor "inbox" stream ended</summary>\n</task-notification>';
+  assert.deepEqual(endedTasks(end), [{ taskId: 'bdegi5lkh', toolUseId: 'toolu_01', status: 'completed', output: '/tmp/claude-1000/p/s/tasks/bdegi5lkh.output' }]);
+  assert.deepEqual(monitorEvents(end), []);
+});
+
+test('reads a wait with a deadline', async () => {
+  const { readProgress, fill } = await load();
+  const p = readProgress('@naqsha-progress {"stage":"Waiting for your answers on the page","deadline":1800000000000}\n');
+  assert.deepEqual(p, { stage: 'Waiting for your answers on the page', deadline: 1800000000000 });
+  assert.equal(fill(p), null);
+});
+
+test('counts a plan\'s answers, a task list and tokens', async () => {
+  const { planProgress, taskFigure, tokens } = await load();
+  assert.deepEqual(planProgress({
+    meta: { title: 'Ledgerly', status: 'draft' },
+    questions: [{ status: 'answered' }, { status: 'open' }, { status: 'answered' }],
+    decisions: [{ status: 'decided' }, { status: 'open' }],
+  }), { title: 'Ledgerly', answered: 2, questions: 3, decided: 1, decisions: 2 });
+  assert.equal(planProgress({ meta: { status: 'approved' } }), null);
+  assert.equal(planProgress({ meta: { kind: 'demo', status: 'draft' } }), null);
+  const list = [
+    { id: '1', subject: 'Write tests', status: 'completed' },
+    { id: '2', subject: 'Build the job', status: 'in_progress', activeForm: 'Building the job' },
+    { id: '3', subject: 'Old', status: 'deleted' },
+    { id: '4', subject: 'Review', status: 'pending' },
+  ];
+  assert.deepEqual(taskFigure(list), { done: 1, total: 3, now: 'Building the job' });
+  assert.equal(taskFigure([{ id: '1', subject: 'a', status: 'completed' }]), null);
+  assert.equal(taskFigure([]), null);
+  assert.equal(tokens(182_400), '182k');
+  assert.equal(tokens(1_000_000), '1M');
+  assert.equal(tokens(1_250_000), '1.3M');
+  assert.equal(tokens(900), '900');
 });

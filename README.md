@@ -91,14 +91,21 @@ bar. It works best on Opus.
 - **Auto-compaction.** The first naqsha command in a project sets Claude Code to compact
   that project's sessions at about 300k tokens, in `.claude/settings.local.json` (this
   machine only, kept out of git). Ask Claude to turn it off.
-- **A progress row.** While Claude or its agents work, a row above the prompt shows
-  everything that has run for more than two seconds, in any project: each command, web
-  fetch, search or MCP call, with a real bar, rate and time left when its output says
-  how far it has got (a render's frames, a download's megabytes, a recording's steps,
-  a CI run's jobs)
-  and its last line of output otherwise; each subagent with what it's doing now and how
-  many tools it has used; and the build's step. It only reads: the output of the
-  commands it shows, and the plan.
+- **A progress row.** A row above the prompt shows everything Claude and its agents are
+  doing, in any project, with real numbers wherever something reports them:
+  - each command, web fetch, search, MCP call, monitor or workflow past two seconds,
+    with a bar, rate and time left when its output says how far it has got (a
+    render's frames, a download's megabytes, a CI run's jobs, a monitor's events), and
+    its last line of output otherwise; a foreground command's bar runs to the point
+    where Claude Code moves it to the background;
+  - each subagent, with what it's doing now and how many tools it has used;
+  - Claude's task list, scheduled wake-ups and cron jobs (a countdown), and compaction;
+  - the context window, and any usage limit past half used;
+  - naqsha's own work: the build's step, the plan's answered questions and decisions,
+    and a wait for your answers on the page.
+
+  It only reads: the output of the commands it shows, Claude Code's own figures, and
+  the plan.
   It needs a Claude Code recent enough to run plugin hooks modules (checked on 2.1.318
   and later); on an older one the row doesn't appear.
 

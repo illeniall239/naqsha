@@ -209,6 +209,9 @@ async function wait(dir, minutes) {
   await start(dir);
   const inbox = path.join(dir, INBOX);
   const deadline = Date.now() + minutes * 60000;
+  // For naqsha's progress row above the prompt: a bar to when the wait gives up.
+  // On stderr, so what's printed on stdout stays the answers alone.
+  process.stderr.write(`@naqsha-progress ${JSON.stringify({ stage: 'Waiting for your answers on the page', deadline })}\n`);
   let checked = Date.now();
   for (;;) {
     const files = safeReaddir(inbox).filter(f => f.endsWith('.json')).sort();

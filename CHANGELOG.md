@@ -3,6 +3,22 @@
 Each release is one commit, `naqsha X.Y.Z: ...`, with the version in
 `.claude-plugin/plugin.json`. Update with `claude plugin update naqsha@naqsha`.
 
+## 0.18.2 (2026-11-17)
+
+The progress row shows more of what's going on, with real numbers where they exist:
+
+- **Monitors**: their events so far and the last one, a real bar when the events count
+  ("read 20 of 40 messages"), and otherwise a bar to the monitor's time limit.
+- **Workflows**, until their end notice.
+- **Claude's task list**: how many are done and what it's on now.
+- **Scheduled wake-ups and cron jobs**: a countdown to the next one, even while idle.
+- **Compaction**, while it runs.
+- **The context window**, and any usage limit past half used, with when it resets.
+- **A foreground command**: a bar to the point where Claude Code moves it to the
+  background.
+- **naqsha's own work**: the plan's answered questions and decisions while drafting,
+  and a bar to when the wait for answers on the page gives up.
+
 ## 0.18.1 (2026-11-13)
 
 The progress row counts checklists: a list of items marked done (✓, [x]) and still to
