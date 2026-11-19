@@ -3,6 +3,18 @@
 Each release is one commit, `naqsha X.Y.Z: ...`, with the version in
 `.claude-plugin/plugin.json`. Update with `claude plugin update naqsha@naqsha`.
 
+## 0.19.0 (2026-11-19)
+
+- **No credit to Claude on your git or GitHub.** Every session starts with the rule, and
+  anything crediting Claude or Anthropic is refused before it runs, with why, so it is
+  done again without the line: a `Co-Authored-By` trailer, or a "Generated with Claude
+  Code" style line. It checks git commit, merge, commit-tree, tag and notes messages
+  (`-m`, heredocs, `--trailer`, `-F`/`--file`), `gh` pull requests, issues, comments,
+  reviews, releases and `gh api` (bodies and `--body-file`/`--notes-file`), GitHub's MCP
+  tools, and a `git push` of commits not yet on a remote that credit Claude. It holds for
+  subagents too. Text that only mentions Claude goes through. `"claudeCredit": true` in
+  `.claude/naqsha.json` allows the credit in that project.
+
 ## 0.18.2 (2026-11-17)
 
 The progress row shows more of what's going on, with real numbers where they exist:

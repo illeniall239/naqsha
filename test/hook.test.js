@@ -891,10 +891,86 @@ test('the context warning stays quiet when the project already compacts early', 
 
 test('session start reminds Claude of the phase', () => {
   const p = project();
-  assert.equal(p.run({ hook_event_name: 'SessionStart' }), null);
+  assert.doesNotMatch(p.run({ hook_event_name: 'SessionStart' }).hookSpecificOutput.additionalContext, /being drafted|naqsha:build/);
   p.cmd('plan');
   assert.match(p.run({ hook_event_name: 'SessionStart' }).hookSpecificOutput.additionalContext, /being drafted/);
   writePlan(p.root, 'login');
   p.cmd('approve');
   assert.match(p.run({ hook_event_name: 'SessionStart' }).hookSpecificOutput.additionalContext, /\/naqsha:build/);
+});
+
+const TRAILER = 'Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>';
+const GENERATED = '\u{1F916} Generated with [Claude Code](https://claude.com/claude-code)';
+
+test('commits, pull requests and comments crediting Claude are refused, the rest run', () => {
+  const p = project();
+  for (const cmd of [
+    `git commit -m "$(cat <<'EOF'\nfix the login\n\n${TRAILER}\nEOF\n)"`,
+    `git add . && git commit -m "fix" -m "${TRAILER}"`,
+    `git -C ${p.root} commit --amend -m "fix\n\n${TRAILER}"`,
+    'git commit --trailer "Co-authored-by: Claude <noreply@anthropic.com>" -m fix',
+    'git merge --no-ff topic -m "merge\n\nco-authored-by: claude"',
+    'git tag -a v1 -m "v1, written by Claude"',
+    `gh pr create --title "Fix login" --body "Fixes it.\n\n${GENERATED}"`,
+    'gh pr comment 4 --body "Generated with Claude Code"',
+    'gh issue create --title x --body "made with claude"',
+    'gh release create v1 --notes "Built using Claude"',
+    'gh api repos/o/r/issues/1/comments -f body="\u{1F916} via Claude"',
+  ]) {
+    const out = p.bash(cmd);
+    assert.ok(denied(out), cmd);
+    assert.match(out.hookSpecificOutput.permissionDecisionReason, /credits Claude/, cmd);
+  }
+  // From a file, relative to where the command runs.
+  fs.writeFileSync(path.join(p.root, 'msg.txt'), `fix\n\n${TRAILER}\n`);
+  fs.writeFileSync(path.join(p.root, 'body.md'), `Fixes it.\n\n${GENERATED}\n`);
+  for (const cmd of ['git commit -F msg.txt', 'git commit --file=msg.txt', 'gh pr create -t x --body-file body.md',
+    'gh pr create -t x -F body.md', 'gh release create v1 --notes-file body.md', 'gh api repos/o/r/pulls -F body=@body.md']) {
+    assert.ok(denied(p.bash(cmd)), cmd);
+  }
+  fs.writeFileSync(path.join(p.root, 'clean.txt'), 'fix\n');
+  for (const cmd of [
+    'git commit -F clean.txt', 'git commit -m "fix the login"', 'gh pr create --title x --body-file clean.txt',
+    'git commit -m "fix" -m "Co-Authored-By: Sam <sam@example.com>"',
+    'git commit -m "add a Claude Code plugin"', 'gh pr create --title "Support Claude Code 2.1" --body "Works with Claude."',
+    `grep -r "${TRAILER}" .`, 'git log --format=%B -1', 'gh pr view 4',
+  ]) assert.ok(!denied(p.bash(cmd)), cmd);
+});
+
+test('GitHub MCP tools crediting Claude are refused', () => {
+  const p = project();
+  const call = (tool_name, tool_input) => p.run({ hook_event_name: 'PreToolUse', tool_name, tool_input });
+  assert.ok(denied(call('mcp__github__create_pull_request', { owner: 'o', repo: 'r', title: 'x', body: `Fix.\n\n${GENERATED}` })));
+  assert.ok(denied(call('mcp__plugin_github_github__push_files', { files: [{ path: 'a' }], message: `fix\n\n${TRAILER}` })));
+  assert.ok(!denied(call('mcp__github__create_pull_request', { owner: 'o', repo: 'r', title: 'x', body: 'Fix.' })));
+});
+
+test('a push of commits crediting Claude is refused until they are reworded', () => {
+  const p = project();
+  const g = (...a) => execFileSync('git', ['-C', p.root, '-c', 'user.email=t@t', '-c', 'user.name=t', ...a], { stdio: 'ignore' });
+  const remote = fs.mkdtempSync(path.join(os.tmpdir(), 'naqsha-remote-'));
+  execFileSync('git', ['init', '-q', '--bare', remote]);
+  g('remote', 'add', 'origin', remote);
+  g('push', '-q', 'origin', 'HEAD');
+  g('commit', '-q', '--allow-empty', '-m', 'clean');
+  assert.ok(!denied(p.bash('git push')));
+  g('commit', '-q', '--allow-empty', '-m', `fix\n\n${TRAILER}`);
+  const out = p.bash('git push origin HEAD');
+  assert.ok(denied(out));
+  assert.match(out.hookSpecificOutput.permissionDecisionReason, /Not pushed: commit [0-9a-f]+ credit Claude/);
+  g('commit', '-q', '--amend', '--allow-empty', '-m', 'fix');
+  assert.ok(!denied(p.bash('git push origin HEAD')));
+});
+
+test('every session hears the rule unless the project allows the credit', () => {
+  const p = project();
+  assert.match(p.run({ hook_event_name: 'SessionStart', source: 'startup' }).hookSpecificOutput.additionalContext, /credits Claude/);
+  p.cmd('plan');
+  const both = p.run({ hook_event_name: 'SessionStart', source: 'startup' }).hookSpecificOutput.additionalContext;
+  assert.match(both, /being drafted[\s\S]*credits Claude/);
+  fs.mkdirSync(path.join(p.root, '.claude'), { recursive: true });
+  fs.writeFileSync(path.join(p.root, '.claude', 'naqsha.json'), JSON.stringify({ claudeCredit: true }));
+  assert.doesNotMatch(p.run({ hook_event_name: 'SessionStart', source: 'startup' }).hookSpecificOutput.additionalContext, /Co-Authored-By/);
+  assert.ok(!denied(p.bash(`git commit -m "fix" -m "${TRAILER}"`)));
+  assert.ok(!denied(p.bash(`gh pr create --title x --body "${GENERATED}"`)));
 });

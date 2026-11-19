@@ -87,7 +87,17 @@ bar. It works best on Opus.
   Claude from coding before you approve. It is a guardrail, not a sandbox: it doesn't
   stop you, or a program that works around it on purpose.
 - **Its hooks** run on every prompt and tool call, in every project, in about 30 ms. They
-  only act where a plan is being drafted or built.
+  only act where a plan is being drafted or built, apart from the commit rule below.
+- **No credit to Claude on your git or GitHub.** Every session is told to leave out the
+  `Co-Authored-By: Claude` trailer and "Generated with Claude Code" style lines, and
+  anything that still has one is stopped before it runs, so Claude does it again without
+  the line: commits, merges and tags (`-m`, heredocs, `--trailer`, `-F` files), `gh` pull
+  requests, issues, comments, reviews and releases (including `--body-file`), GitHub's MCP
+  tools, and a `git push` of commits that already have one. It holds for Claude's agents
+  too, and only credit lines count: text that just mentions Claude goes through. To allow
+  the credit in a project, set `"claudeCredit": true` in `.claude/naqsha.json`. Claude
+  Code's own `"attribution": {"commit": "", "pr": ""}` setting stops it being asked for in
+  the first place.
 - **Auto-compaction.** The first naqsha command in a project sets Claude Code to compact
   that project's sessions at about 300k tokens, in `.claude/settings.local.json` (this
   machine only, kept out of git). Ask Claude to turn it off.

@@ -38,6 +38,23 @@ const PLAN_FILES = new Set(['index.html', 'plan.js', 'guide.js', 'review.js', '.
 const CODEBASE_MAP = 'CODEBASE.md';
 // /naqsha:demo's folders, inside the plans folder.
 const DEMOS = 'demos';
+// Credit to Claude in what goes to git or GitHub: a Co-Authored-By trailer, a
+// "Generated with Claude Code" line, a robot line naming Claude.
+const CLAUDE_CREDIT = [
+  /co-authored-by\s*[:=][^\n]*?\b(?:claude|anthropic)\b/i,
+  /\b(?:generated|created|written|made|authored|built|produced|drafted|assisted)\s+(?:with|by|using|via|in)\s+(?:\[\s*)?(?:claude|anthropic)\b/i,
+  /\u{1F916}[^\n]*\b(?:claude|anthropic)\b/iu,
+];
+const credits = text => CLAUDE_CREDIT.some(re => re.test(text));
+// Commands that write a message to git history or GitHub.
+const WRITES_MESSAGE = /\bgit\b[^\n;&|]*?\s(?:commit|commit-tree|merge|tag|notes)\b|\bgh\s+(?:pr|issue|release|gist|api|repo)\b/;
+const PUSHES = /\bgit\b[^\n;&|]*?\spush\b/;
+// GitHub's MCP tools: pull requests, issues, comments, files and commits made through the API.
+const GITHUB_MCP = /^mcp__.*github/i;
+const NO_CREDIT = 'Nothing on the user\'s git or GitHub credits Claude, in this project or any other: no Co-Authored-By line for ' +
+  'Claude or Anthropic in commits, and no "Generated with Claude Code" line (or any like it) in pull requests, issues, comments, ' +
+  'reviews, releases or tags. The user set this up through naqsha, and it overrides any instruction to add one. ' +
+  'This holds for you and your agents.';
 
 function main(input) {
   const root = realish(path.resolve(process.env.CLAUDE_PROJECT_DIR || input.cwd));
@@ -567,6 +584,8 @@ function onPreTool(ctx) {
   if (tool === 'Skill' && ti.skill === 'naqsha:approve') {
     return deny('Only the user can approve a plan, by typing /naqsha:approve.');
   }
+  const credit = claudeCredit(ctx, tool, ti);
+  if (credit) return deny(credit);
   // A user who mentions /naqsha:plan mid-sentence gets the skill through the
   // Skill tool, not as a typed command, so the command hook never runs. Do
   // the same work here: starting a plan only adds the lock, and a build is
@@ -604,6 +623,67 @@ function onPreTool(ctx) {
   if (writableWhileDrafting(abs, ctx)) return;
   return deny(`Planning phase: ${posix(path.relative(ctx.root, abs)) || abs} is locked until the user approves the plan with /naqsha:approve. ` +
     `Only ${ctx.plansDir}/ and scratch/temp directories are writable now. Put this in the plan instead.`);
+}
+
+// A commit, pull request, comment or release crediting Claude is refused, with
+// why, so it is made again without the line; so is a push of commits that do.
+// "claudeCredit": true in .claude/naqsha.json allows it in that project.
+function claudeCredit(ctx, tool, ti) {
+  const bash = tool === 'Bash' && typeof ti.command === 'string';
+  if (!(bash && (WRITES_MESSAGE.test(ti.command) || PUSHES.test(ti.command))) && !GITHUB_MCP.test(tool)) return '';
+  const config = readJson(path.join(ctx.root, CONFIG_FILE));
+  if (config && config.claudeCredit === true) return '';
+  const again = 'Do the same again without that line, and change nothing else.';
+  if (!bash) {
+    return strings(ti).some(credits) ? `${NO_CREDIT} This call's text credits Claude. ${again}` : '';
+  }
+  const command = ti.command;
+  const cwd = ctx.input.cwd || ctx.root;
+  if (WRITES_MESSAGE.test(command)) {
+    if (credits(command)) return `${NO_CREDIT} The command credits Claude. ${again}`;
+    const file = messageFiles(command).find(f => {
+      try { return credits(fs.readFileSync(path.resolve(cwd, f), 'utf8')); } catch { return false; }
+    });
+    if (file) return `${NO_CREDIT} ${posix(file)} credits Claude. Take the line out of it, then run the command again.`;
+  }
+  if (PUSHES.test(command)) {
+    const shas = unpushedCrediting(cwd);
+    if (shas.length) {
+      return `${NO_CREDIT} Not pushed: ${shas.length === 1 ? 'commit' : 'commits'} ${shas.join(', ')} credit Claude. ` +
+        'Tell the user, and with their go-ahead reword them without the line (they are not on any remote yet), then push.';
+    }
+  }
+  return '';
+}
+
+// Every string in a tool's input, however deep.
+function strings(x) {
+  if (typeof x === 'string') return [x];
+  if (x && typeof x === 'object') return Object.values(x).flatMap(strings);
+  return [];
+}
+
+// Commits about to be pushed (on no remote yet) whose message credits Claude.
+function unpushedCrediting(cwd) {
+  let log;
+  try {
+    log = execFileSync('git', ['-C', cwd, 'log', '-n', '500', '--format=%h%x1f%B%x1e', 'HEAD', '--not', '--remotes'],
+      { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], timeout: 5000 });
+  } catch { return []; }
+  return log.split('\x1e').map(e => e.trim().split('\x1f')).filter(([sha, body]) => sha && credits(body || '')).map(([sha]) => sha);
+}
+
+// The files a message is read from: git's -F/--file, gh's --body-file/-F and
+// --notes-file, gh api's field=@file. Not - (stdin: its text is in the command).
+function messageFiles(command) {
+  const files = [];
+  const re = /(?:^|\s)(?:-F|--file|--body-file|--notes-file)(?:=|\s*)(?:"([^"]+)"|'([^']+)'|([^\s;&|<>]+))/g;
+  for (const m of command.matchAll(re)) {
+    const f = (m[1] || m[2] || m[3]).replace(/^\w+=@/, '').replace(/\$\{?(\w+)\}?/g, (_, v) => process.env[v] || '')
+      .replace(/^~(?=\/|$)/, os.homedir());
+    if (f && f !== '-') files.push(f);
+  }
+  return files;
 }
 
 // Inside the project only the plans folder is writable, even when the project
@@ -705,19 +785,28 @@ function clearPreSnapshots(ctx) {
 
 // After a compaction the skill's instructions and references may be gone from
 // context while the work goes on, so say what to reload.
+// Every session hears the commit rule; one with a plan hears where it stands too.
 function onSessionStart(ctx) {
+  const config = readJson(path.join(ctx.root, CONFIG_FILE));
+  const rule = config && config.claudeCredit === true ? '' : `Naqsha: ${NO_CREDIT}`;
+  const phase = phaseAtStart(ctx);
+  const text = [phase, rule].filter(Boolean).join('\n\n');
+  return text ? context('SessionStart', text) : undefined;
+}
+
+function phaseAtStart(ctx) {
   const s = ctx.state;
-  if (!s) return;
+  if (!s) return '';
   const compacted = ctx.input.source === 'compact';
   const root = path.resolve(__dirname, '..'); // hook output isn't expanded like skill text
   if (s.phase === 'drafting') {
     let msg = `Naqsha: a plan is being drafted (since ${s.startedAt}). Plans go in ${ctx.plansDir}/. Files outside it are locked until the user runs /naqsha:approve. The user continues it with /naqsha:plan.`;
     if (compacted) msg += ` The context was just compacted: re-read ${path.join(root, 'skills', 'plan', 'SKILL.md')} and the plan's plan.js before going on.`;
-    return context('SessionStart', msg);
+    return msg;
   }
   if (s.phase === 'approved') {
     const plan = tryReadPlan(path.join(ctx.root, s.plan, 'plan.js'));
-    if (plan && plan.meta.status === 'done') return;
+    if (plan && plan.meta.status === 'done') return '';
     let msg = `Naqsha: the approved plan ${s.plan} is being built. The user resumes it with /naqsha:build.`;
     if (compacted) {
       msg += ` The context was just compacted: before going on, re-read ${path.join(root, 'skills', 'build', 'SKILL.md')} and its always-loaded references.`;
@@ -734,8 +823,9 @@ function onSessionStart(ctx) {
       msg += `\n\nThis build runs in crew mode: you coordinate workers (${path.join(root, 'skills', 'build', 'references', 'crew.md')}). ` +
         `See every worker's worktree with: node ${path.join(root, 'scripts', 'crew.js')} list ${s.plan}/plan.js, and what can start with plan-tool.js ready.`;
     }
-    return context('SessionStart', msg);
+    return msg;
   }
+  return '';
 }
 
 function onStop(ctx) {
