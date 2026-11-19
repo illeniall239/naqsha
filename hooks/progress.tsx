@@ -237,6 +237,19 @@ export const register: Register = on => {
     return r;
   });
 
+  // Two copies of naqsha loaded at once (the installed one and a local or
+  // preview copy) each draw the whole set of bars: keep the first one's.
+  on('ui.render', { component: 'AbovePromptList' }, async ($, e, next) => {
+    let seen = false;
+    const rows = e.props.rows.filter(row => {
+      if (!isNaqshaRow(row)) return true;
+      if (seen) return false;
+      seen = true;
+      return true;
+    });
+    return next(rows.length === e.props.rows.length ? e : { ...e, props: { ...e.props, rows } });
+  }).catch(($, e, next) => next(e));
+
   on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
     if (e.props.hasSurvey) return next(e);
     const all = (await read($, rows)).filter(row => !row.whileWorking || e.props.isWorking);
@@ -259,6 +272,24 @@ export const register: Register = on => {
 };
 
 type Engine = EngineInterface;
+
+// A row drawn by a copy of this module: its plugin is named naqsha, or its
+// first line is naqsha's summary.
+function isNaqshaRow(row: { plugin: string; tree: unknown }): boolean {
+  return /^naqsha(?![a-z0-9])/i.test(row.plugin) || /^naqsha(?: ·|$)/.test(firstText(row.tree));
+}
+
+function firstText(x: unknown): string {
+  if (typeof x === 'string') return x;
+  if (Array.isArray(x)) {
+    for (const c of x) {
+      const t = firstText(c);
+      if (t) return t;
+    }
+    return '';
+  }
+  return x && typeof x === 'object' ? firstText((x as { children?: unknown }).children) : '';
+}
 
 // What a finished call says about the task list and what's scheduled.
 async function afterCall($: Engine, e: Record<string, unknown> & { tool: string }, result: Record<string, unknown>, loop: string) {

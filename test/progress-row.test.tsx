@@ -366,3 +366,23 @@ test("waiting on naqsha's page runs to its deadline", async ($, on) => {
   expect(text).toContain('Wait for answers from the page')
   expect(text).toContain('Waiting for your answers on the page · 8:00 left · 2:00 · background')
 })
+
+test('two copies of naqsha draw one set of bars', async ($, on) => {
+  mock.clock(on, { now: 1_000 })
+  on('agent.list', () => ({ value: [] }))
+  on('session.cwd', () => ({ value: '/project' }))
+  on('session.start', (_, e) => ({ cwd: e.cwd }))
+  await $.session.start({ cwd: '/project', surface: 'terminal', isInteractive: true })
+  const row = (plugin: string, text: string) => ({ plugin, tree: { type: 'Box', props: {}, children: [{ type: 'Text', props: {}, children: [text] }] } })
+  const rows = [
+    row('naqsha', 'naqsha · 1 command running'),
+    row('other', 'something else'),
+    row('naqsha-preview', 'naqsha · 1 command running'),
+    row('naqsha-fork', 'naqsha · 1 command running'),
+  ]
+  const ui = await $.ui.mount({ ...BAND, surface: 'terminal', component: 'AbovePromptList', requestId: 'list', props: { ...BAND.props, rows } } as never)
+  const text = (await ui.find({ type: 'Box' }))?.text ?? ''
+  expect(text.split('1 command running').length - 1).toBe(1)
+  expect(text).toContain('something else')
+  await ui.unmount()
+})

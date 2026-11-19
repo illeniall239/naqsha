@@ -3,6 +3,12 @@
 Each release is one commit, `naqsha X.Y.Z: ...`, with the version in
 `.claude-plugin/plugin.json`. Update with `claude plugin update naqsha@naqsha`.
 
+## 0.19.1 (2026-11-19)
+
+- **No repeated progress bars.** With two copies of naqsha loaded at once (the installed
+  one and a local or preview copy), each drew the whole set of bars, so some showed
+  twice. Now only the first copy's are drawn.
+
 ## 0.19.0 (2026-11-19)
 
 - **No credit to Claude on your git or GitHub.** Every session starts with the rule, and
